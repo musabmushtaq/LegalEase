@@ -1,0 +1,20 @@
+# Database dumps and backups
+*.sql.gz
+*.sql.zip
+*.bak
+backups/
+
+# Database connection files with credentials
+*_connection.sql
+
+# Query result files
+*.csv
+*.xlsx
+
+# IDEs
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
