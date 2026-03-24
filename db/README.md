@@ -1,12 +1,13 @@
 # LegalEase Database Setup
 
-This guide walks you through setting up the MongoDB database for LegalEase API development.
+This guide walks you through setting up the MongoDB database for LegalEase.
 
 ## Prerequisites
 
-- **MongoDB Community Server** (version 5.0+)
-- **Node.js** or **Python** (depending on your API setup)
-- **MongoDB shell** (`mongosh`) or **MongoDB Compass** (GUI)
+- **MongoDB Community Server** (version 5.0+) running on port 27017
+- **Python 3.11+** (for initialization script)
+
+**Note:** MongoDB Compass (GUI) is optional - it's useful for viewing data but not required for setup.
 
 ---
 

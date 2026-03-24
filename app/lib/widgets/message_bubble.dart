@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/chat.dart';
 import '../theme/app_theme.dart';
-import 'animated_text.dart';
 
 class MessageBubble extends StatelessWidget {
   final ChatMessage message;
@@ -33,14 +32,14 @@ class MessageBubble extends StatelessWidget {
           ],
         ),
         child: shouldAnimate
-            ? AnimatedText(
+            ? _TypewriterText(
                 message.content,
                 style: TextStyle(
                   color: AppTheme.textBody,
                   fontSize: 15,
                   height: 1.4,
                 ),
-                duration: const Duration(milliseconds: 30),
+                duration: const Duration(milliseconds: 10),
                 shouldAnimate: true,
               )
             : Text(
@@ -52,6 +51,69 @@ class MessageBubble extends StatelessWidget {
                 ),
               ),
       ),
+    );
+  }
+}
+
+class _TypewriterText extends StatefulWidget {
+  final String text;
+  final TextStyle style;
+  final Duration duration;
+  final bool shouldAnimate;
+
+  const _TypewriterText(
+    this.text, {
+    required this.style,
+    required this.duration,
+    this.shouldAnimate = true,
+  });
+
+  @override
+  State<_TypewriterText> createState() => _TypewriterTextState();
+}
+
+class _TypewriterTextState extends State<_TypewriterText>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<int> _charCount;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: widget.duration * widget.text.length,
+      vsync: this,
+    );
+    _charCount = StepTween(
+      begin: 0,
+      end: widget.text.length,
+    ).animate(_controller);
+
+    if (widget.shouldAnimate) {
+      _controller.forward();
+    } else {
+      _controller.value = 1;
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!widget.shouldAnimate) {
+      return Text(widget.text, style: widget.style);
+    }
+
+    return AnimatedBuilder(
+      animation: _charCount,
+      builder: (context, child) {
+        final displayText = widget.text.substring(0, _charCount.value);
+        return Text(displayText, style: widget.style);
+      },
     );
   }
 }

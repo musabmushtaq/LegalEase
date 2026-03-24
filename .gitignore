@@ -25,6 +25,11 @@ node_modules/
 .env.local
 .env.*.local
 
+# Virtual environments
+.venv/
+venv/
+ENV/
+
 # Logs
 *.log
 !current_changes.log
