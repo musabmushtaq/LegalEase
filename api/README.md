@@ -1,37 +1,94 @@
-# api/
+# LegalEase API (Local Dev)
 
-This folder contains the backend API for LegalEase. It is responsible for proxying AI calls, managing authentication, and storing/retrieving data from the database.
+This folder contains the local FastAPI server for LegalEase.
 
-Suggested stack (example)
+## Stack
 
-- Node.js + Express or Python + FastAPI
-- Docker for containerized deployment
-- Postgres or other relational DB (see `../db/`)
+- Python + FastAPI
+- MongoDB (local)
 
-Local development (Node example)
+## Prerequisites
+
+- Python 3.11+
+- MongoDB running on `mongodb://localhost:27017`
+
+## Setup
+
+1. **Initialize database** (if you haven't already):
+
+   ```bash
+   cd ../db
+   pip install -r requirements.txt
+   python init_db.py
+   ```
+
+   See [db/README.md](../db/README.md) for detailed database setup.
+
+2. **Set up API**:
+   ```bash
+   cd ../api
+   python -m venv .venv
+   .venv\Scripts\activate
+   pip install -r requirements.txt
+   copy .env.example .env
+   ```
+
+## Run Server
 
 ```bash
 cd api
-# create .env with API keys and DB connection (see docs/deployment.md)
-npm install
-npm run dev
+.venv\Scripts\activate
+uvicorn main:app --host 0.0.0.0 --port 8000 --reload --app-dir c:\repo\LegalEase\api
 ```
 
-Docker (example)
+Server URL: `http://127.0.0.1:8000`
+
+## Health Check
 
 ```bash
-# build
-docker build -t legalease-api .
-# run (example using env file)
-docker run --env-file .env -p 8080:8080 legalease-api
+curl http://127.0.0.1:8000/health
 ```
 
-Deployment
+Expected response:
 
-- Prefer deploying via a container platform (e.g., AWS ECS, Google Cloud Run, Azure Container Instances) or a PaaS that supports Docker.
-- Keep secret management in your chosen platform's secret store (do not commit `.env` to version control).
+```json
+{ "status": "ok" }
+```
 
-Notes
+## Endpoints
 
-- Add `api/README.md` details specific to the chosen language/framework and endpoints once implemented.
-- The API should be the place where API keys for third-party AI providers (Gemini) are stored and used; the mobile and web apps should call the API rather than direct external APIs.
+- `GET /health`
+- `GET /users/{user_id}/chats`
+- `POST /users/{user_id}/chats`
+- `GET /chats/{chat_id}`
+- `PATCH /chats/{chat_id}`
+- `DELETE /chats/{chat_id}`
+- `POST /chats/{chat_id}/messages`
+- `POST /chats/{chat_id}/share`
+- `GET /share/{share_token}`
+
+## Example Flow
+
+1. Create chat:
+
+```bash
+curl -X POST http://127.0.0.1:8000/users/user1/chats -H "Content-Type: application/json" -d "{\"title\":\"New Chat\"}"
+```
+
+2. Add message:
+
+```bash
+curl -X POST http://127.0.0.1:8000/chats/<chat_id>/messages -H "Content-Type: application/json" -d "{\"user_id\":\"user1\",\"sender\":\"user\",\"content\":\"Hello\"}"
+```
+
+3. List chats:
+
+```bash
+curl http://127.0.0.1:8000/users/user1/chats
+```
+
+## Notes
+
+- This is local-first demo infrastructure.
+- AI response is currently a demo backend response. Replace `build_demo_reply()` in `main.py` with Gemini integration.
+- Files are expected to be stored locally under `C:\legalEaseDB`.

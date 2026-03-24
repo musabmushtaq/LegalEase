@@ -19,6 +19,28 @@ flutter pub get
 flutter run
 ```
 
+Run with local API
+
+- The app reads `API_BASE_URL` via Dart define.
+- Default (no define): `http://127.0.0.1:8000`
+- Android emulator: use `http://10.0.2.2:8000`
+- Physical phone on same Wi-Fi: use your machine LAN IP (current Wi-Fi IPv4: `192.168.100.62`)
+
+```bash
+# Android emulator
+flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8000
+
+# Physical device on same network
+flutter run --dart-define=API_BASE_URL=http://192.168.100.62:8000
+```
+
+Make sure the API is running first:
+
+```bash
+cd api
+C:/source/Python312/python.exe -m uvicorn main:app --host 0.0.0.0 --port 8000 --app-dir c:\repo\LegalEase\api
+```
+
 Build (Android)
 
 ```bash

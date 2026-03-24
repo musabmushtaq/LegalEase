@@ -17,6 +17,10 @@ yarn.lock
 logs/
 *.log
 
+# Python cache
+__pycache__/
+*.pyc
+
 # Runtime data
 pids/
 *.pid

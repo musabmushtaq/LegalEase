@@ -1,9 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../models/chat.dart';
 
 class ChatService extends ChangeNotifier {
+  static const String _userId = 'user1';
+  static const String _apiBaseUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: 'http://127.0.0.1:8000',
+  );
+
   String? _currentChatId;
   final Map<String, Chat> _chats = {};
   final Map<String, List<ChatMessage>> _messages = {};
@@ -35,6 +42,7 @@ class ChatService extends ChangeNotifier {
   Future<void> initialize() async {
     _prefs = await SharedPreferences.getInstance();
     await _loadChats();
+    await _syncFromApi();
   }
 
   Future<void> _loadChats() async {
@@ -82,6 +90,48 @@ class ChatService extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> _syncFromApi() async {
+    try {
+      final uri = Uri.parse('$_apiBaseUrl/users/$_userId/chats');
+      final response = await http.get(uri).timeout(const Duration(seconds: 6));
+
+      if (response.statusCode != 200) {
+        return;
+      }
+
+      final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+      final items = (decoded['items'] as List<dynamic>? ?? [])
+          .whereType<Map<String, dynamic>>()
+          .toList();
+
+      _chats.clear();
+      _messages.clear();
+
+      for (final item in items) {
+        final chat = Chat.fromJson(item);
+        _chats[chat.id] = chat;
+
+        final rawMessages = (item['messages'] as List<dynamic>? ?? [])
+            .whereType<Map<String, dynamic>>()
+            .toList();
+        _messages[chat.id] = rawMessages.map(ChatMessage.fromJson).toList();
+      }
+
+      if (_chats.isEmpty) {
+        await createNewChat();
+      } else {
+        final sortedChats = _chats.values.toList()
+          ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+        _currentChatId = sortedChats.first.id;
+      }
+
+      await _saveChats();
+      notifyListeners();
+    } catch (_) {
+      // Keep local cache if API is unavailable.
+    }
+  }
+
   Future<void> _saveChats() async {
     final data = <String, dynamic>{};
     for (var entry in _chats.entries) {
@@ -93,18 +143,42 @@ class ChatService extends ChangeNotifier {
     await _prefs.setString('chats', jsonEncode(data));
   }
 
-  void createNewChat() {
+  Future<void> createNewChat() async {
+    try {
+      final uri = Uri.parse('$_apiBaseUrl/users/$_userId/chats');
+      final response = await http
+          .post(
+            uri,
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'title': 'New Chat'}),
+          )
+          .timeout(const Duration(seconds: 6));
+
+      if (response.statusCode == 200) {
+        final chatJson = jsonDecode(response.body) as Map<String, dynamic>;
+        final chat = Chat.fromJson(chatJson);
+        _currentChatId = chat.id;
+        _chats[chat.id] = chat;
+        _messages[chat.id] = [];
+        await _saveChats();
+        notifyListeners();
+        return;
+      }
+    } catch (_) {
+      // Fallback below.
+    }
+
     final chatId = DateTime.now().millisecondsSinceEpoch.toString();
     _currentChatId = chatId;
     _chats[chatId] = Chat(
       id: chatId,
-      userId: 'user1',
+      userId: _userId,
       title: 'New Chat',
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
     );
     _messages[chatId] = [];
-    _saveChats();
+    await _saveChats();
     notifyListeners();
   }
 
@@ -134,30 +208,114 @@ class ChatService extends ChangeNotifier {
     notifyListeners();
   }
 
-  void togglePinChat(String chatId) {
+  Future<void> sendUserMessage(String content) async {
+    if (_currentChatId == null) {
+      await createNewChat();
+    }
+
+    if (_currentChatId == null) return;
+
+    final currentId = _currentChatId!;
+    addMessage(content, 'user');
+
+    try {
+      final uri = Uri.parse('$_apiBaseUrl/chats/$currentId/messages');
+      final response = await http
+          .post(
+            uri,
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'user_id': _userId,
+              'sender': 'user',
+              'content': content,
+            }),
+          )
+          .timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+        final assistantMessage =
+            decoded['assistant_message'] as Map<String, dynamic>?;
+        if (assistantMessage != null) {
+          final aiMsg = ChatMessage.fromJson(assistantMessage);
+          aiMsg.isNew = true; // Enable animation for this AI response
+          _messages[currentId]?.add(aiMsg);
+          _chats[currentId]?.updatedAt = DateTime.now();
+          await _saveChats();
+          notifyListeners();
+        }
+        return;
+      }
+    } catch (_) {
+      // Fall through to local fallback.
+    }
+
+    addMessage(
+      'Backend unavailable. Start the local API server to get live responses.',
+      'ai',
+    );
+  }
+
+  Future<void> togglePinChat(String chatId) async {
     if (_chats[chatId] != null) {
       _chats[chatId]!.isPinned = !_chats[chatId]!.isPinned;
-      _saveChats();
+      await _saveChats();
       notifyListeners();
+
+      try {
+        final uri = Uri.parse('$_apiBaseUrl/chats/$chatId');
+        await http.patch(
+          uri,
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({'is_pinned': _chats[chatId]!.isPinned}),
+        );
+      } catch (_) {
+        // Keep local state if API call fails.
+      }
     }
   }
 
-  void renameChat(String chatId, String newTitle) {
+  Future<void> renameChat(String chatId, String newTitle) async {
     if (_chats[chatId] != null) {
       _chats[chatId]!.title = newTitle;
       _chats[chatId]!.updatedAt = DateTime.now();
-      _saveChats();
+      await _saveChats();
       notifyListeners();
+
+      try {
+        final uri = Uri.parse('$_apiBaseUrl/chats/$chatId');
+        await http.patch(
+          uri,
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({'title': newTitle}),
+        );
+      } catch (_) {
+        // Keep local state if API call fails.
+      }
     }
   }
 
-  void deleteChat(String chatId) {
+  Future<void> deleteChat(String chatId) async {
     _chats.remove(chatId);
     _messages.remove(chatId);
     if (_currentChatId == chatId) {
       _currentChatId = null;
     }
-    _saveChats();
+    await _saveChats();
     notifyListeners();
+
+    try {
+      final uri = Uri.parse('$_apiBaseUrl/chats/$chatId');
+      await http.delete(uri);
+    } catch (_) {
+      // Keep local state if API call fails.
+    }
+
+    if (_currentChatId == null && _chats.isNotEmpty) {
+      final sorted = _chats.values.toList()
+        ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+      _currentChatId = sorted.first.id;
+      notifyListeners();
+    }
   }
 }

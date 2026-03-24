@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/chat.dart';
 import '../theme/app_theme.dart';
+import 'animated_text.dart';
 
 class MessageBubble extends StatelessWidget {
   final ChatMessage message;
@@ -10,6 +11,7 @@ class MessageBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isUser = message.sender == 'user';
+    final shouldAnimate = message.isNew && message.sender == 'ai';
 
     return Align(
       alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
@@ -30,14 +32,25 @@ class MessageBubble extends StatelessWidget {
             ),
           ],
         ),
-        child: Text(
-          message.content,
-          style: TextStyle(
-            color: isUser ? AppTheme.background : AppTheme.textBody,
-            fontSize: 15,
-            height: 1.4,
-          ),
-        ),
+        child: shouldAnimate
+            ? AnimatedText(
+                message.content,
+                style: TextStyle(
+                  color: AppTheme.textBody,
+                  fontSize: 15,
+                  height: 1.4,
+                ),
+                duration: const Duration(milliseconds: 30),
+                shouldAnimate: true,
+              )
+            : Text(
+                message.content,
+                style: TextStyle(
+                  color: isUser ? AppTheme.background : AppTheme.textBody,
+                  fontSize: 15,
+                  height: 1.4,
+                ),
+              ),
       ),
     );
   }

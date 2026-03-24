@@ -45,6 +45,7 @@ class ChatMessage {
   final String sender; // 'user' or 'ai'
   final String content;
   final DateTime createdAt;
+  bool isNew; // For animation on newly received messages
 
   ChatMessage({
     required this.id,
@@ -52,6 +53,7 @@ class ChatMessage {
     required this.sender,
     required this.content,
     required this.createdAt,
+    this.isNew = false,
   });
 
   factory ChatMessage.fromJson(Map<String, dynamic> json) {

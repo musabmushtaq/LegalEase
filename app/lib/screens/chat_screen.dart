@@ -193,35 +193,26 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  void _createNewChat() {
-    setState(() {
-      _chatService.createNewChat();
-    });
+  Future<void> _createNewChat() async {
+    await _chatService.createNewChat();
+    if (!mounted) return;
+    setState(() {});
   }
 
-  void _sendMessage() {
+  Future<void> _sendMessage() async {
     final text = _textController.text.trim();
     if (text.isEmpty) return;
 
-    _chatService.addMessage(text, 'user');
     _textController.clear();
     setState(() {
       _isTyping = false;
     });
-    _scrollToBottom();
 
-    // TODO: Call API to get response from backend
-    // For now, add a dummy response after a delay
-    Future.delayed(const Duration(seconds: 1), () {
-      if (mounted) {
-        _chatService.addMessage(
-          'This is a placeholder response. Real responses will come from the backend.',
-          'ai',
-        );
-        setState(() {});
-        _scrollToBottom();
-      }
-    });
+    await _chatService.sendUserMessage(text);
+
+    if (!mounted) return;
+    setState(() {});
+    _scrollToBottom();
   }
 
   Widget _buildFloatingIconButton({

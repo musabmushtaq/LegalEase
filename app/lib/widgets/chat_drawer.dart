@@ -20,13 +20,13 @@ class ChatDrawer extends StatefulWidget {
 class _ChatDrawerState extends State<ChatDrawer> {
   String? _selectedChatId;
 
-  void _togglePin(String id) {
-    widget.chatService.togglePinChat(id);
+  Future<void> _togglePin(String id) async {
+    await widget.chatService.togglePinChat(id);
     setState(() {});
   }
 
-  void _deleteChat(String id) {
-    widget.chatService.deleteChat(id);
+  Future<void> _deleteChat(String id) async {
+    await widget.chatService.deleteChat(id);
     setState(() {});
   }
 
@@ -209,8 +209,11 @@ class _ChatDrawerState extends State<ChatDrawer> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   TextButton.icon(
-                    onPressed: () {
-                      // TODO: Implement new chat creation
+                    onPressed: () async {
+                      await widget.chatService.createNewChat();
+                      if (!context.mounted) return;
+                      widget.onChatSelected();
+                      Navigator.pop(context);
                     },
                     icon: const Icon(Icons.edit, color: Colors.white, size: 20),
                     label: Text(
