@@ -245,32 +245,39 @@ class _ChatDrawerState extends State<ChatDrawer> {
 
               // Chats List Wrapper
               Expanded(
-                child: ListView(
-                  physics: const BouncingScrollPhysics(),
-                  children: [
-                    const Padding(
-                      padding: EdgeInsets.only(bottom: 8.0),
-                      child: Text(
-                        "Chats",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
+                child: !widget.chatService.isConnected
+                    ? const Center(
+                        child: Text(
+                          "Cannot connect",
+                          style: TextStyle(color: Colors.grey, fontSize: 16),
                         ),
+                      )
+                    : ListView(
+                        physics: const BouncingScrollPhysics(),
+                        children: [
+                          const Padding(
+                            padding: EdgeInsets.only(bottom: 8.0),
+                            child: Text(
+                              "Chats",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+
+                          // Pinned Sublist
+                          if (pinnedChats.isNotEmpty)
+                            ...pinnedChats.map((c) => _buildChatItem(c)),
+
+                          // Recent Sublist
+                          if (recentChats.isNotEmpty) ...[
+                            const SizedBox(height: 12), // Visual separation
+                            ...recentChats.map((c) => _buildChatItem(c)),
+                          ],
+                        ],
                       ),
-                    ),
-
-                    // Pinned Sublist
-                    if (pinnedChats.isNotEmpty)
-                      ...pinnedChats.map((c) => _buildChatItem(c)),
-
-                    // Recent Sublist
-                    if (recentChats.isNotEmpty) ...[
-                      const SizedBox(height: 12), // Visual separation
-                      ...recentChats.map((c) => _buildChatItem(c)),
-                    ],
-                  ],
-                ),
               ),
             ],
           ),

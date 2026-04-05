@@ -1,7 +1,12 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:file_picker/file_picker.dart';
+
 import '../theme/app_theme.dart';
 import '../widgets/chat_drawer.dart';
 import '../widgets/message_bubble.dart';
+import '../widgets/connectivity_banner.dart';
 import '../services/chat_service.dart';
 
 class ChatScreen extends StatefulWidget {
@@ -18,6 +23,110 @@ class _ChatScreenState extends State<ChatScreen> {
   late ScrollController _scrollController;
   bool _isTyping = false;
   bool _isInitialized = false;
+  File? _attachedFile;
+  final ImagePicker _imagePicker = ImagePicker();
+
+  Future<void> _pickImage(ImageSource source) async {
+    try {
+      final XFile? image = await _imagePicker.pickImage(source: source);
+      if (image != null) {
+        setState(() {
+          _attachedFile = File(image.path);
+          _isTyping = true; // allow sending immediately
+        });
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Failed to pick image')));
+    }
+  }
+
+  Future<void> _pickFile() async {
+    try {
+      final result = await FilePicker.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf', 'doc', 'docx', 'txt', 'png', 'jpg', 'jpeg'],
+      );
+
+      if (result != null && result.files.single.path != null) {
+        setState(() {
+          _attachedFile = File(result.files.single.path!);
+          _isTyping = true; // allow sending immediately
+        });
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('File type not supported/picked')),
+      );
+    }
+  }
+
+  void _showAttachmentOptions() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.background,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) => Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 16),
+            ListTile(
+              leading: const Icon(Icons.camera_alt, color: AppTheme.highlight),
+              title: const Text(
+                'Camera',
+                style: TextStyle(color: Colors.white),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                _pickImage(ImageSource.camera);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.image, color: AppTheme.highlight),
+              title: const Text(
+                'Gallery',
+                style: TextStyle(color: Colors.white),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                _pickImage(ImageSource.gallery);
+              },
+            ),
+            ListTile(
+              leading: const Icon(
+                Icons.insert_drive_file,
+                color: AppTheme.highlight,
+              ),
+              title: const Text(
+                'Document or File',
+                style: TextStyle(color: Colors.white),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                _pickFile();
+              },
+            ),
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   void initState() {
@@ -112,40 +221,98 @@ class _ChatScreenState extends State<ChatScreen> {
                 children: [
                   _buildFloatingIconButton(
                     icon: Icons.attach_file,
-                    onPressed: () {
-                      // TODO: Implement files/camera popup
-                    },
+                    onPressed: _showAttachmentOptions,
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: AppTheme.background,
-                        borderRadius: BorderRadius.circular(24.0),
-                        border: Border.all(
-                          color: AppTheme.highlight,
-                          width: 1.5,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.5),
-                            blurRadius: 8.0,
-                            offset: const Offset(0, 4),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (_attachedFile != null)
+                          Container(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppTheme.highlight.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: AppTheme.highlight.withValues(
+                                  alpha: 0.4,
+                                ),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.insert_drive_file,
+                                  size: 16,
+                                  color: AppTheme.highlight,
+                                ),
+                                const SizedBox(width: 6),
+                                Flexible(
+                                  child: Text(
+                                    _attachedFile!.path.split('/').last,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 12,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                GestureDetector(
+                                  onTap: () {
+                                    setState(() {
+                                      _attachedFile = null;
+                                      _isTyping =
+                                          _textController.text.isNotEmpty;
+                                    });
+                                  },
+                                  child: const Icon(
+                                    Icons.close,
+                                    size: 16,
+                                    color: Colors.white70,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        ],
-                      ),
-                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                      child: TextField(
-                        controller: _textController,
-                        style: const TextStyle(color: AppTheme.textBody),
-                        decoration: const InputDecoration(
-                          hintText: "Ask LegalEase...",
-                          hintStyle: TextStyle(color: Colors.grey),
-                          border: InputBorder.none,
+                        Container(
+                          decoration: BoxDecoration(
+                            color: AppTheme.background,
+                            borderRadius: BorderRadius.circular(24.0),
+                            border: Border.all(
+                              color: AppTheme.highlight,
+                              width: 1.5,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.5),
+                                blurRadius: 8.0,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                          child: TextField(
+                            controller: _textController,
+                            style: const TextStyle(color: AppTheme.textBody),
+                            decoration: const InputDecoration(
+                              hintText: "Ask LegalEase...",
+                              hintStyle: TextStyle(color: Colors.grey),
+                              border: InputBorder.none,
+                            ),
+                            maxLines: 3,
+                            minLines: 1,
+                          ),
                         ),
-                        maxLines: 3,
-                        minLines: 1,
-                      ),
+                      ],
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -160,6 +327,9 @@ class _ChatScreenState extends State<ChatScreen> {
                 ],
               ),
             ),
+
+            // Connection Banner Floating
+            ConnectivityBanner(chatService: _chatService),
           ],
         ),
       ),
@@ -194,21 +364,25 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _createNewChat() async {
-    await _chatService.createNewChat();
+    _chatService.clearCurrentChat();
     if (!mounted) return;
     setState(() {});
   }
 
   Future<void> _sendMessage() async {
     final text = _textController.text.trim();
-    if (text.isEmpty) return;
+    if (text.isEmpty && _attachedFile == null) return;
+
+    final fileToSend = _attachedFile;
+    final messageText = text.isEmpty ? "Sent an attachment" : text;
 
     _textController.clear();
     setState(() {
       _isTyping = false;
+      _attachedFile = null;
     });
 
-    await _chatService.sendUserMessage(text);
+    await _chatService.sendUserMessage(messageText, file: fileToSend);
 
     if (!mounted) return;
     setState(() {});

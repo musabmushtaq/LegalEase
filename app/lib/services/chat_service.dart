@@ -1,7 +1,8 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'dart:async';
 import '../models/chat.dart';
 
 class ChatService extends ChangeNotifier {
@@ -14,7 +15,12 @@ class ChatService extends ChangeNotifier {
   String? _currentChatId;
   final Map<String, Chat> _chats = {};
   final Map<String, List<ChatMessage>> _messages = {};
-  late SharedPreferences _prefs;
+
+  // Connection monitoring
+  bool _isConnected = true;
+  Timer? _connectivityTimer;
+
+  bool get isConnected => _isConnected;
 
   String? get currentChatId => _currentChatId;
   Chat? get currentChat =>
@@ -40,53 +46,53 @@ class ChatService extends ChangeNotifier {
   }
 
   Future<void> initialize() async {
-    _prefs = await SharedPreferences.getInstance();
     await _loadChats();
     await _syncFromApi();
+    _startConnectivityMonitoring();
+  }
+
+  void _startConnectivityMonitoring() {
+    // Check connectivity every 5 seconds
+    _connectivityTimer = Timer.periodic(
+      const Duration(seconds: 5),
+      (_) => _checkConnectivity(),
+    );
+  }
+
+  Future<void> _checkConnectivity() async {
+    try {
+      final uri = Uri.parse('$_apiBaseUrl/health');
+      final response = await http.get(uri).timeout(const Duration(seconds: 3));
+
+      final wasConnected = _isConnected;
+      _isConnected = response.statusCode == 200;
+
+      if (wasConnected != _isConnected) {
+        if (!_isConnected) _currentChatId = null;
+        notifyListeners();
+      }
+    } catch (e) {
+      if (_isConnected) {
+        _isConnected = false;
+        _currentChatId = null;
+        notifyListeners();
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _connectivityTimer?.cancel();
+    super.dispose();
   }
 
   Future<void> _loadChats() async {
-    final chatsJson = _prefs.getString('chats');
-    if (chatsJson != null) {
-      try {
-        final Map<String, dynamic> decoded = jsonDecode(chatsJson);
-        _chats.clear();
-        _messages.clear();
+    // Local storage of chats is disabled per user request
+    _chats.clear();
+    _messages.clear();
 
-        decoded.forEach((id, chatData) {
-          final chat = Chat.fromJson(chatData);
-          _chats[id] = chat;
-          final messagesData = chatData['messages'] as List? ?? [];
-          _messages[id] = messagesData
-              .map((m) => ChatMessage.fromJson(m))
-              .toList();
-        });
-      } catch (e) {
-        // Silently fail if chats can't be loaded (first time or corrupted data)
-      }
-    }
-
-    // If no chats exist, create a default one (but don't save it yet)
-    if (_chats.isEmpty) {
-      final defaultChatId = 'default_chat';
-      _currentChatId = defaultChatId;
-      _chats[defaultChatId] = Chat(
-        id: defaultChatId,
-        userId: 'user1',
-        title: 'Chat',
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      );
-      _messages[defaultChatId] = [];
-      // Don't save the empty default chat - only save when first message is added
-    } else {
-      // Set current chat to first one (most recent)
-      final sortedChats = _chats.values.toList()
-        ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
-      if (sortedChats.isNotEmpty) {
-        _currentChatId = sortedChats.first.id;
-      }
-    }
+    // Always start fresh
+    _currentChatId = null;
     notifyListeners();
   }
 
@@ -118,11 +124,9 @@ class ChatService extends ChangeNotifier {
       }
 
       if (_chats.isEmpty) {
-        await createNewChat();
+        _currentChatId = null;
       } else {
-        final sortedChats = _chats.values.toList()
-          ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
-        _currentChatId = sortedChats.first.id;
+        _currentChatId = null;
       }
 
       await _saveChats();
@@ -133,14 +137,7 @@ class ChatService extends ChangeNotifier {
   }
 
   Future<void> _saveChats() async {
-    final data = <String, dynamic>{};
-    for (var entry in _chats.entries) {
-      data[entry.key] = {
-        ...entry.value.toJson(),
-        'messages': _messages[entry.key]?.map((m) => m.toJson()).toList() ?? [],
-      };
-    }
-    await _prefs.setString('chats', jsonEncode(data));
+    // Local saving disabled, intentionally empty
   }
 
   Future<void> createNewChat() async {
@@ -187,6 +184,11 @@ class ChatService extends ChangeNotifier {
     notifyListeners();
   }
 
+  void clearCurrentChat() {
+    _currentChatId = null;
+    notifyListeners();
+  }
+
   void addMessage(String content, String sender) {
     if (_currentChatId == null) return;
 
@@ -208,18 +210,31 @@ class ChatService extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> sendUserMessage(String content) async {
+  Future<void> sendUserMessage(String content, {File? file}) async {
     if (_currentChatId == null) {
       await createNewChat();
     }
 
     if (_currentChatId == null) return;
 
+    // Check if connected to server
+    if (!_isConnected) {
+      addMessage(content, 'user');
+      addMessage(
+        'Service unavailable. Please check your connection and try again.',
+        'ai',
+      );
+      notifyListeners();
+      return;
+    }
+
     final currentId = _currentChatId!;
-    addMessage(content, 'user');
+    addMessage(content + (file != null ? " [Attachment]" : ""), 'user');
 
     try {
       final uri = Uri.parse('$_apiBaseUrl/chats/$currentId/messages');
+      // For now, if we had file upload we'd use http.MultipartRequest
+      // Example implementation provided as text.
       final response = await http
           .post(
             uri,
@@ -227,7 +242,11 @@ class ChatService extends ChangeNotifier {
             body: jsonEncode({
               'user_id': _userId,
               'sender': 'user',
-              'content': content,
+              'content':
+                  content +
+                  (file != null
+                      ? "\n\n*(Sent an attachment: ${file.path.split('/').last})*"
+                      : ""),
             }),
           )
           .timeout(const Duration(seconds: 10));
