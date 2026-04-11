@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import '../models/chat.dart';
 import '../services/chat_service.dart';
+import '../screens/login_screen.dart';
 
 class ChatDrawer extends StatefulWidget {
   final ChatService chatService;
@@ -231,13 +232,17 @@ class _ChatDrawerState extends State<ChatDrawer> {
                   ),
                   IconButton(
                     onPressed: () {
-                      // TODO: Implement temporary chat feature
+                      widget.chatService.toggleTemporaryChat();
+                      if (context.mounted) {
+                        widget.onChatSelected();
+                        Navigator.pop(context);
+                      }
                     },
-                    icon: const Icon(
-                      Icons.chat_bubble_outline,
-                      color: Colors.grey,
+                    icon: Icon(
+                      widget.chatService.isTemporaryChat ? Icons.chat_bubble : Icons.chat_bubble_outline,
+                      color: widget.chatService.isTemporaryChat ? AppTheme.highlight : Colors.grey,
                     ),
-                    tooltip: "Temporary Chat",
+                    tooltip: "Temporary Chat Mode",
                   ),
                 ],
               ),
@@ -279,6 +284,34 @@ class _ChatDrawerState extends State<ChatDrawer> {
                         ],
                       ),
               ),
+
+              // Bottom settings/logout
+              const Divider(color: Color(0xFF363537)),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(
+                  widget.chatService.isAuthenticated ? Icons.logout : Icons.login,
+                  color: Colors.grey,
+                ),
+                title: Text(
+                  widget.chatService.isAuthenticated ? 'Logout' : 'Login / Sign Up',
+                  style: const TextStyle(color: Colors.white),
+                ),
+                onTap: () async {
+                  if (widget.chatService.isAuthenticated) {
+                    await widget.chatService.logout();
+                  }
+                  if (context.mounted) {
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => LoginScreen(chatService: widget.chatService),
+                      ),
+                    );
+                  }
+                },
+              ),
+              const SizedBox(height: 16),
             ],
           ),
         ),

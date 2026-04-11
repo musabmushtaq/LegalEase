@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import '../models/chat.dart';
 import '../theme/app_theme.dart';
@@ -31,37 +32,71 @@ class MessageBubble extends StatelessWidget {
             ),
           ],
         ),
-        child: shouldAnimate
-            ? _TypewriterText(
-                message.content,
-                style: TextStyle(
-                  color: AppTheme.textBody,
-                  fontSize: 15,
-                  height: 1.4,
-                ),
-                duration: const Duration(milliseconds: 10),
-                shouldAnimate: true,
-              )
-            : Text(
-                message.content,
-                style: TextStyle(
-                  color: isUser ? AppTheme.background : AppTheme.textBody,
-                  fontSize: 15,
-                  height: 1.4,
+        child: Column(
+          crossAxisAlignment: isUser
+              ? CrossAxisAlignment.end
+              : CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (message.localFilePath != null) ...[
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8.0),
+                child: Image.file(
+                  File(message.localFilePath!),
+                  height: 120,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      height: 80,
+                      decoration: BoxDecoration(
+                        color: Colors.black12,
+                        borderRadius: BorderRadius.circular(8.0),
+                      ),
+                      child: const Center(
+                        child: Icon(
+                          Icons.insert_drive_file,
+                          color: Colors.white70,
+                        ),
+                      ),
+                    );
+                  },
                 ),
               ),
+              const SizedBox(height: 8.0),
+            ],
+            shouldAnimate
+                ? _FadeSlideText(
+                    message.content,
+                    style: TextStyle(
+                      color: AppTheme.textBody,
+                      fontSize: 15,
+                      height: 1.4,
+                    ),
+                    duration: const Duration(milliseconds: 600),
+                    shouldAnimate: true,
+                  )
+                : Text(
+                    message.content,
+                    style: TextStyle(
+                      color: isUser ? AppTheme.background : AppTheme.textBody,
+                      fontSize: 15,
+                      height: 1.4,
+                    ),
+                  ),
+          ],
+        ),
       ),
     );
   }
 }
 
-class _TypewriterText extends StatefulWidget {
+class _FadeSlideText extends StatefulWidget {
   final String text;
   final TextStyle style;
   final Duration duration;
   final bool shouldAnimate;
 
-  const _TypewriterText(
+  const _FadeSlideText(
     this.text, {
     required this.style,
     required this.duration,
@@ -69,25 +104,31 @@ class _TypewriterText extends StatefulWidget {
   });
 
   @override
-  State<_TypewriterText> createState() => _TypewriterTextState();
+  State<_FadeSlideText> createState() => _FadeSlideTextState();
 }
 
-class _TypewriterTextState extends State<_TypewriterText>
+class _FadeSlideTextState extends State<_FadeSlideText>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
-  late Animation<int> _charCount;
+  late Animation<double> _opacity;
+  late Animation<Offset> _offset;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      duration: widget.duration * widget.text.length,
-      vsync: this,
+    _controller = AnimationController(duration: widget.duration, vsync: this);
+
+    _opacity = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0.0, 0.8, curve: Curves.easeIn),
+      ),
     );
-    _charCount = StepTween(
-      begin: 0,
-      end: widget.text.length,
-    ).animate(_controller);
+
+    _offset = Tween<Offset>(
+      begin: const Offset(0, -0.3),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
 
     if (widget.shouldAnimate) {
       _controller.forward();
@@ -108,12 +149,12 @@ class _TypewriterTextState extends State<_TypewriterText>
       return Text(widget.text, style: widget.style);
     }
 
-    return AnimatedBuilder(
-      animation: _charCount,
-      builder: (context, child) {
-        final displayText = widget.text.substring(0, _charCount.value);
-        return Text(displayText, style: widget.style);
-      },
+    return FadeTransition(
+      opacity: _opacity,
+      child: SlideTransition(
+        position: _offset,
+        child: Text(widget.text, style: widget.style),
+      ),
     );
   }
 }

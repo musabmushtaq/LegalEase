@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 
+import 'package:dotted_border/dotted_border.dart';
 import '../theme/app_theme.dart';
 import '../widgets/chat_drawer.dart';
 import '../widgets/message_bubble.dart';
@@ -217,112 +218,147 @@ class _ChatScreenState extends State<ChatScreen> {
               bottom: 16.0,
               left: 16.0,
               right: 16.0,
-              child: Row(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  _buildFloatingIconButton(
-                    icon: Icons.attach_file,
-                    onPressed: _showAttachmentOptions,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (_attachedFile != null)
-                          Container(
-                            margin: const EdgeInsets.only(bottom: 8),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppTheme.highlight.withValues(alpha: 0.2),
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(
-                                color: AppTheme.highlight.withValues(
-                                  alpha: 0.4,
-                                ),
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(
-                                  Icons.insert_drive_file,
-                                  size: 16,
-                                  color: AppTheme.highlight,
-                                ),
-                                const SizedBox(width: 6),
-                                Flexible(
-                                  child: Text(
-                                    _attachedFile!.path.split('/').last,
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 12,
-                                    ),
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                                const SizedBox(width: 6),
-                                GestureDetector(
-                                  onTap: () {
-                                    setState(() {
-                                      _attachedFile = null;
-                                      _isTyping =
-                                          _textController.text.isNotEmpty;
-                                    });
-                                  },
-                                  child: const Icon(
-                                    Icons.close,
-                                    size: 16,
-                                    color: Colors.white70,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        Container(
-                          decoration: BoxDecoration(
-                            color: AppTheme.background,
-                            borderRadius: BorderRadius.circular(24.0),
-                            border: Border.all(
-                              color: AppTheme.highlight,
-                              width: 1.5,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.5),
-                                blurRadius: 8.0,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                          child: TextField(
-                            controller: _textController,
-                            style: const TextStyle(color: AppTheme.textBody),
-                            decoration: const InputDecoration(
-                              hintText: "Ask LegalEase...",
-                              hintStyle: TextStyle(color: Colors.grey),
-                              border: InputBorder.none,
-                            ),
-                            maxLines: 3,
-                            minLines: 1,
-                          ),
+                  if (_chatService.isTemporaryChat)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8.0),
+                      child: Text(
+                        "You are in a Temporary Chat mode. Messages won't be saved permanently.",
+                        style: TextStyle(
+                          color: AppTheme.highlight.withValues(alpha: 0.8),
+                          fontSize: 12,
+                          fontStyle: FontStyle.italic,
                         ),
-                      ],
+                        textAlign: TextAlign.center,
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  _buildFloatingIconButton(
-                    icon: _isTyping ? Icons.send : Icons.mic,
-                    onPressed: _isTyping
-                        ? _sendMessage
-                        : () {
-                            // TODO: Implement voice input
-                          },
+                  Row(
+                    children: [
+                      _buildFloatingIconButton(
+                        icon: Icons.attach_file,
+                        onPressed: _showAttachmentOptions,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (_attachedFile != null)
+                              Container(
+                                margin: const EdgeInsets.only(bottom: 8),
+                                child: Stack(
+                                  clipBehavior: Clip.none,
+                                  children: [
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(12),
+                                      child: Image.file(
+                                        _attachedFile!,
+                                        height: 80,
+                                        width: 80,
+                                        fit: BoxFit.cover,
+                                        errorBuilder:
+                                            (context, error, stackTrace) {
+                                              return Container(
+                                                height: 80,
+                                                width: 80,
+                                                decoration: BoxDecoration(
+                                                  color: AppTheme.highlight
+                                                      .withValues(alpha: 0.2),
+                                                  borderRadius:
+                                                      BorderRadius.circular(12),
+                                                  border: Border.all(
+                                                    color: AppTheme.highlight
+                                                        .withValues(alpha: 0.4),
+                                                  ),
+                                                ),
+                                                child: const Center(
+                                                  child: Icon(
+                                                    Icons.insert_drive_file,
+                                                    color: AppTheme.highlight,
+                                                  ),
+                                                ),
+                                              );
+                                            },
+                                      ),
+                                    ),
+                                    Positioned(
+                                      top: -8,
+                                      right: -8,
+                                      child: GestureDetector(
+                                        onTap: () {
+                                          setState(() {
+                                            _attachedFile = null;
+                                            _isTyping =
+                                                _textController.text.isNotEmpty;
+                                          });
+                                        },
+                                        child: Container(
+                                          decoration: const BoxDecoration(
+                                            color: Colors.redAccent,
+                                            shape: BoxShape.circle,
+                                          ),
+                                          padding: const EdgeInsets.all(4),
+                                          child: const Icon(
+                                            Icons.close,
+                                            size: 16,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            Container(
+                              decoration: BoxDecoration(
+                                color: AppTheme.background,
+                                borderRadius: BorderRadius.circular(24.0),
+                                border: Border.all(
+                                  color: AppTheme.highlight,
+                                  width: 1.5,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.5),
+                                    blurRadius: 8.0,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16.0,
+                              ),
+                              child: TextField(
+                                controller: _textController,
+                                style: const TextStyle(
+                                  color: AppTheme.textBody,
+                                ),
+                                decoration: const InputDecoration(
+                                  hintText: "Ask LegalEase...",
+                                  hintStyle: TextStyle(color: Colors.grey),
+                                  border: InputBorder.none,
+                                ),
+                                maxLines: 3,
+                                minLines: 1,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      _buildFloatingIconButton(
+                        icon: _isTyping ? Icons.send : Icons.mic,
+                        isDotted: _chatService.isTemporaryChat,
+                        onPressed: _isTyping
+                            ? _sendMessage
+                            : () {
+                                // TODO: Implement voice input
+                              },
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -392,7 +428,44 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget _buildFloatingIconButton({
     required IconData icon,
     required VoidCallback onPressed,
+    bool isDotted = false,
   }) {
+    if (isDotted) {
+      return DottedBorder(
+        options: const CircularDottedBorderOptions(
+          color: AppTheme.highlight,
+          dashPattern: [6, 4],
+          strokeWidth: 2.0,
+          padding: EdgeInsets.zero,
+        ),
+        child: Container(
+          decoration: BoxDecoration(
+            color: AppTheme.background,
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.8),
+                blurRadius: 16.0,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: onPressed,
+              customBorder: const CircleBorder(),
+              splashColor: AppTheme.highlight.withValues(alpha: 0.2),
+              child: Padding(
+                padding: const EdgeInsets.all(12.0),
+                child: Icon(icon, color: Colors.white, size: 24),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     return Container(
       decoration: BoxDecoration(
         color: AppTheme.background,

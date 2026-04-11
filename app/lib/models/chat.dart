@@ -46,6 +46,7 @@ class ChatMessage {
   final String content;
   final DateTime createdAt;
   bool isNew; // For animation on newly received messages
+  final String? localFilePath;
 
   ChatMessage({
     required this.id,
@@ -54,6 +55,7 @@ class ChatMessage {
     required this.content,
     required this.createdAt,
     this.isNew = false,
+    this.localFilePath,
   });
 
   factory ChatMessage.fromJson(Map<String, dynamic> json) {
@@ -63,6 +65,7 @@ class ChatMessage {
       sender: json['sender'] as String,
       content: json['content'] as String,
       createdAt: DateTime.parse(json['created_at'] as String),
+      localFilePath: json['local_file_path'] as String?,
     );
   }
 
@@ -73,6 +76,7 @@ class ChatMessage {
       'sender': sender,
       'content': content,
       'created_at': createdAt.toIso8601String(),
+      if (localFilePath != null) 'local_file_path': localFilePath,
     };
   }
 }

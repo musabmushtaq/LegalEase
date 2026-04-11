@@ -261,3 +261,99 @@ async def get_shared_chat(share_token: str) -> dict[str, Any]:
         "messages": chat.get("messages", []),
         "is_shared": True,
     }
+
+# --- NEW: Auth, Search, and File endpoints ---
+import jwt
+from passlib.context import CryptContext
+from fastapi import Depends, UploadFile, File, Form
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+SECRET_KEY = "my_super_secret_jwt_key_for_legalease"
+ALGORITHM = "HS256"
+
+class RegisterRequest(BaseModel):
+    username: str
+    email: str
+    password: str
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+@app.post("/auth/register")
+async def register(payload: RegisterRequest):
+    existing = await db.users.find_one({"$or": [{"username": payload.username}, {"email": payload.email}]})
+    if existing:
+        raise HTTPException(status_code=400, detail="Username or email already taken")
+    hashed_password = pwd_context.hash(payload.password[:72])
+    user_id = make_id("user")
+    await db.users.insert_one({
+        "user_id": user_id,
+        "username": payload.username,
+        "email": payload.email,
+        "password": hashed_password,
+        "created_at": now_iso()
+    })
+    return {"user_id": user_id, "username": payload.username}
+
+@app.post("/auth/login")
+async def login(payload: LoginRequest):
+    user = await db.users.find_one({"username": payload.username})
+    if not user or not pwd_context.verify(payload.password[:72], user["password"]):
+        raise HTTPException(status_code=401, detail="Invalid username or password")
+    
+    token = jwt.encode({"user_id": user["user_id"], "username": user["username"]}, SECRET_KEY, algorithm=ALGORITHM)
+    return {"access_token": token, "token_type": "bearer", "user_id": user["user_id"]}
+
+@app.post("/chats/{chat_id}/messages_with_file")
+async def add_message_with_file(chat_id: str, content: str = Form(...), file: UploadFile = File(None)):
+    # Replaces normal messages endpoint to also handle files
+    chat = await db.chats.find_one({"chat_id": chat_id})
+    if not chat:
+        raise HTTPException(status_code=404, detail="Chat not found")
+        
+    created_at = now_iso()
+    file_id = None
+    if file:
+        file_id = make_id("file")
+        # In a real scenario, write file.file to disk / S3 here
+        await db.files.insert_one({
+            "file_id": file_id,
+            "filename": file.filename,
+            "chat_id": chat_id,
+            "uploaded_at": created_at
+        })
+        content += f" [Attachment: {file.filename}]"
+
+    user_message = {
+        "id": make_id("msg"),
+        "chat_id": chat_id,
+        "sender": "user",
+        "content": content,
+        "file_id": file_id,
+        "created_at": created_at
+    }
+
+    assistant_message = {
+        "id": make_id("msg"),
+        "chat_id": chat_id,
+        "sender": "ai",
+        "content": build_demo_reply(content),
+        "created_at": now_iso(),
+    }
+
+    await db.chats.update_one(
+        {"chat_id": chat_id},
+        {
+            "$push": {"messages": {"$each": [user_message, assistant_message]}},
+            "$set": {"updated_at": now_iso()},
+        },
+    )
+    return {"chat_id": chat_id, "user_message": user_message, "assistant_message": assistant_message}
+
+@app.get("/users/{user_id}/search")
+async def search_chats(user_id: str, query: str):
+    # Searches chats where user messages contain the query
+    cursor = db.chats.find({"owner_id": user_id, "messages.content": {"$regex": query, "$options": "i"}})
+    chats = [chat_to_response(chat) async for chat in cursor]
+    return {"items": chats}
