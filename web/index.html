@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LegalEase - AI Legal Assistant</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Drawer/Sidebar -->
+        <div class="drawer" id="drawer">
+            <div class="drawer-header">
+                <h2>Chats</h2>
+                <button class="close-btn" id="closeDrawerBtn">✕</button>
+            </div>
+            <div class="drawer-content" id="drawerContent">
+                <div class="loading-text">Loading chats...</div>
+            </div>
+            <button class="new-chat-btn-drawer" id="newChatDrawerBtn">+ New Chat</button>
+        </div>
+
+        <!-- Overlay (click to close drawer) -->
+        <div class="drawer-overlay" id="drawerOverlay"></div>
+
+        <!-- Main Chat Area -->
+        <div class="chat-container">
+            <!-- Top Bar with Controls -->
+            <div class="chat-top-bar">
+                <button class="icon-btn" id="menuBtn" title="Menu">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="3" y1="6" x2="21" y2="6"></line>
+                        <line x1="3" y1="12" x2="21" y2="12"></line>
+                        <line x1="3" y1="18" x2="21" y2="18"></line>
+                    </svg>
+                </button>
+                <button class="icon-btn" id="newChatBtn" title="New Chat">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                        <circle cx="12" cy="10" r="0.5" fill="currentColor"></circle>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Messages Display -->
+            <div class="messages-container" id="messagesContainer">
+                <div class="welcome-message">
+                    <h1>LegalEase</h1>
+                    <p>Your AI-powered legal assistant</p>
+                    <p class="welcome-subtitle">Start a new chat or select one from the sidebar</p>
+                </div>
+            </div>
+
+            <!-- Bottom Input Area -->
+            <div class="input-area">
+                <button class="icon-btn" id="attachBtn" title="Attach File">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 0 19.8 4.3M22 12.5a10 10 0 0 0-19.8-4.2"></path>
+                    </svg>
+                </button>
+                <div class="input-wrapper">
+                    <textarea id="messageInput" class="message-input" placeholder="Ask LegalEase..." rows="1"></textarea>
+                </div>
+                <button class="send-btn" id="sendBtn" title="Send Message">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M16.6915026,12.4744748 L3.50612381,13.2599618 C3.19218622,13.2599618 3.03521743,13.4170592 3.03521743,13.5741566 L1.15159189,20.0151496 C0.8376543,20.8006365 0.99,21.89 1.77946707,22.52 C2.41,22.99 3.50612381,23.1 4.13399899,22.8429026 L21.714504,14.0454487 C22.6563168,13.5741566 23.1272231,12.6315722 22.9702544,11.6889879 L4.13399899,1.16346272 C3.34915502,0.9 2.40734225,0.9 1.77946707,1.4289373 C0.994623095,2.0960627 0.837654326,3.0386469 1.15159189,3.98723128 L3.03521743,10.5282242 C3.03521743,10.6853216 3.19218622,10.8424191 3.50612381,10.8424191 L16.6915026,11.6279061 C16.6915026,11.6279061 17.1624089,11.6279061 17.1624089,12.052998 C17.1624089,12.4744748 16.6915026,12.4744748 16.6915026,12.4744748 Z"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

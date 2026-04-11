@@ -53,6 +53,10 @@ class AddMessageRequest(BaseModel):
     content: str = Field(min_length=1)
 
 
+class UpdateMessageRequest(BaseModel):
+    content: str = Field(min_length=1)
+
+
 class ShareToggleRequest(BaseModel):
     enabled: bool = True
 
@@ -246,6 +250,85 @@ async def share_chat(chat_id: str, payload: ShareToggleRequest) -> dict[str, Any
         },
     )
     return {"chat_id": chat_id, "is_shared": False}
+
+
+@app.patch("/chats/{chat_id}/messages/{message_id}")
+async def update_message(chat_id: str, message_id: str, payload: UpdateMessageRequest) -> dict[str, Any]:
+    chat = await db.chats.find_one({"chat_id": chat_id})
+    if not chat:
+        raise HTTPException(status_code=404, detail="Chat not found")
+
+    # Find and update the specific message
+    messages = chat.get("messages", [])
+    message_index = None
+    for i, msg in enumerate(messages):
+        if msg.get("id") == message_id:
+            message_index = i
+            break
+
+    if message_index is None:
+        raise HTTPException(status_code=404, detail="Message not found")
+
+    # Only allow editing user messages
+    if messages[message_index].get("sender") != "user":
+        raise HTTPException(status_code=400, detail="Can only edit user messages")
+
+    # Update the message content
+    messages[message_index]["content"] = payload.content
+    messages[message_index]["edited_at"] = now_iso()
+
+    await db.chats.update_one(
+        {"chat_id": chat_id},
+        {
+            "$set": {
+                "messages": messages,
+                "updated_at": now_iso(),
+            }
+        },
+    )
+
+    return {
+        "chat_id": chat_id,
+        "message_id": message_id,
+        "content": payload.content,
+        "edited_at": messages[message_index]["edited_at"],
+    }
+
+
+@app.delete("/chats/{chat_id}/messages/{message_id}")
+async def delete_message(chat_id: str, message_id: str) -> dict[str, bool]:
+    chat = await db.chats.find_one({"chat_id": chat_id})
+    if not chat:
+        raise HTTPException(status_code=404, detail="Chat not found")
+
+    messages = chat.get("messages", [])
+    original_length = len(messages)
+
+    # Remove the message and all subsequent messages (like ChatGPT behavior)
+    filtered_messages = []
+    found_message = False
+
+    for msg in messages:
+        if msg.get("id") == message_id:
+            found_message = True
+            continue  # Skip this message and all after it
+        if not found_message:
+            filtered_messages.append(msg)
+
+    if len(filtered_messages) == original_length:
+        raise HTTPException(status_code=404, detail="Message not found")
+
+    await db.chats.update_one(
+        {"chat_id": chat_id},
+        {
+            "$set": {
+                "messages": filtered_messages,
+                "updated_at": now_iso(),
+            }
+        },
+    )
+
+    return {"deleted": True}
 
 
 @app.get("/share/{share_token}")
