@@ -207,7 +207,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     },
                   ),
                   _buildFloatingIconButton(
-                    icon: Icons.chat_bubble_outline,
+                    icon: Icons.edit_square,
                     isDotted: _chatService.isTemporaryChat,
                     onPressed: _createNewChat,
                   ),
