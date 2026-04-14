@@ -23,6 +23,7 @@ class ChatService extends ChangeNotifier {
   Timer? _connectivityTimer;
   bool _isAuthenticated = false;
   bool _isTemporaryChat = false;
+  int _consecutiveFailures = 0;
 
   bool get isConnected => _isConnected;
   bool get isAuthenticated => _isAuthenticated;
@@ -155,26 +156,41 @@ class ChatService extends ChangeNotifier {
   }
 
   void _startConnectivityMonitoring() {
+    // Check connectivity every 20 seconds instead of 5 to reduce aggressive polling
+    // This is more friendly to WiFi connections and battery life
     _connectivityTimer = Timer.periodic(
-      const Duration(seconds: 5),
+      const Duration(seconds: 20),
       (_) => _checkConnectivity(),
     );
+    // Perform an initial check immediately
+    _checkConnectivity();
   }
 
   Future<void> _checkConnectivity() async {
     try {
       final uri = Uri.parse('$_apiBaseUrl/health');
-      final response = await http.get(uri).timeout(const Duration(seconds: 3));
+      // Increased timeout from 3s to 10s to handle WiFi latency gracefully
+      final response = await http.get(uri).timeout(const Duration(seconds: 10));
 
       final wasConnected = _isConnected;
-      _isConnected = response.statusCode == 200;
+      final isNowConnected = response.statusCode == 200;
 
-      if (wasConnected != _isConnected) {
-        if (!_isConnected) _currentChatId = null;
-        notifyListeners();
+      if (isNowConnected) {
+        // Reset failure counter on successful connection
+        _consecutiveFailures = 0;
+        
+        // Restore connection status if it was previously marked as disconnected
+        if (!wasConnected) {
+          _isConnected = true;
+          notifyListeners();
+        }
       }
     } catch (e) {
-      if (_isConnected) {
+      // WiFi hiccups shouldn't immediately trigger disconnect
+      // Require 2 consecutive failures before marking as disconnected
+      _consecutiveFailures++;
+      
+      if (_consecutiveFailures >= 2 && _isConnected) {
         _isConnected = false;
         _currentChatId = null;
         notifyListeners();
