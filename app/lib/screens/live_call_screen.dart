@@ -7,25 +7,8 @@ class LiveCallScreen extends StatefulWidget {
   State<LiveCallScreen> createState() => _LiveCallScreenState();
 }
 
-class _LiveCallScreenState extends State<LiveCallScreen> with SingleTickerProviderStateMixin {
-  late AnimationController _pulseController;
+class _LiveCallScreenState extends State<LiveCallScreen> {
   bool _isMuted = false;
-
-  @override
-  void initState() {
-    super.initState();
-    // A simple pulsing animation for the glow effect
-    _pulseController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1500),
-    )..repeat(reverse: true);
-  }
-
-  @override
-  void dispose() {
-    _pulseController.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -33,31 +16,6 @@ class _LiveCallScreenState extends State<LiveCallScreen> with SingleTickerProvid
       backgroundColor: const Color(0xFF131315), // Deep dark background
       body: Stack(
         children: [
-          // Simulated Voice Glow at the bottom
-          Align(
-            alignment: Alignment.bottomCenter,
-            child: AnimatedBuilder(
-              animation: _pulseController,
-              builder: (context, child) {
-                final double intensity = _pulseController.value;
-                return Container(
-                  height: 350,
-                  decoration: BoxDecoration(
-                    gradient: RadialGradient(
-                      center: const Alignment(0, 1.0),
-                      radius: _isMuted ? 0.0 : 1.5 + (intensity * 0.3),
-                      colors: [
-                        const Color(0xFF4A90E2).withValues(alpha: _isMuted ? 0.0 : 0.4 + (intensity * 0.3)),
-                        const Color(0xFF131315).withValues(alpha: 0.0),
-                      ],
-                      stops: const [0.0, 1.0],
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-          
           // Top bar (Live indicator)
           SafeArea(
             child: Padding(
