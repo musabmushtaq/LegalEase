@@ -201,12 +201,14 @@ class _ChatScreenState extends State<ChatScreen> {
                 children: [
                   _buildFloatingIconButton(
                     icon: Icons.menu,
+                    isDotted: _chatService.isTemporaryChat,
                     onPressed: () {
                       _scaffoldKey.currentState?.openDrawer();
                     },
                   ),
                   _buildFloatingIconButton(
-                    icon: Icons.chat_bubble_outline,
+                    icon: Icons.edit_square,
+                    isDotted: _chatService.isTemporaryChat,
                     onPressed: _createNewChat,
                   ),
                 ],
@@ -238,6 +240,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     children: [
                       _buildFloatingIconButton(
                         icon: Icons.attach_file,
+                        isDotted: _chatService.isTemporaryChat,
                         onPressed: _showAttachmentOptions,
                       ),
                       const SizedBox(width: 12),
@@ -252,38 +255,49 @@ class _ChatScreenState extends State<ChatScreen> {
                                 child: Stack(
                                   clipBehavior: Clip.none,
                                   children: [
-                                    ClipRRect(
-                                      borderRadius: BorderRadius.circular(12),
-                                      child: Image.file(
-                                        _attachedFile!,
-                                        height: 80,
-                                        width: 80,
-                                        fit: BoxFit.cover,
-                                        errorBuilder:
-                                            (context, error, stackTrace) {
-                                              return Container(
+                                    _chatService.isTemporaryChat
+                                        ? DottedBorder(
+                                            options:
+                                                const RoundedRectDottedBorderOptions(
+                                                  radius: Radius.circular(12),
+                                                  color: AppTheme.highlight,
+                                                  dashPattern: [6, 4],
+                                                  strokeWidth: 2.0,
+                                                ),
+                                            child: ClipRRect(
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                              child: Image.file(
+                                                _attachedFile!,
                                                 height: 80,
                                                 width: 80,
-                                                decoration: BoxDecoration(
-                                                  color: AppTheme.highlight
-                                                      .withValues(alpha: 0.2),
-                                                  borderRadius:
-                                                      BorderRadius.circular(12),
-                                                  border: Border.all(
-                                                    color: AppTheme.highlight
-                                                        .withValues(alpha: 0.4),
-                                                  ),
-                                                ),
-                                                child: const Center(
-                                                  child: Icon(
-                                                    Icons.insert_drive_file,
-                                                    color: AppTheme.highlight,
-                                                  ),
-                                                ),
-                                              );
-                                            },
-                                      ),
-                                    ),
+                                                fit: BoxFit.cover,
+                                                errorBuilder:
+                                                    (
+                                                      context,
+                                                      error,
+                                                      stackTrace,
+                                                    ) {
+                                                      return _buildFilePlaceholder();
+                                                    },
+                                              ),
+                                            ),
+                                          )
+                                        : ClipRRect(
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
+                                            child: Image.file(
+                                              _attachedFile!,
+                                              height: 80,
+                                              width: 80,
+                                              fit: BoxFit.cover,
+                                              errorBuilder:
+                                                  (context, error, stackTrace) {
+                                                    return _buildFilePlaceholder();
+                                                  },
+                                            ),
+                                          ),
                                     Positioned(
                                       top: -8,
                                       right: -8,
@@ -312,39 +326,89 @@ class _ChatScreenState extends State<ChatScreen> {
                                   ],
                                 ),
                               ),
-                            Container(
-                              decoration: BoxDecoration(
-                                color: AppTheme.background,
-                                borderRadius: BorderRadius.circular(24.0),
-                                border: Border.all(
-                                  color: AppTheme.highlight,
-                                  width: 1.5,
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.5),
-                                    blurRadius: 8.0,
-                                    offset: const Offset(0, 4),
+                            _chatService.isTemporaryChat
+                                ? DottedBorder(
+                                    options:
+                                        const RoundedRectDottedBorderOptions(
+                                          radius: Radius.circular(24.0),
+                                          color: AppTheme.highlight,
+                                          dashPattern: [6, 4],
+                                          strokeWidth: 1.5,
+                                        ),
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        color: AppTheme.background,
+                                        borderRadius: BorderRadius.circular(
+                                          24.0,
+                                        ),
+                                      ),
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 16.0,
+                                      ),
+                                      child: TextField(
+                                        controller: _textController,
+                                        style: const TextStyle(
+                                          color: AppTheme.textBody,
+                                        ),
+                                        decoration: const InputDecoration(
+                                          hintText: "Ask LegalEase...",
+                                          hintStyle: TextStyle(
+                                            color: Colors.grey,
+                                          ),
+                                          border: InputBorder.none,
+                                        ),
+                                        onChanged: (text) {
+                                          setState(() {
+                                            _isTyping = text.trim().isNotEmpty;
+                                          });
+                                        },
+                                        maxLines: 3,
+                                        minLines: 1,
+                                      ),
+                                    ),
+                                  )
+                                : Container(
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.background,
+                                      borderRadius: BorderRadius.circular(24.0),
+                                      border: Border.all(
+                                        color: AppTheme.highlight,
+                                        width: 1.5,
+                                      ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withValues(
+                                            alpha: 0.5,
+                                          ),
+                                          blurRadius: 8.0,
+                                          offset: const Offset(0, 4),
+                                        ),
+                                      ],
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 16.0,
+                                    ),
+                                    child: TextField(
+                                      controller: _textController,
+                                      style: const TextStyle(
+                                        color: AppTheme.textBody,
+                                      ),
+                                      decoration: const InputDecoration(
+                                        hintText: "Ask LegalEase...",
+                                        hintStyle: TextStyle(
+                                          color: Colors.grey,
+                                        ),
+                                        border: InputBorder.none,
+                                      ),
+                                      onChanged: (text) {
+                                        setState(() {
+                                          _isTyping = text.trim().isNotEmpty;
+                                        });
+                                      },
+                                      maxLines: 3,
+                                      minLines: 1,
+                                    ),
                                   ),
-                                ],
-                              ),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16.0,
-                              ),
-                              child: TextField(
-                                controller: _textController,
-                                style: const TextStyle(
-                                  color: AppTheme.textBody,
-                                ),
-                                decoration: const InputDecoration(
-                                  hintText: "Ask LegalEase...",
-                                  hintStyle: TextStyle(color: Colors.grey),
-                                  border: InputBorder.none,
-                                ),
-                                maxLines: 3,
-                                minLines: 1,
-                              ),
-                            ),
                           ],
                         ),
                       ),
@@ -423,6 +487,21 @@ class _ChatScreenState extends State<ChatScreen> {
     if (!mounted) return;
     setState(() {});
     _scrollToBottom();
+  }
+
+  Widget _buildFilePlaceholder() {
+    return Container(
+      height: 80,
+      width: 80,
+      decoration: BoxDecoration(
+        color: AppTheme.highlight.withValues(alpha: 0.2),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.highlight.withValues(alpha: 0.4)),
+      ),
+      child: const Center(
+        child: Icon(Icons.insert_drive_file, color: AppTheme.highlight),
+      ),
+    );
   }
 
   Widget _buildFloatingIconButton({

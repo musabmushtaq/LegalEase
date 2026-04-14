@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:dotted_border/dotted_border.dart';
 import '../theme/app_theme.dart';
 import '../models/chat.dart';
 import '../services/chat_service.dart';
@@ -238,10 +239,26 @@ class _ChatDrawerState extends State<ChatDrawer> {
                         Navigator.pop(context);
                       }
                     },
-                    icon: Icon(
-                      widget.chatService.isTemporaryChat ? Icons.chat_bubble : Icons.chat_bubble_outline,
-                      color: widget.chatService.isTemporaryChat ? AppTheme.highlight : Colors.grey,
-                    ),
+                    icon: widget.chatService.isTemporaryChat
+                        ? DottedBorder(
+                            options: const CircularDottedBorderOptions(
+                              color: AppTheme.highlight,
+                              dashPattern: [4, 4],
+                              strokeWidth: 1.5,
+                            ),
+                            child: const Padding(
+                              padding: EdgeInsets.all(4.0),
+                              child: Icon(
+                                Icons.chat_bubble_outline,
+                                color: AppTheme.highlight,
+                                size: 20,
+                              ),
+                            ),
+                          )
+                        : const Icon(
+                            Icons.chat_bubble_outline,
+                            color: Colors.grey,
+                          ),
                     tooltip: "Temporary Chat Mode",
                   ),
                 ],
