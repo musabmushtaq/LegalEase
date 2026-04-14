@@ -9,6 +9,7 @@ import '../widgets/chat_drawer.dart';
 import '../widgets/message_bubble.dart';
 import '../widgets/connectivity_banner.dart';
 import '../services/chat_service.dart';
+import 'live_call_screen.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
@@ -355,7 +356,12 @@ class _ChatScreenState extends State<ChatScreen> {
                         onPressed: _isTyping
                             ? _sendMessage
                             : () {
-                                // TODO: Implement voice input
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const LiveCallScreen(),
+                                  ),
+                                );
                               },
                       ),
                     ],
