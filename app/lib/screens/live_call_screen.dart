@@ -1,10 +1,7 @@
 import 'dart:async';
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:record/record.dart';
 import 'package:permission_handler/permission_handler.dart';
-import '../theme/app_theme.dart';
-
 import 'package:path_provider/path_provider.dart';
 
 class LiveCallScreen extends StatefulWidget {
@@ -14,23 +11,17 @@ class LiveCallScreen extends StatefulWidget {
   State<LiveCallScreen> createState() => _LiveCallScreenState();
 }
 
-class _LiveCallScreenState extends State<LiveCallScreen>
-    with TickerProviderStateMixin {
-  late AnimationController _blobController;
+class _LiveCallScreenState extends State<LiveCallScreen> {
   late AudioRecorder _audioRecorder;
   StreamSubscription<Amplitude>? _amplitudeSubscription;
 
+  // ignore: unused_field
   double _micLevel = 0.0;
   bool _isMuted = false;
 
   @override
   void initState() {
     super.initState();
-    _blobController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 4),
-    )..repeat();
-
     _audioRecorder = AudioRecorder();
     _initMic();
   }
@@ -113,7 +104,6 @@ class _LiveCallScreenState extends State<LiveCallScreen>
   void dispose() {
     _amplitudeSubscription?.cancel();
     _audioRecorder.dispose();
-    _blobController.dispose();
     super.dispose();
   }
 
@@ -123,22 +113,6 @@ class _LiveCallScreenState extends State<LiveCallScreen>
       backgroundColor: const Color(0xFF131315), // Deep dark background
       body: Stack(
         children: [
-          // Voice Reactive Blob
-          Center(
-            child: AnimatedBuilder(
-              animation: _blobController,
-              builder: (context, child) {
-                return CustomPaint(
-                  painter: _BlobPainter(
-                    phase: _blobController.value * 2 * math.pi,
-                    micLevel: _micLevel,
-                  ),
-                  child: const SizedBox(width: 300, height: 300),
-                );
-              },
-            ),
-          ),
-
           // Top bar (Live indicator)
           SafeArea(
             child: Padding(
@@ -223,67 +197,4 @@ class _LiveCallScreenState extends State<LiveCallScreen>
       ),
     );
   }
-}
-
-class _BlobPainter extends CustomPainter {
-  final double phase;
-  final double micLevel;
-
-  _BlobPainter({required this.phase, required this.micLevel});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final baseRadius = 70.0;
-    // Mic level drastically increases deformation depth
-    final deformationScale = 10.0 + (micLevel * 60.0);
-
-    final path = Path();
-    final paint = Paint()
-      ..color = AppTheme.highlight.withValues(alpha: 0.7)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 12);
-
-    const int points = 180;
-    for (int i = 0; i <= points; i++) {
-      double angle = (i / points) * 2 * math.pi;
-
-      // Alien liquid motion: Multi-layered Sine waves
-      double distortion = math.sin(angle * 3 + phase) * 0.5 +
-          math.cos(angle * 5 - phase * 1.5) * 0.3 +
-          math.sin(angle * 2 + phase * 0.5) * 0.2;
-
-      double r = baseRadius + (distortion * deformationScale);
-
-      double x = center.dx + r * math.cos(angle);
-      double y = center.dy + r * math.sin(angle);
-
-      if (i == 0) {
-        path.moveTo(x, y);
-      } else {
-        path.lineTo(x, y);
-      }
-    }
-    path.close();
-
-    // Subtle inner glow
-    canvas.drawPath(path, paint);
-
-    // Main blob body
-    paint
-      ..maskFilter = null
-      ..color = AppTheme.highlight.withValues(alpha: 0.9);
-    canvas.drawPath(path, paint);
-
-    // Highlight center
-    canvas.drawCircle(
-      center,
-      baseRadius * 0.4,
-      Paint()
-        ..color = Colors.white.withValues(alpha: 0.2)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 20),
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant _BlobPainter oldDelegate) => true;
 }
