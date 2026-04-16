@@ -225,17 +225,7 @@ class _LiveCallScreenState extends State<LiveCallScreen>
                       ),
                     ),
 
-                    // Text overlay "visualization in progress"
-                    Center(
-                      child: const Text(
-                        "visualization in progress",
-                        style: TextStyle(
-                          color: Colors.grey,
-                          fontSize: 16,
-                          fontStyle: FontStyle.italic,
-                        ),
-                      ),
-                    ),
+
                   ],
                 ),
               ),
