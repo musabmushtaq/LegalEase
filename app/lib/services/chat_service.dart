@@ -42,6 +42,10 @@ class ChatService extends ChangeNotifier {
         .where((c) => (_messages[c.id]?.isNotEmpty ?? false))
         .toList();
     chatsWithMessages.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    // Don't show the current temporary chat in the history list
+    if (_isTemporaryChat && _currentChatId != null) {
+      chatsWithMessages.removeWhere((c) => c.id == _currentChatId);
+    }
     return chatsWithMessages;
   }
 
@@ -59,7 +63,25 @@ class ChatService extends ChangeNotifier {
     _startConnectivityMonitoring();
   }
 
+  void _cleanupSessionTempChat() {
+    if (_isTemporaryChat && _currentChatId != null) {
+      final tempId = _currentChatId!;
+      _chats.remove(tempId);
+      _messages.remove(tempId);
+      _saveChats();
+      try {
+        final uri = Uri.parse('$_apiBaseUrl/chats/$tempId');
+        http.delete(uri, headers: _headers());
+      } catch (_) {}
+    }
+  }
+
   void toggleTemporaryChat() {
+    if (_isTemporaryChat) {
+      // Exiting temporary mode, clean up the temp chat
+      _cleanupSessionTempChat();
+      _currentChatId = null;
+    }
     _isTemporaryChat = !_isTemporaryChat;
     if (_isTemporaryChat) {
       // Clear out the current selected chat so we just start a "temporary" session view.
@@ -177,7 +199,7 @@ class ChatService extends ChangeNotifier {
       if (isNowConnected) {
         // Reset failure counter on successful connection
         _consecutiveFailures = 0;
-        
+
         // Restore connection status if it was previously marked as disconnected
         if (!wasConnected) {
           _isConnected = true;
@@ -190,7 +212,7 @@ class ChatService extends ChangeNotifier {
       // WiFi hiccups shouldn't immediately trigger disconnect
       // Require 2 consecutive failures before marking as disconnected
       _consecutiveFailures++;
-      
+
       if (_consecutiveFailures >= 2 && _isConnected) {
         _isConnected = false;
         // Clear all cached data when disconnected - cache only for connected state
@@ -231,10 +253,10 @@ class ChatService extends ChangeNotifier {
 
   Future<void> _syncFromApi() async {
     if (_userId == null) return;
-    
+
     // Load cache first for fast UI display (only when retrieving from server)
     await _loadChats();
-    
+
     try {
       final uri = Uri.parse('$_apiBaseUrl/users/$_userId/chats');
       final response = await http
@@ -320,12 +342,18 @@ class ChatService extends ChangeNotifier {
   }
 
   void selectChat(String chatId) {
+    if (_isTemporaryChat) {
+      _cleanupSessionTempChat();
+    }
     _currentChatId = chatId;
     _isTemporaryChat = false;
     notifyListeners();
   }
 
   void clearCurrentChat() {
+    if (_isTemporaryChat) {
+      _cleanupSessionTempChat();
+    }
     _currentChatId = null;
     notifyListeners();
   }
