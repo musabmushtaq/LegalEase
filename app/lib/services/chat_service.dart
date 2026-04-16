@@ -51,7 +51,6 @@ class ChatService extends ChangeNotifier {
 
   Future<void> initialize() async {
     await _loadAuth();
-    await _loadChats();
     if (_isAuthenticated) {
       await _syncFromApi();
     } else {
@@ -182,6 +181,8 @@ class ChatService extends ChangeNotifier {
         // Restore connection status if it was previously marked as disconnected
         if (!wasConnected) {
           _isConnected = true;
+          // Sync fresh data from API on reconnection
+          await _syncFromApi();
           notifyListeners();
         }
       }
@@ -192,6 +193,9 @@ class ChatService extends ChangeNotifier {
       
       if (_consecutiveFailures >= 2 && _isConnected) {
         _isConnected = false;
+        // Clear all cached data when disconnected - cache only for connected state
+        _chats.clear();
+        _messages.clear();
         _currentChatId = null;
         notifyListeners();
       }
@@ -227,6 +231,10 @@ class ChatService extends ChangeNotifier {
 
   Future<void> _syncFromApi() async {
     if (_userId == null) return;
+    
+    // Load cache first for fast UI display (only when retrieving from server)
+    await _loadChats();
+    
     try {
       final uri = Uri.parse('$_apiBaseUrl/users/$_userId/chats');
       final response = await http
