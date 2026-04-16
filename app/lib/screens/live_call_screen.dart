@@ -196,7 +196,7 @@ class _LiveCallScreenState extends State<LiveCallScreen>
                               ? _smoothedLevel +
                                     (_glowController.value *
                                         _smoothedLevel *
-                                        0.3)
+                                        0.8)
                               : 0.0;
 
                           return Container(
@@ -210,10 +210,10 @@ class _LiveCallScreenState extends State<LiveCallScreen>
                                 end: Alignment.topCenter,
                                 colors: [
                                   baseColor.withValues(
-                                    alpha: (0.4 * intensity).clamp(0.0, 1.0),
+                                    alpha: (0.6 * intensity).clamp(0.0, 1.0),
                                   ),
                                   baseColor.withValues(
-                                    alpha: (0.1 * intensity).clamp(0.0, 1.0),
+                                    alpha: (0.15 * intensity).clamp(0.0, 1.0),
                                   ),
                                   Colors.transparent,
                                 ],
