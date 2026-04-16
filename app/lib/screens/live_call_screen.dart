@@ -168,7 +168,7 @@ class _LiveCallScreenState extends State<LiveCallScreen>
             // Visualization area (Upper large rectangle with glow inside)
             Expanded(
               child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 24.0),
+                margin: const EdgeInsets.symmetric(horizontal: 12.0),
                 decoration: BoxDecoration(
                   color: const Color(
                     0xFF1C1C1E,
@@ -224,8 +224,6 @@ class _LiveCallScreenState extends State<LiveCallScreen>
                         },
                       ),
                     ),
-
-
                   ],
                 ),
               ),
@@ -236,7 +234,7 @@ class _LiveCallScreenState extends State<LiveCallScreen>
             // Transcript area (Lower small rectangle)
             Container(
               height: 80, // roughly 2 lines of text
-              margin: const EdgeInsets.symmetric(horizontal: 24.0),
+              margin: const EdgeInsets.symmetric(horizontal: 12.0),
               padding: const EdgeInsets.all(16.0),
               decoration: BoxDecoration(
                 color: const Color(0xFF1C1C1E),
