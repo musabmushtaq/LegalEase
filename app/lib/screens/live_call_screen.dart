@@ -203,9 +203,9 @@ class _LiveCallScreenState extends State<LiveCallScreen>
                                     (_glowController.value *
                                         _smoothedLevel *
                                         0.8)
-                              : 0.15 +
+                              : 0.35 +
                                     (_glowController.value *
-                                        0.05); // Subtle idle glow
+                                        0.15); // Prominent idle glow
 
                           return Container(
                             height:
