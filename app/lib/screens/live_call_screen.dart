@@ -1,8 +1,8 @@
 import 'dart:async';
+import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:record/record.dart';
+import 'package:vad/vad.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:path_provider/path_provider.dart';
 
 class LiveCallScreen extends StatefulWidget {
   const LiveCallScreen({super.key});
@@ -13,8 +13,7 @@ class LiveCallScreen extends StatefulWidget {
 
 class _LiveCallScreenState extends State<LiveCallScreen>
     with SingleTickerProviderStateMixin {
-  late AudioRecorder _audioRecorder;
-  StreamSubscription<Amplitude>? _amplitudeSubscription;
+  late final VadHandler _vadHandler;
   late AnimationController _glowController;
 
   double _micLevel = 0.0;
@@ -31,7 +30,7 @@ class _LiveCallScreenState extends State<LiveCallScreen>
       duration: const Duration(seconds: 2),
     )..repeat(reverse: true);
 
-    _audioRecorder = AudioRecorder();
+    _vadHandler = VadHandler.create(isDebug: true);
     _initMic();
   }
 
@@ -50,33 +49,13 @@ class _LiveCallScreenState extends State<LiveCallScreen>
       }
 
       if (status.isGranted) {
-        final hasPermission = await _audioRecorder.hasPermission();
-        debugPrint(
-          'LiveCallScreen: AudioRecorder hasPermission check: $hasPermission',
+        _setupVadHandler();
+        await _vadHandler.startListening(
+          positiveSpeechThreshold: 0.5,
+          negativeSpeechThreshold: 0.35,
+          minSpeechFrames: 2,
         );
-
-        const config = RecordConfig(
-          encoder: AudioEncoder.aacLc,
-          bitRate: 128000,
-          sampleRate: 44100,
-        );
-
-        // Android specific: Check if encoder is supported
-        final isSupported = await _audioRecorder.isEncoderSupported(
-          config.encoder,
-        );
-        debugPrint(
-          'LiveCallScreen: Encoder ${config.encoder} supported: $isSupported',
-        );
-
-        debugPrint('LiveCallScreen: Starting recorder...');
-        final tempDir = await getTemporaryDirectory();
-        final path = '${tempDir.path}/temp_audio.m4a';
-
-        await _audioRecorder.start(config, path: path);
-        debugPrint('LiveCallScreen: Recorder started successfully');
-
-        _startAmplitudeTimer();
+        debugPrint('LiveCallScreen: VAD started listening');
       } else {
         debugPrint('LiveCallScreen: Permission not granted');
       }
@@ -86,34 +65,57 @@ class _LiveCallScreenState extends State<LiveCallScreen>
     }
   }
 
-  void _startAmplitudeTimer() {
-    debugPrint('LiveCallScreen: Starting amplitude listener...');
-    _amplitudeSubscription = _audioRecorder
-        .onAmplitudeChanged(const Duration(milliseconds: 50))
-        .listen(
-          (amp) {
-            if (!mounted) return;
+  void _setupVadHandler() {
+    debugPrint('LiveCallScreen: Setting up VAD handler listeners...');
 
-            setState(() {
-              double level = (amp.current + 50) / 50;
-              _micLevel = level.clamp(0.0, 1.0);
+    _vadHandler.onSpeechStart.listen((_) {
+      if (!mounted || _isMuted) return;
+      debugPrint('LiveCallScreen: Speech started (User)');
+      setState(() {
+        _isAiSpeaking = false; // User speaking -> Blue
+      });
+    });
 
-              // If user starts speaking while AI is speaking, interrupt (change to blue)
-              if (_micLevel > 0.1 && _isAiSpeaking && !_isMuted) {
-                _isAiSpeaking = false;
-              }
+    _vadHandler.onSpeechEnd.listen((samples) {
+      if (!mounted || _isMuted) return;
+      debugPrint('LiveCallScreen: Speech ended (User stopped)');
+      setState(() {
+        _isAiSpeaking = true; // Speech ended -> AI turn (Yellow)
+      });
+    });
 
-              // Smoothly transition amplitude for the gas/flow effect
-              final target = (_isMuted && !_isAiSpeaking) ? 0.0 : _micLevel;
-              _smoothedLevel += (target - _smoothedLevel) * 0.3;
-            });
-          },
-          onError: (err) {
-            debugPrint('LiveCallScreen: Amplitude stream error: $err');
-          },
-          cancelOnError: false,
-        );
-    debugPrint('LiveCallScreen: Amplitude listener attached');
+    _vadHandler.onVADMisfire.listen((_) {
+      if (!mounted || _isMuted) return;
+      debugPrint('LiveCallScreen: VAD misfire');
+      setState(() {
+        _isAiSpeaking = true; // Misfire -> Back to AI/idle
+      });
+    });
+
+    _vadHandler.onFrameProcessed.listen((frameData) {
+      if (!mounted) return;
+
+      // Extract raw audio samples from the frame for amplitude
+      double sumSquares = 0.0;
+      for (final sample in frameData.frame) {
+        sumSquares += sample * sample;
+      }
+      // Calculate RMS and scale up to [0..1] range visually
+      double rms = sqrt(sumSquares / frameData.frame.length);
+      double level = (rms * 10).clamp(0.0, 1.0);
+
+      setState(() {
+        if (!_isMuted) {
+          _micLevel = level;
+        } else {
+          _micLevel = 0.0;
+        }
+
+        // Smoothly transition amplitude for the gas/flow effect
+        final target = (_isMuted && !_isAiSpeaking) ? 0.0 : _micLevel;
+        _smoothedLevel += (target - _smoothedLevel) * 0.3;
+      });
+    });
   }
 
   Future<void> _toggleMute() async {
@@ -121,16 +123,20 @@ class _LiveCallScreenState extends State<LiveCallScreen>
       _isMuted = !_isMuted;
     });
 
-    if (_isMuted && !_isAiSpeaking) {
-      _micLevel = 0.0;
-      _smoothedLevel = 0.0;
+    if (_isMuted) {
+      await _vadHandler.stopListening();
+      setState(() {
+        _micLevel = 0.0;
+        _smoothedLevel = 0.0;
+      });
+    } else {
+      await _vadHandler.startListening();
     }
   }
 
   @override
   void dispose() {
-    _amplitudeSubscription?.cancel();
-    _audioRecorder.dispose();
+    _vadHandler.dispose();
     _glowController.dispose();
     super.dispose();
   }
