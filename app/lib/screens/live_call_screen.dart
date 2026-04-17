@@ -198,12 +198,14 @@ class _LiveCallScreenState extends State<LiveCallScreen>
                           // Calculate intensity (AI simulates amplitude, User uses real mic level)
                           final intensity = _isAiSpeaking
                               ? 0.4 + (_glowController.value * 0.4)
-                              : (_smoothedLevel > 0.0)
+                              : (_smoothedLevel > 0.1)
                               ? _smoothedLevel +
                                     (_glowController.value *
                                         _smoothedLevel *
                                         0.8)
-                              : 0.0;
+                              : 0.15 +
+                                    (_glowController.value *
+                                        0.05); // Subtle idle glow
 
                           return Container(
                             height:
