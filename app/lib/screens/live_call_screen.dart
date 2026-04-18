@@ -1,8 +1,12 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:typed_data';
 import 'dart:math';
+import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:vad/vad.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:http/http.dart' as http;
 
 class LiveCallScreen extends StatefulWidget {
   const LiveCallScreen({super.key});
@@ -21,6 +25,7 @@ class _LiveCallScreenState extends State<LiveCallScreen>
   bool _isMuted = false;
   // ignore: prefer_final_fields
   bool _isAiSpeaking = false; // Mock for future AI integration
+  String _transcription = ""; // Stores the live transcription
 
   @override
   void initState() {
@@ -76,12 +81,56 @@ class _LiveCallScreenState extends State<LiveCallScreen>
       });
     });
 
-    _vadHandler.onSpeechEnd.listen((samples) {
+    _vadHandler.onSpeechEnd.listen((samples) async {
       if (!mounted || _isMuted) return;
       debugPrint('LiveCallScreen: Speech ended (User stopped)');
       setState(() {
         _isAiSpeaking = true; // Speech ended -> AI turn (Yellow)
+        _transcription = "Transcribing...";
       });
+
+      // Send to local API for transcription
+      try {
+        final float32List = Float32List.fromList(samples);
+        final bytes = float32List.buffer.asUint8List();
+
+        final base = Platform.isAndroid
+            ? 'http://10.0.2.2:8000'
+            : 'http://127.0.0.1:8000';
+        final apiUrl = '$base/api/transcribe_raw';
+
+        final response = await http.post(
+          Uri.parse(apiUrl),
+          headers: {'Content-Type': 'application/octet-stream'},
+          body: bytes,
+        );
+
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+          if (mounted) {
+            setState(() {
+              _transcription = data['text'] ?? '';
+            });
+            debugPrint('LiveCallScreen: Transcribed: $_transcription');
+          }
+        } else {
+          debugPrint(
+            'LiveCallScreen: STT error: \${response.statusCode} - \${response.body}',
+          );
+          if (mounted) {
+            setState(() {
+              _transcription = "Error transcribing audio";
+            });
+          }
+        }
+      } catch (e) {
+        debugPrint('LiveCallScreen: Error calling STT API: $e');
+        if (mounted) {
+          setState(() {
+            _transcription = "API Connection Error";
+          });
+        }
+      }
     });
 
     _vadHandler.onVADMisfire.listen((_) {
@@ -204,9 +253,9 @@ class _LiveCallScreenState extends State<LiveCallScreen>
                                     (_glowController.value *
                                         _smoothedLevel *
                                         0.8)
-                              : 0.15 +
+                              : 0.35 +
                                     (_glowController.value *
-                                        0.05); // Subtle idle glow
+                                        0.15); // Prominent idle glow
 
                           return Container(
                             height:
@@ -250,14 +299,17 @@ class _LiveCallScreenState extends State<LiveCallScreen>
                 borderRadius: BorderRadius.circular(16.0),
               ),
               alignment: Alignment.center,
-              child: const Text(
-                "Transcript will appear here...",
-                style: TextStyle(
+              child: Text(
+                _transcription.isEmpty
+                    ? "Transcript will appear here..."
+                    : _transcription,
+                style: const TextStyle(
                   color: Colors.white70,
                   fontSize: 14,
                   height: 1.4,
                 ),
                 textAlign: TextAlign.center,
+                overflow: TextOverflow.fade,
               ),
             ),
 

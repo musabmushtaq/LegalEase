@@ -33,7 +33,7 @@ echo ===============================================
 echo.
 
 REM Start the server
-python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload --reload-exclude=".venv" --reload-exclude="temp_*"
 
 echo.
 echo Server stopped
