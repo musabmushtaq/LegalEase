@@ -2,3 +2,9 @@ fastapi==0.115.12
 uvicorn[standard]==0.34.0
 motor==3.7.0
 pydantic-settings==2.8.1
+faster-whisper==1.1.0
+python-multipart==0.0.9
+soundfile==0.12.1
+requests==2.32.3
+nvidia-cublas-cu12
+nvidia-cudnn-cu12
