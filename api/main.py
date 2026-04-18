@@ -106,6 +106,13 @@ async def ensure_indexes() -> None:
 @app.on_event("startup")
 async def on_startup() -> None:
     await ensure_indexes()
+    # Pre-load the AI model so it downloads right away and validates GPU
+    try:
+        # Pre-warm model in background
+        import asyncio
+        asyncio.create_task(asyncio.to_thread(get_whisper_model))
+    except Exception as e:
+        print("Warning: background model load failed:", e)
 
 
 @app.get("/health")
@@ -348,7 +355,55 @@ async def get_shared_chat(share_token: str) -> dict[str, Any]:
 # --- NEW: Auth, Search, and File endpoints ---
 import jwt
 from passlib.context import CryptContext
-from fastapi import Depends, UploadFile, File, Form
+from fastapi import Depends, UploadFile, File, Form, Request
+
+_whisper_model = None
+
+def get_whisper_model():
+    global _whisper_model
+    if _whisper_model is None:
+        from faster_whisper import WhisperModel
+        print("====== AI INITIALIZATION ======")
+        print("Downloading & Loading Whisper large-v3-turbo locally to GPU...")
+        print("If you haven't run this before, you'll see a download from Hugging Face.")
+        
+        try:
+            # We explicitly tell it to try 'cuda' (your 4GB VRAM GPU) and use int8 quantization to save memory
+            _whisper_model = WhisperModel(
+                "deepdml/faster-whisper-large-v3-turbo-ct2", 
+                device="cuda", 
+                compute_type="int8"
+            )
+            print("Successfully loaded Whisper on GPU (CUDA).")
+        except Exception as e:
+            print(f"Failed to load on CUDA or specific hf model: {e}.")
+            print("Falling back to CPU / default 'large-v3'...")
+            _whisper_model = WhisperModel(
+                "large-v3", 
+                device="cpu", 
+                compute_type="int8"
+            )
+        print("===============================")
+    return _whisper_model
+
+@app.post("/api/transcribe_raw")
+async def transcribe_raw(request: Request):
+    import numpy as np
+    try:
+        raw_bytes = await request.body()
+        if not raw_bytes:
+            raise HTTPException(status_code=400, detail="No audio data provided")
+        # Ensure it's read as float32
+        audio_array = np.frombuffer(raw_bytes, dtype=np.float32)
+        
+        model = get_whisper_model()
+        # Transcribe expects 16kHz float32 1D numpy array
+        segments, info = model.transcribe(audio_array, beam_size=1, word_timestamps=False)
+        text = "".join([segment.text for segment in segments])
+        return {"text": text.strip()}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 SECRET_KEY = "my_super_secret_jwt_key_for_legalease"
