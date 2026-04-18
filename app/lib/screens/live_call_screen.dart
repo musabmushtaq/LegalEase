@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:math';
-import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:vad/vad.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -191,6 +190,57 @@ class _LiveCallScreenState extends State<LiveCallScreen>
     super.dispose();
   }
 
+  Widget _buildStyledTranscript(String transcript) {
+    if (transcript == "Transcribing..." || transcript.startsWith("Error") || transcript.startsWith("API")) {
+      return Text(
+        transcript,
+        style: const TextStyle(color: Colors.white70, fontSize: 14, height: 1.4),
+        textAlign: TextAlign.center,
+        overflow: TextOverflow.fade,
+      );
+    }
+
+    final words = transcript.trim().split(' ');
+    if (words.isEmpty) return const SizedBox.shrink();
+
+    final lastWord = words.removeLast();
+    final previousWords = words.join(' ') + (words.isNotEmpty ? ' ' : '');
+
+    return Text.rich(
+      TextSpan(
+        children: [
+          if (previousWords.isNotEmpty)
+            TextSpan(
+              text: previousWords,
+              style: const TextStyle(color: Colors.white70, fontSize: 16, height: 1.4),
+            ),
+          WidgetSpan(
+            alignment: PlaceholderAlignment.middle,
+            child: Container(
+              margin: const EdgeInsets.only(left: 4.0),
+              padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+              decoration: BoxDecoration(
+                color: const Color(0xFFC7F9CC).withValues(alpha: 0.15), // Light green tint
+                borderRadius: BorderRadius.circular(8.0),
+                border: Border.all(color: const Color(0xFFC7F9CC).withValues(alpha: 0.5), width: 1.0),
+              ),
+              child: Text(
+                lastWord,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+      textAlign: TextAlign.center,
+      overflow: TextOverflow.fade,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -299,18 +349,18 @@ class _LiveCallScreenState extends State<LiveCallScreen>
                 borderRadius: BorderRadius.circular(16.0),
               ),
               alignment: Alignment.center,
-              child: Text(
-                _transcription.isEmpty
-                    ? "Transcript will appear here..."
-                    : _transcription,
-                style: const TextStyle(
-                  color: Colors.white70,
-                  fontSize: 14,
-                  height: 1.4,
-                ),
-                textAlign: TextAlign.center,
-                overflow: TextOverflow.fade,
-              ),
+              child: _transcription.isEmpty
+                  ? const Text(
+                      "Transcript will appear here...",
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 14,
+                        height: 1.4,
+                      ),
+                      textAlign: TextAlign.center,
+                      overflow: TextOverflow.fade,
+                    )
+                  : _buildStyledTranscript(_transcription),
             ),
 
             const SizedBox(height: 32),
