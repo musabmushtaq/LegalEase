@@ -149,9 +149,9 @@ class _LiveCallScreenState extends State<LiveCallScreen>
       for (final sample in frameData.frame) {
         sumSquares += sample * sample;
       }
-      // Calculate RMS and scale up to [0..1] range visually
+      // Calculate RMS and scale smoothly to [0..1] range visually
       double rms = sqrt(sumSquares / frameData.frame.length);
-      double level = (rms * 10).clamp(0.0, 1.0);
+      double level = (rms * 5).clamp(0.0, 1.0);
 
       setState(() {
         if (!_isMuted) {
@@ -161,8 +161,9 @@ class _LiveCallScreenState extends State<LiveCallScreen>
         }
 
         // Smoothly transition amplitude for the gas/flow effect
+        // Lower smoothing factor = more gradual, linear animation
         final target = (_isMuted && !_isAiSpeaking) ? 0.0 : _micLevel;
-        _smoothedLevel += (target - _smoothedLevel) * 0.3;
+        _smoothedLevel += (target - _smoothedLevel) * 0.15;
       });
     });
   }
@@ -247,12 +248,14 @@ class _LiveCallScreenState extends State<LiveCallScreen>
                           // Calculate intensity (AI simulates amplitude, User uses real mic level)
                           final intensity = _isAiSpeaking
                               ? 0.4 + (_glowController.value * 0.4)
-                              : (_smoothedLevel > 0.0)
+                              : (_smoothedLevel > 0.1)
                               ? _smoothedLevel +
                                     (_glowController.value *
                                         _smoothedLevel *
                                         0.8)
-                              : 0.0;
+                              : 0.35 +
+                                    (_glowController.value *
+                                        0.15); // Prominent idle glow
 
                           return Container(
                             height:
