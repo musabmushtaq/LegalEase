@@ -1,8 +1,24 @@
 from __future__ import annotations
 
 import uuid
+import os
+import sys
 from datetime import UTC, datetime
 from typing import Any
+
+# Add nvidia CUDA dll paths locally if on windows so CTranslate2 can find cublas64_12.dll
+if os.name == "nt":
+    import site
+    packages = site.getsitepackages()
+    for p in packages:
+        cublas = os.path.join(p, "nvidia", "cublas", "bin")
+        cudnn = os.path.join(p, "nvidia", "cudnn", "bin")
+        if os.path.exists(cublas):
+            os.add_dll_directory(cublas)
+            os.environ["PATH"] += os.pathsep + cublas
+        if os.path.exists(cudnn):
+            os.add_dll_directory(cudnn)
+            os.environ["PATH"] += os.pathsep + cudnn
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -393,8 +409,8 @@ async def transcribe_raw(request: Request):
         raw_bytes = await request.body()
         if not raw_bytes:
             raise HTTPException(status_code=400, detail="No audio data provided")
-        # Ensure it's read as float32
-        audio_array = np.frombuffer(raw_bytes, dtype=np.float32)
+        # Ensure it's read as float32 and copy to make it writable & C-contiguous
+        audio_array = np.frombuffer(raw_bytes, dtype=np.float32).copy()
         
         model = get_whisper_model()
         # Transcribe expects 16kHz float32 1D numpy array
@@ -402,6 +418,8 @@ async def transcribe_raw(request: Request):
         text = "".join([segment.text for segment in segments])
         return {"text": text.strip()}
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 

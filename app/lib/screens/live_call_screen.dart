@@ -94,9 +94,9 @@ class _LiveCallScreenState extends State<LiveCallScreen>
         final float32List = Float32List.fromList(samples);
         final bytes = float32List.buffer.asUint8List();
 
-        final base = Platform.isAndroid
-            ? 'http://10.0.2.2:8000'
-            : 'http://127.0.0.1:8000';
+        // Use the PC's actual local IP since you're testing on a physical Pixel 6a
+        // The emulator IP (10.0.2.2) doesn't work on physical devices
+        final base = 'http://192.168.100.62:8000';
         final apiUrl = '$base/api/transcribe_raw';
 
         final response = await http.post(
@@ -115,7 +115,7 @@ class _LiveCallScreenState extends State<LiveCallScreen>
           }
         } else {
           debugPrint(
-            'LiveCallScreen: STT error: \${response.statusCode} - \${response.body}',
+            'LiveCallScreen: STT error: ${response.statusCode} - ${response.body}',
           );
           if (mounted) {
             setState(() {
