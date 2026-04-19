@@ -10,6 +10,11 @@ from typing import Any
 # Suppress deprecation warnings from dependencies
 warnings.filterwarnings("ignore", category=DeprecationWarning, module=".*pkg_resources.*")
 warnings.filterwarnings("ignore", message=".*pkg_resources is deprecated.*")
+warnings.filterwarnings("ignore", message=".*Defaulting repo_id.*")
+warnings.filterwarnings("ignore", message=".*unauthenticated requests.*")
+warnings.filterwarnings("ignore", message=".*You are sending unauthenticated.*")
+# Suppress Hugging Face Hub warnings
+os.environ["HF_HUB_DISABLE_TELEMETRY"] = "1"
 
 # Add nvidia CUDA dll paths locally if on windows so CTranslate2 can find cublas64_12.dll
 if os.name == "nt":
@@ -399,10 +404,10 @@ def get_kpipeline():
     if _kpipeline is None:
         # Suppress Kokoro and Torch warnings
         with warnings.catch_warnings():
-            warnings.filterwarnings("ignore", message=".*Defaulting repo_id.*")
             warnings.filterwarnings("ignore", message=".*dropout option.*")
             warnings.filterwarnings("ignore", message=".*weight_norm.*")
-            warnings.filterwarnings("ignore", message=".*unauthenticated requests.*")
+            warnings.simplefilter("ignore", FutureWarning)
+            warnings.simplefilter("ignore", UserWarning)
             
             from kokoro import KPipeline
             print("====== TTS INITIALIZATION ======")
@@ -448,28 +453,30 @@ async def generate_tts(payload: dict):
 def get_whisper_model():
     global _whisper_model
     if _whisper_model is None:
-        from faster_whisper import WhisperModel
-        print("====== AI INITIALIZATION ======")
-        print("Downloading & Loading Whisper large-v3-turbo locally to GPU...")
-        print("If you haven't run this before, you'll see a download from Hugging Face.")
-        
-        try:
-            # We explicitly tell it to try 'cuda' (your 4GB VRAM GPU) and use int8 quantization to save memory
-            _whisper_model = WhisperModel(
-                "deepdml/faster-whisper-large-v3-turbo-ct2", 
-                device="cuda", 
-                compute_type="int8"
-            )
-            print("Successfully loaded Whisper on GPU (CUDA).")
-        except Exception as e:
-            print(f"Failed to load on CUDA or specific hf model: {e}.")
-            print("Falling back to CPU / default 'large-v3'...")
-            _whisper_model = WhisperModel(
-                "large-v3", 
-                device="cpu", 
-                compute_type="int8"
-            )
-        print("===============================")
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            from faster_whisper import WhisperModel
+            print("====== AI INITIALIZATION ======")
+            print("Downloading & Loading Whisper large-v3-turbo locally to GPU...")
+            print("If you haven't run this before, you'll see a download from Hugging Face.")
+            
+            try:
+                # We explicitly tell it to try 'cuda' (your 4GB VRAM GPU) and use int8 quantization to save memory
+                _whisper_model = WhisperModel(
+                    "deepdml/faster-whisper-large-v3-turbo-ct2", 
+                    device="cuda", 
+                    compute_type="int8"
+                )
+                print("Successfully loaded Whisper on GPU (CUDA).")
+            except Exception as e:
+                print(f"Failed to load on CUDA or specific hf model: {e}.")
+                print("Falling back to CPU / default 'large-v3'...")
+                _whisper_model = WhisperModel(
+                    "large-v3", 
+                    device="cpu", 
+                    compute_type="int8"
+                )
+            print("===============================")
     return _whisper_model
 
 @app.post("/api/transcribe_raw")
