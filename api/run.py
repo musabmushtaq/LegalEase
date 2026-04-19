@@ -1,12 +1,11 @@
 #!/usr/bin/env python
 """
-LegalEase API Runner with graceful shutdown and 'q' key support.
-Handles Ctrl+C and 'q' key presses without hanging.
+LegalEase API Runner with graceful shutdown.
+Handles Ctrl+C without hanging.
 """
 
 import signal
 import sys
-import threading
 import uvicorn
 from typing import Any
 
@@ -14,36 +13,12 @@ from typing import Any
 class GracefulShutdown:
     def __init__(self):
         self.server: uvicorn.Server | None = None
-        self.should_exit = False
 
     def signal_handler(self, signum: int, frame: Any) -> None:
         """Handle Ctrl+C gracefully."""
-        if self.should_exit:
-            print("\n⚠️  Force quitting...")
-            sys.exit(0)
-        
-        self.should_exit = True
         print("\n🛑 Shutting down API server...")
         if self.server:
             self.server.should_exit = True
-
-    def listen_for_q(self) -> None:
-        """Listen for 'q' key press in console."""
-        try:
-            while not self.should_exit:
-                try:
-                    key = input()
-                    if key.lower() == 'q':
-                        self.should_exit = True
-                        print("\n🛑 Shutting down API server (q pressed)...")
-                        if self.server:
-                            self.server.should_exit = True
-                        break
-                except EOFError:
-                    # End of input, don't crash
-                    pass
-        except KeyboardInterrupt:
-            pass
 
 
 async def main():
@@ -60,19 +35,9 @@ async def main():
     shutdown = GracefulShutdown()
     shutdown.server = server
     
-    # Register signal handlers
+    # Register signal handlers for Ctrl+C
     signal.signal(signal.SIGINT, shutdown.signal_handler)
     signal.signal(signal.SIGTERM, shutdown.signal_handler)
-    
-    # Start listener thread for 'q' key (daemon thread so it doesn't block exit)
-    listener_thread = threading.Thread(target=shutdown.listen_for_q, daemon=True)
-    listener_thread.start()
-    
-    print("=" * 60)
-    print("🚀 LegalEase API Server Starting...")
-    print("=" * 60)
-    print("Press Ctrl+C or 'q' to gracefully shut down")
-    print("=" * 60)
     
     try:
         await server.serve()
@@ -88,36 +53,6 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         print("\n✅ API server shut down gracefully")
         sys.exit(0)
-#!/usr/bin/env python
-"""
-API runner with graceful shutdown and 'q' key support.
-Handles Ctrl+C and 'q' key presses without hanging.
-"""
-
-import signal
-import sys
-import threading
-import uvicorn
-from typing import Any
-
-
-class GracefulShutdown:
-    def __init__(self):
-        self.server: uvicorn.Server | None = None
-        self.should_exit = False
-
-    def signal_handler(self, signum: int, frame: Any) -> None:
-        """Handle Ctrl+C gracefully."""
-        if self.should_exit:
-            print("\n⚠️  Force quitting...")
-            sys.exit(0)
-        
-        self.should_exit = True
-        print("\n🛑 Shutting down API server...")
-        if self.server:
-            self.server.should_exit = True
-
-    def listen_for_q(self) -> None:
         """Listen for 'q' key press in console."""
         try:
             while not self.should_exit:
