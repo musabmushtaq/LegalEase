@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:vad/vad.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:http/http.dart' as http;
+import 'package:audioplayers/audioplayers.dart';
 
 class LiveCallScreen extends StatefulWidget {
   const LiveCallScreen({super.key});
@@ -18,6 +19,7 @@ class _LiveCallScreenState extends State<LiveCallScreen>
     with SingleTickerProviderStateMixin {
   late final VadHandler _vadHandler;
   late AnimationController _glowController;
+  final AudioPlayer _audioPlayer = AudioPlayer();
 
   double _micLevel = 0.0;
   double _smoothedLevel = 0.0;
@@ -111,6 +113,7 @@ class _LiveCallScreenState extends State<LiveCallScreen>
               _transcription = data['text'] ?? '';
             });
             debugPrint('LiveCallScreen: Transcribed: $_transcription');
+            _playTTS('LegalEase received: $_transcription');
           }
         } else {
           debugPrint(
@@ -167,6 +170,48 @@ class _LiveCallScreenState extends State<LiveCallScreen>
     });
   }
 
+  Future<void> _playTTS(String text) async {
+    if (text.isEmpty) return;
+    try {
+      final base = 'http://192.168.100.62:8000';
+      final apiUrl = '$base/api/tts';
+      final response = await http.post(
+        Uri.parse(apiUrl),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'text': text}),
+      );
+
+      if (response.statusCode == 200) {
+        final bytes = response.bodyBytes;
+        await _audioPlayer.play(BytesSource(bytes));
+
+        _audioPlayer.onPlayerComplete.listen((_) {
+          if (mounted) {
+            setState(() {
+              _isAiSpeaking = false;
+            });
+          }
+        });
+      } else {
+        debugPrint(
+          'LiveCallScreen: TTS error: ${response.statusCode} - ${response.body}',
+        );
+        if (mounted) {
+          setState(() {
+            _isAiSpeaking = false;
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('LiveCallScreen: Error calling TTS API: $e');
+      if (mounted) {
+        setState(() {
+          _isAiSpeaking = false;
+        });
+      }
+    }
+  }
+
   Future<void> _toggleMute() async {
     setState(() {
       _isMuted = !_isMuted;
@@ -187,14 +232,21 @@ class _LiveCallScreenState extends State<LiveCallScreen>
   void dispose() {
     _vadHandler.dispose();
     _glowController.dispose();
+    _audioPlayer.dispose();
     super.dispose();
   }
 
   Widget _buildStyledTranscript(String transcript) {
-    if (transcript == "Transcribing..." || transcript.startsWith("Error") || transcript.startsWith("API")) {
+    if (transcript == "Transcribing..." ||
+        transcript.startsWith("Error") ||
+        transcript.startsWith("API")) {
       return Text(
         transcript,
-        style: const TextStyle(color: Colors.white70, fontSize: 14, height: 1.4),
+        style: const TextStyle(
+          color: Colors.white70,
+          fontSize: 14,
+          height: 1.4,
+        ),
         textAlign: TextAlign.center,
         overflow: TextOverflow.fade,
       );
@@ -212,17 +264,29 @@ class _LiveCallScreenState extends State<LiveCallScreen>
           if (previousWords.isNotEmpty)
             TextSpan(
               text: previousWords,
-              style: const TextStyle(color: Colors.white70, fontSize: 16, height: 1.4),
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 16,
+                height: 1.4,
+              ),
             ),
           WidgetSpan(
             alignment: PlaceholderAlignment.middle,
             child: Container(
               margin: const EdgeInsets.only(left: 4.0),
-              padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 8.0,
+                vertical: 4.0,
+              ),
               decoration: BoxDecoration(
-                color: const Color(0xFFC7F9CC).withValues(alpha: 0.15), // Light green tint
+                color: const Color(
+                  0xFFC7F9CC,
+                ).withValues(alpha: 0.15), // Light green tint
                 borderRadius: BorderRadius.circular(8.0),
-                border: Border.all(color: const Color(0xFFC7F9CC).withValues(alpha: 0.5), width: 1.0),
+                border: Border.all(
+                  color: const Color(0xFFC7F9CC).withValues(alpha: 0.5),
+                  width: 1.0,
+                ),
               ),
               child: Text(
                 lastWord,

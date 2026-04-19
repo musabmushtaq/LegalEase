@@ -124,9 +124,10 @@ async def on_startup() -> None:
     await ensure_indexes()
     # Pre-load the AI model so it downloads right away and validates GPU
     try:
-        # Pre-warm model in background
+        # Pre-warm models in background
         import asyncio
         asyncio.create_task(asyncio.to_thread(get_whisper_model))
+        asyncio.create_task(asyncio.to_thread(get_kpipeline))
     except Exception as e:
         print("Warning: background model load failed:", e)
 
@@ -372,8 +373,55 @@ async def get_shared_chat(share_token: str) -> dict[str, Any]:
 import jwt
 from passlib.context import CryptContext
 from fastapi import Depends, UploadFile, File, Form, Request
+import io
+from fastapi.responses import StreamingResponse
 
 _whisper_model = None
+_kpipeline = None
+
+def get_kpipeline():
+    global _kpipeline
+    if _kpipeline is None:
+        from kokoro import KPipeline
+        print("====== TTS INITIALIZATION ======")
+        print("Loading Kokoro-82M locally...")
+        _kpipeline = KPipeline(lang_code='a') 
+        print("Successfully loaded Kokoro-82M.")
+        print("================================")
+    return _kpipeline
+
+@app.post("/api/tts")
+async def generate_tts(payload: dict):
+    text = payload.get("text", "")
+    if not text.strip():
+        raise HTTPException(status_code=400, detail="Text is empty")
+
+    import soundfile as sf
+    import numpy as np
+
+    pipeline = get_kpipeline()
+    generator = pipeline(text, voice='af_heart', speed=1)
+    
+    pieces = []
+    try:
+        for gs, ps, audio in generator:
+            pieces.append(audio)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+        
+    if not pieces:
+        raise HTTPException(status_code=500, detail="No audio generated")
+        
+    audio_concat = np.concatenate(pieces)
+    
+    # Convert to WAV in memory
+    buf = io.BytesIO()
+    sf.write(buf, audio_concat, 24000, format='WAV')
+    buf.seek(0)
+    
+    return StreamingResponse(buf, media_type="audio/wav")
 
 def get_whisper_model():
     global _whisper_model
