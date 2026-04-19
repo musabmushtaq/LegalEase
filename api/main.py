@@ -3,8 +3,13 @@ from __future__ import annotations
 import uuid
 import os
 import sys
+import warnings
 from datetime import UTC, datetime
 from typing import Any
+
+# Suppress deprecation warnings from dependencies
+warnings.filterwarnings("ignore", category=DeprecationWarning, module=".*pkg_resources.*")
+warnings.filterwarnings("ignore", message=".*pkg_resources is deprecated.*")
 
 # Add nvidia CUDA dll paths locally if on windows so CTranslate2 can find cublas64_12.dll
 if os.name == "nt":
@@ -392,12 +397,19 @@ _kpipeline = None
 def get_kpipeline():
     global _kpipeline
     if _kpipeline is None:
-        from kokoro import KPipeline
-        print("====== TTS INITIALIZATION ======")
-        print("Loading Kokoro-82M locally...")
-        _kpipeline = KPipeline(lang_code='a') 
-        print("Successfully loaded Kokoro-82M.")
-        print("================================")
+        # Suppress Kokoro and Torch warnings
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", message=".*Defaulting repo_id.*")
+            warnings.filterwarnings("ignore", message=".*dropout option.*")
+            warnings.filterwarnings("ignore", message=".*weight_norm.*")
+            warnings.filterwarnings("ignore", message=".*unauthenticated requests.*")
+            
+            from kokoro import KPipeline
+            print("====== TTS INITIALIZATION ======")
+            print("Loading Kokoro-82M locally...")
+            _kpipeline = KPipeline(lang_code='a') 
+            print("Successfully loaded Kokoro-82M.")
+            print("================================")
     return _kpipeline
 
 @app.post("/api/tts")
