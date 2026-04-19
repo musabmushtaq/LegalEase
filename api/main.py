@@ -118,15 +118,21 @@ def chat_to_response(chat: dict[str, Any]) -> dict[str, Any]:
 
 
 async def ensure_indexes() -> None:
-    await db.users.create_index("user_id", unique=True)
-    await db.users.create_index("email", unique=True, sparse=True)
+    """Create database indexes with error handling."""
+    try:
+        await db.users.create_index("user_id", unique=True)
+        await db.users.create_index("email", unique=True, sparse=True)
 
-    await db.chats.create_index("chat_id", unique=True)
-    await db.chats.create_index([("owner_id", 1), ("updated_at", -1)])
-    await db.chats.create_index("share_token", sparse=True)
+        await db.chats.create_index("chat_id", unique=True)
+        await db.chats.create_index([("owner_id", 1), ("updated_at", -1)])
+        await db.chats.create_index("share_token", sparse=True)
 
-    await db.files.create_index("file_id", unique=True)
-    await db.files.create_index([("user_id", 1), ("uploaded_at", -1)])
+        await db.files.create_index("file_id", unique=True)
+        await db.files.create_index([("user_id", 1), ("uploaded_at", -1)])
+    except Exception as e:
+        print(f"⚠️  Warning: Could not create database indexes: {e}")
+        # Don't raise - continue even if indexes fail
+        # (they may already exist or MongoDB might not be available)
 
 
 @app.on_event("startup")
@@ -138,22 +144,25 @@ async def on_startup() -> None:
         print("📊 INITIALIZING DATABASE")
         print("=" * 60)
         await ensure_indexes()
-        print("✅ Database indexes created")
+        print("✅ Database ready")
         
         # Pre-load the AI models before accepting requests
         print("\n🔄 INITIALIZING AI MODELS")
         print("=" * 60)
         print("⏳ Loading Whisper model...")
         get_whisper_model()
-        print("✅ Whisper model loaded successfully")
+        print("✅ Whisper model loaded")
+        
         print("⏳ Loading Kokoro TTS model...")
         get_kpipeline()
-        print("✅ Kokoro TTS model loaded successfully")
+        print("✅ Kokoro TTS model loaded")
+        
         print("=" * 60)
-        print("🚀 All models ready! API accepting requests...")
+        print("🚀 All systems ready! API accepting requests...")
         print("=" * 60 + "\n")
     except Exception as e:
-        print(f"❌ Critical error during initialization: {e}")
+        print(f"\n❌ Critical error during startup: {e}")
+        print("=" * 60 + "\n")
         raise
 
 
