@@ -3,8 +3,18 @@ from __future__ import annotations
 import uuid
 import os
 import sys
+import warnings
 from datetime import UTC, datetime
 from typing import Any
+
+# Suppress deprecation warnings from dependencies
+warnings.filterwarnings("ignore", category=DeprecationWarning, module=".*pkg_resources.*")
+warnings.filterwarnings("ignore", message=".*pkg_resources is deprecated.*")
+warnings.filterwarnings("ignore", message=".*Defaulting repo_id.*")
+warnings.filterwarnings("ignore", message=".*unauthenticated requests.*")
+warnings.filterwarnings("ignore", message=".*You are sending unauthenticated.*")
+# Suppress Hugging Face Hub warnings
+os.environ["HF_HUB_DISABLE_TELEMETRY"] = "1"
 
 # Add nvidia CUDA dll paths locally if on windows so CTranslate2 can find cublas64_12.dll
 if os.name == "nt":
@@ -108,38 +118,54 @@ def chat_to_response(chat: dict[str, Any]) -> dict[str, Any]:
 
 
 async def ensure_indexes() -> None:
-    await db.users.create_index("user_id", unique=True)
-    await db.users.create_index("email", unique=True, sparse=True)
+    """Create database indexes with error handling."""
+    try:
+        await db.users.create_index("user_id", unique=True)
+        await db.users.create_index("email", unique=True, sparse=True)
 
-    await db.chats.create_index("chat_id", unique=True)
-    await db.chats.create_index([("owner_id", 1), ("updated_at", -1)])
-    await db.chats.create_index("share_token", sparse=True)
+        await db.chats.create_index("chat_id", unique=True)
+        await db.chats.create_index([("owner_id", 1), ("updated_at", -1)])
+        await db.chats.create_index("share_token", sparse=True)
 
-    await db.files.create_index("file_id", unique=True)
-    await db.files.create_index([("user_id", 1), ("uploaded_at", -1)])
+        await db.files.create_index("file_id", unique=True)
+        await db.files.create_index([("user_id", 1), ("uploaded_at", -1)])
+    except Exception as e:
+        print(f"⚠️  Warning: Could not create database indexes: {e}")
+        # Don't raise - continue even if indexes fail
+        # (they may already exist or MongoDB might not be available)
 
 
 @app.on_event("startup")
 async def on_startup() -> None:
-    await ensure_indexes()
-    # Pre-load the AI models before accepting requests
-    # This blocks startup until all models are ready
+    """Initialize models and create database indexes on startup."""
     try:
-        print("\n" + "=" * 60)
-        print("🔄 INITIALIZING AI MODELS")
+        print("\n\nInitializing Systems")
+        print("If you haven't run this before, a download from Hugging Face will start in the background.")
         print("=" * 60)
-        print("⏳ Loading Whisper model...")
+        await ensure_indexes()
+        print("Database ready")
+        
+        
+        # Pre-load the AI models before accepting requests
+        print("=" * 60)
         get_whisper_model()
-        print("✅ Whisper model loaded successfully")
-        print("⏳ Loading Kokoro TTS model...")
-        get_kpipeline()
-        print("✅ Kokoro TTS model loaded successfully")
         print("=" * 60)
-        print("🚀 All models ready! API accepting requests...\n")
+        get_kpipeline()
+        
+        print("=" * 60)
+        print("All systems ready! API accepting requests...")
         print("=" * 60 + "\n")
     except Exception as e:
-        print(f"❌ Critical error during model initialization: {e}")
+        print(f"\n❌ Critical error during startup: {e}")
+        print("=" * 60 + "\n")
         raise
+
+
+@app.on_event("shutdown")
+async def on_shutdown() -> None:
+    """Clean up resources on shutdown."""
+    mongo_client.close()
+    
 
 
 @app.get("/health")
@@ -392,12 +418,17 @@ _kpipeline = None
 def get_kpipeline():
     global _kpipeline
     if _kpipeline is None:
-        from kokoro import KPipeline
-        print("====== TTS INITIALIZATION ======")
-        print("Loading Kokoro-82M locally...")
-        _kpipeline = KPipeline(lang_code='a') 
-        print("Successfully loaded Kokoro-82M.")
-        print("================================")
+        # Suppress Kokoro and Torch warnings
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", message=".*dropout option.*")
+            warnings.filterwarnings("ignore", message=".*weight_norm.*")
+            warnings.simplefilter("ignore", FutureWarning)
+            warnings.simplefilter("ignore", UserWarning)
+            
+            from kokoro import KPipeline
+            print("Loading Kokoro-82M locally...")
+            _kpipeline = KPipeline(lang_code='a') 
+            print("Successfully loaded Kokoro-82M.")
     return _kpipeline
 
 @app.post("/api/tts")
@@ -436,28 +467,27 @@ async def generate_tts(payload: dict):
 def get_whisper_model():
     global _whisper_model
     if _whisper_model is None:
-        from faster_whisper import WhisperModel
-        print("====== AI INITIALIZATION ======")
-        print("Downloading & Loading Whisper large-v3-turbo locally to GPU...")
-        print("If you haven't run this before, you'll see a download from Hugging Face.")
-        
-        try:
-            # We explicitly tell it to try 'cuda' (your 4GB VRAM GPU) and use int8 quantization to save memory
-            _whisper_model = WhisperModel(
-                "deepdml/faster-whisper-large-v3-turbo-ct2", 
-                device="cuda", 
-                compute_type="int8"
-            )
-            print("Successfully loaded Whisper on GPU (CUDA).")
-        except Exception as e:
-            print(f"Failed to load on CUDA or specific hf model: {e}.")
-            print("Falling back to CPU / default 'large-v3'...")
-            _whisper_model = WhisperModel(
-                "large-v3", 
-                device="cpu", 
-                compute_type="int8"
-            )
-        print("===============================")
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            from faster_whisper import WhisperModel
+            print("Loading Whisper large-v3-turbo locally to GPU...")
+            
+            try:
+                # We explicitly tell it to try 'cuda' (your 4GB VRAM GPU) and use int8 quantization to save memory
+                _whisper_model = WhisperModel(
+                    "deepdml/faster-whisper-large-v3-turbo-ct2", 
+                    device="cuda", 
+                    compute_type="int8"
+                )
+                print("Successfully loaded Whisper on GPU (CUDA).")
+            except Exception as e:
+                print(f"Failed to load on CUDA or specific hf model: {e}.")
+                print("Falling back to CPU / default 'large-v3'...")
+                _whisper_model = WhisperModel(
+                    "large-v3", 
+                    device="cpu", 
+                    compute_type="int8"
+                )
     return _whisper_model
 
 @app.post("/api/transcribe_raw")
