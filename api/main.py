@@ -139,26 +139,21 @@ async def ensure_indexes() -> None:
 async def on_startup() -> None:
     """Initialize models and create database indexes on startup."""
     try:
-        # Create database indexes
-        print("\n" + "=" * 60)
-        print("📊 INITIALIZING DATABASE")
+        print("\n\nInitializing Systems")
+        print("If you haven't run this before, a download from Hugging Face will start in the background.")
         print("=" * 60)
         await ensure_indexes()
-        print("✅ Database ready")
+        print("Database ready")
+        
         
         # Pre-load the AI models before accepting requests
-        print("\n🔄 INITIALIZING AI MODELS")
         print("=" * 60)
-        print("⏳ Loading Whisper model...")
         get_whisper_model()
-        print("✅ Whisper model loaded")
-        
-        print("⏳ Loading Kokoro TTS model...")
+        print("=" * 60)
         get_kpipeline()
-        print("✅ Kokoro TTS model loaded")
         
         print("=" * 60)
-        print("🚀 All systems ready! API accepting requests...")
+        print("All systems ready! API accepting requests...")
         print("=" * 60 + "\n")
     except Exception as e:
         print(f"\n❌ Critical error during startup: {e}")
@@ -169,12 +164,8 @@ async def on_startup() -> None:
 @app.on_event("shutdown")
 async def on_shutdown() -> None:
     """Clean up resources on shutdown."""
-    print("\n" + "=" * 60)
-    print("🛑 SHUTTING DOWN")
-    print("=" * 60)
     mongo_client.close()
-    print("✅ Database connection closed")
-    print("=" * 60 + "\n")
+    
 
 
 @app.get("/health")
@@ -435,11 +426,9 @@ def get_kpipeline():
             warnings.simplefilter("ignore", UserWarning)
             
             from kokoro import KPipeline
-            print("====== TTS INITIALIZATION ======")
             print("Loading Kokoro-82M locally...")
             _kpipeline = KPipeline(lang_code='a') 
             print("Successfully loaded Kokoro-82M.")
-            print("================================")
     return _kpipeline
 
 @app.post("/api/tts")
@@ -481,9 +470,7 @@ def get_whisper_model():
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             from faster_whisper import WhisperModel
-            print("====== AI INITIALIZATION ======")
-            print("Downloading & Loading Whisper large-v3-turbo locally to GPU...")
-            print("If you haven't run this before, you'll see a download from Hugging Face.")
+            print("Loading Whisper large-v3-turbo locally to GPU...")
             
             try:
                 # We explicitly tell it to try 'cuda' (your 4GB VRAM GPU) and use int8 quantization to save memory
@@ -501,7 +488,6 @@ def get_whisper_model():
                     device="cpu", 
                     compute_type="int8"
                 )
-            print("===============================")
     return _whisper_model
 
 @app.post("/api/transcribe_raw")

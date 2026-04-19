@@ -16,7 +16,6 @@ class GracefulShutdown:
 
     def signal_handler(self, signum: int, frame: Any) -> None:
         """Handle Ctrl+C gracefully."""
-        print("\n🛑 Shutting down API server...")
         if self.server:
             self.server.should_exit = True
 
