@@ -122,13 +122,19 @@ async def ensure_indexes() -> None:
 @app.on_event("startup")
 async def on_startup() -> None:
     await ensure_indexes()
-    # Pre-load the AI model so it downloads right away and validates GPU
+    # Pre-load the AI models before accepting requests
+    # This blocks startup until all models are ready
     try:
-        # Pre-warm model in background
-        import asyncio
-        asyncio.create_task(asyncio.to_thread(get_whisper_model))
+        print("\n" + "=" * 60)
+        print("🔄 INITIALIZING AI MODELS")
+        print("=" * 60)
+        print("⏳ Loading Whisper model...")
+        get_whisper_model()
+        print("✅ Whisper model loaded successfully")
+        print("=" * 60 + "\n")
     except Exception as e:
-        print("Warning: background model load failed:", e)
+        print(f"❌ Critical error during model initialization: {e}")
+        raise
 
 
 @app.get("/health")
