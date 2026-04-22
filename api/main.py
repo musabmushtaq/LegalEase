@@ -35,6 +35,20 @@ from fastapi.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+import logging
+
+
+# Configure logging to hide /api/ping requests
+class HidePingFilter(logging.Filter):
+    def filter(self, record):
+        # Hide /api/ping from access logs
+        if "/api/ping" in str(record.getMessage()):
+            return False
+        return True
+
+
+# Apply filter to uvicorn access logs
+logging.getLogger("uvicorn.access").addFilter(HidePingFilter())
 
 
 class Settings(BaseSettings):
@@ -170,6 +184,12 @@ async def on_shutdown() -> None:
 
 @app.get("/health")
 async def health() -> dict[str, str]:
+    return {"status": "ok"}
+
+
+@app.get("/api/ping")
+async def ping() -> dict[str, str]:
+    """Silent connectivity check endpoint - minimal logging"""
     return {"status": "ok"}
 
 
