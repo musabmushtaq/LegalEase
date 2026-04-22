@@ -173,6 +173,12 @@ async def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
+@app.get("/api/ping")
+async def ping() -> dict[str, str]:
+    """Silent connectivity check endpoint - minimal logging"""
+    return {"status": "ok"}
+
+
 @app.get("/users/{user_id}/chats")
 async def list_user_chats(user_id: str) -> dict[str, list[dict[str, Any]]]:
     cursor = db.chats.find({"owner_id": user_id}).sort("updated_at", -1)

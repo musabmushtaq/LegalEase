@@ -197,7 +197,7 @@ class ChatService extends ChangeNotifier {
 
   Future<bool> checkInitialAndInstantNetwork() async {
     try {
-      final uri = Uri.parse('$_apiBaseUrl/health');
+      final uri = Uri.parse('$_apiBaseUrl/api/ping');
       final response = await http.get(uri).timeout(const Duration(seconds: 3));
       final isOnline = response.statusCode == 200;
       if (!isOnline) {
@@ -219,7 +219,7 @@ class ChatService extends ChangeNotifier {
 
   Future<void> _checkConnectivity() async {
     try {
-      final uri = Uri.parse('$_apiBaseUrl/health');
+      final uri = Uri.parse('$_apiBaseUrl/api/ping');
       // Increased timeout from 3s to 10s to handle WiFi latency gracefully
       final response = await http.get(uri).timeout(const Duration(seconds: 10));
 
