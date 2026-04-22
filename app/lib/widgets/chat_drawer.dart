@@ -28,8 +28,19 @@ class _ChatDrawerState extends State<ChatDrawer> {
   }
 
   Future<void> _deleteChat(String id) async {
+    final wasCurrentChat = widget.chatService.currentChatId == id;
     await widget.chatService.deleteChat(id);
-    setState(() {});
+    
+    if (wasCurrentChat) {
+      // If the deleted chat was the current one, trigger ChatScreen rebuild
+      if (mounted) {
+        widget.onChatSelected();
+      }
+    }
+    
+    if (mounted) {
+      setState(() {});
+    }
   }
 
   void _renameChat(String id, String currentTitle) {
