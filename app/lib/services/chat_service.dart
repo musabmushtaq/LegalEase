@@ -187,6 +187,36 @@ class ChatService extends ChangeNotifier {
     _checkConnectivity();
   }
 
+  void _forceOfflineState() {
+    _isConnected = false;
+    _currentChatId = null;
+    _chats.clear();
+    _messages.clear();
+    notifyListeners();
+  }
+
+  Future<bool> checkInitialAndInstantNetwork() async {
+    try {
+      final uri = Uri.parse('$_apiBaseUrl/health');
+      final response = await http.get(uri).timeout(const Duration(seconds: 3));
+      final isOnline = response.statusCode == 200;
+      if (!isOnline) {
+        _forceOfflineState();
+      } else {
+        if (!_isConnected) {
+          _isConnected = true;
+          _consecutiveFailures = 0;
+          await _syncFromApi();
+          notifyListeners();
+        }
+      }
+      return isOnline;
+    } catch (_) {
+      _forceOfflineState();
+      return false;
+    }
+  }
+
   Future<void> _checkConnectivity() async {
     try {
       final uri = Uri.parse('$_apiBaseUrl/health');
@@ -214,12 +244,7 @@ class ChatService extends ChangeNotifier {
       _consecutiveFailures++;
 
       if (_consecutiveFailures >= 2 && _isConnected) {
-        _isConnected = false;
-        // Clear all cached data when disconnected - cache only for connected state
-        _chats.clear();
-        _messages.clear();
-        _currentChatId = null;
-        notifyListeners();
+        _forceOfflineState();
       }
     }
   }
@@ -305,6 +330,12 @@ class ChatService extends ChangeNotifier {
     if (_userId == null && !_isTemporaryChat) return;
 
     final actualUserId = _userId ?? 'temp_user';
+
+    final isOnline = await checkInitialAndInstantNetwork();
+    if (!isOnline && !_isTemporaryChat) {
+      return;
+    }
+
     try {
       final uri = Uri.parse('$_apiBaseUrl/users/$actualUserId/chats');
       final response = await http
@@ -380,16 +411,19 @@ class ChatService extends ChangeNotifier {
 
   Future<void> sendUserMessage(String content, {File? file}) async {
     if (_userId == null && !_isTemporaryChat) return;
+
+    // Immediately check network before sending
+    final isOnline = await checkInitialAndInstantNetwork();
+    if (!isOnline && !_isTemporaryChat) {
+      // If offline, checkInitialAndInstantNetwork() already enforces offline state
+      // (clears cache, drops current chat, shows red banner). Just return.
+      return;
+    }
+
     if (_currentChatId == null) {
       await createNewChat();
     }
     if (_currentChatId == null) return;
-
-    if (!_isConnected && !_isTemporaryChat) {
-      addMessage(content, 'user', localFilePath: file?.path);
-      addMessage('Service unavailable.', 'ai');
-      return;
-    }
 
     final currentId = _currentChatId!;
     addMessage(
@@ -438,12 +472,19 @@ class ChatService extends ChangeNotifier {
         'ai',
       );
     } else {
-      addMessage('Backend unavailable.', 'ai');
+      // If actual request fails dynamically despite earlier ping, force offline state
+      _forceOfflineState();
     }
   }
 
   Future<List<Chat>> searchChats(String query) async {
     if (_userId == null || query.isEmpty) return [];
+
+    final isOnline = await checkInitialAndInstantNetwork();
+    if (!isOnline) {
+      return [];
+    }
+
     try {
       final uri = Uri.parse('$_apiBaseUrl/users/$_userId/search?query=$query');
       final response = await http
@@ -458,6 +499,9 @@ class ChatService extends ChangeNotifier {
   }
 
   Future<void> deleteChat(String chatId) async {
+    final isOnline = await checkInitialAndInstantNetwork();
+    if (!isOnline) return;
+
     _chats.remove(chatId);
     _messages.remove(chatId);
     if (_currentChatId == chatId) {
@@ -473,6 +517,9 @@ class ChatService extends ChangeNotifier {
   }
 
   Future<void> togglePinChat(String chatId) async {
+    final isOnline = await checkInitialAndInstantNetwork();
+    if (!isOnline) return;
+
     if (_chats[chatId] != null) {
       _chats[chatId]!.isPinned = !_chats[chatId]!.isPinned;
       await _saveChats();
@@ -481,6 +528,9 @@ class ChatService extends ChangeNotifier {
   }
 
   Future<void> renameChat(String chatId, String newTitle) async {
+    final isOnline = await checkInitialAndInstantNetwork();
+    if (!isOnline) return;
+
     if (_chats[chatId] != null) {
       _chats[chatId]!.title = newTitle;
       await _saveChats();

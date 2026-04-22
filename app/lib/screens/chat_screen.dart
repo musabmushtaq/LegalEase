@@ -203,8 +203,13 @@ class _ChatScreenState extends State<ChatScreen> {
                   _buildFloatingIconButton(
                     icon: Icons.menu,
                     isDotted: _chatService.isTemporaryChat,
-                    onPressed: () {
-                      _scaffoldKey.currentState?.openDrawer();
+                    onPressed: () async {
+                      if (!_chatService.isTemporaryChat) {
+                        await _chatService.checkInitialAndInstantNetwork();
+                      }
+                      if (mounted) {
+                        _scaffoldKey.currentState?.openDrawer();
+                      }
                     },
                   ),
                   _buildFloatingIconButton(
@@ -242,7 +247,14 @@ class _ChatScreenState extends State<ChatScreen> {
                       _buildFloatingIconButton(
                         icon: Icons.attach_file,
                         isDotted: _chatService.isTemporaryChat,
-                        onPressed: _showAttachmentOptions,
+                        onPressed: () async {
+                          if (!_chatService.isTemporaryChat) {
+                            final isOnline = await _chatService
+                                .checkInitialAndInstantNetwork();
+                            if (!isOnline) return;
+                          }
+                          if (mounted) _showAttachmentOptions();
+                        },
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -423,7 +435,8 @@ class _ChatScreenState extends State<ChatScreen> {
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (context) => const LiveCallScreen(),
+                                    builder: (context) =>
+                                        const LiveCallScreen(),
                                   ),
                                 );
                               },
