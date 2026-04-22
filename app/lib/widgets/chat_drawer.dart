@@ -337,7 +337,8 @@ class _ChatDrawerState extends State<ChatDrawer> {
   }
 
   Widget _buildChatItem(Chat chat) {
-    final isSelected = _selectedChatId == chat.id;
+    final isCurrentChat = widget.chatService.currentChatId == chat.id;
+    final isMenuSelected = _selectedChatId == chat.id;
 
     return GestureDetector(
       onLongPress: () {
@@ -353,15 +354,19 @@ class _ChatDrawerState extends State<ChatDrawer> {
         margin: const EdgeInsets.symmetric(vertical: 4.0),
         padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 12.0),
         decoration: BoxDecoration(
-          color: isSelected
-              ? Colors.grey.withValues(alpha: 0.2)
-              : Colors.transparent,
+          color: isCurrentChat
+              ? AppTheme.highlight.withValues(alpha: 0.2)
+              : (isMenuSelected
+                  ? Colors.grey.withValues(alpha: 0.2)
+                  : Colors.transparent),
           borderRadius: BorderRadius.circular(12.0),
           border: Border.all(
-            color: isSelected
-                ? Colors.grey.withValues(alpha: 0.3)
-                : Colors.transparent,
-            width: 1,
+            color: isCurrentChat
+                ? AppTheme.highlight.withValues(alpha: 0.5)
+                : (isMenuSelected
+                    ? Colors.grey.withValues(alpha: 0.3)
+                    : Colors.transparent),
+            width: isCurrentChat ? 1.5 : 1,
           ),
         ),
         child: Row(
@@ -369,7 +374,11 @@ class _ChatDrawerState extends State<ChatDrawer> {
             Expanded(
               child: Text(
                 chat.title,
-                style: const TextStyle(color: Colors.white, fontSize: 15),
+                style: TextStyle(
+                  color: isCurrentChat ? AppTheme.highlight : Colors.white,
+                  fontSize: 15,
+                  fontWeight: isCurrentChat ? FontWeight.w600 : FontWeight.normal,
+                ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
