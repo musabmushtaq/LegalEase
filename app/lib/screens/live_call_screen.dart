@@ -401,33 +401,7 @@ class _LiveCallScreenState extends State<LiveCallScreen>
               ),
             ),
 
-            const SizedBox(height: 16),
-
-            // Transcript area (Lower small rectangle)
-            Container(
-              height: 80, // roughly 2 lines of text
-              margin: const EdgeInsets.symmetric(horizontal: 12.0),
-              padding: const EdgeInsets.all(16.0),
-              decoration: BoxDecoration(
-                color: const Color(0xFF1C1C1E),
-                borderRadius: BorderRadius.circular(16.0),
-              ),
-              alignment: Alignment.center,
-              child: _transcription.isEmpty
-                  ? const Text(
-                      "Transcript will appear here...",
-                      style: TextStyle(
-                        color: Colors.white70,
-                        fontSize: 14,
-                        height: 1.4,
-                      ),
-                      textAlign: TextAlign.center,
-                      overflow: TextOverflow.fade,
-                    )
-                  : _buildStyledTranscript(_transcription),
-            ),
-
-            const SizedBox(height: 32),
+            const SizedBox(height: 24),
 
             // Bottom Action Buttons
             Row(
