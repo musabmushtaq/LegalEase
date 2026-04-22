@@ -7,6 +7,7 @@ import 'package:vad/vad.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:http/http.dart' as http;
 import 'package:audioplayers/audioplayers.dart';
+import '../services/chat_service.dart';
 
 class LiveCallScreen extends StatefulWidget {
   const LiveCallScreen({super.key});
@@ -95,10 +96,7 @@ class _LiveCallScreenState extends State<LiveCallScreen>
         final float32List = Float32List.fromList(samples);
         final bytes = float32List.buffer.asUint8List();
 
-        // Use the PC's actual local IP since you're testing on a physical Pixel 6a
-        // The emulator IP (10.0.2.2) doesn't work on physical devices
-        final base = 'http://192.168.100.62:8000';
-        final apiUrl = '$base/api/transcribe_raw';
+        final apiUrl = '${ChatService.apiBaseUrl}/api/transcribe_raw';
 
         final response = await http.post(
           Uri.parse(apiUrl),
@@ -173,8 +171,7 @@ class _LiveCallScreenState extends State<LiveCallScreen>
   Future<void> _playTTS(String text) async {
     if (text.isEmpty) return;
     try {
-      final base = 'http://192.168.100.62:8000';
-      final apiUrl = '$base/api/tts';
+      final apiUrl = '${ChatService.apiBaseUrl}/api/tts';
       final response = await http.post(
         Uri.parse(apiUrl),
         headers: {'Content-Type': 'application/json'},

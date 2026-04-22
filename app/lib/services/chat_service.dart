@@ -12,6 +12,8 @@ class ChatService extends ChangeNotifier {
     defaultValue: 'http://127.0.0.1:8000',
   );
 
+  static String get apiBaseUrl => _apiBaseUrl;
+
   String? _userId;
   String? _authToken;
 
