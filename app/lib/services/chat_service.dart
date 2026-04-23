@@ -428,6 +428,9 @@ class ChatService extends ChangeNotifier {
     if (_currentChatId == null) return;
 
     final currentId = _currentChatId!;
+    final chat = _chats[currentId];
+    final isFirstMessage = chat?.title == 'New Chat';
+    
     addMessage(
       content +
           (file != null ? " [Attachment: ${file.path.split('/').last}]" : ""),
@@ -464,6 +467,15 @@ class ChatService extends ChangeNotifier {
           await _saveChats();
           notifyListeners();
         }
+        
+        // Auto-generate title from first message
+        if (isFirstMessage) {
+          final summary = await summarizeText(content);
+          if (summary != null && summary.isNotEmpty) {
+            await renameChat(currentId, summary);
+          }
+        }
+        
         return;
       }
     } catch (_) {}
@@ -538,5 +550,27 @@ class ChatService extends ChangeNotifier {
       await _saveChats();
       notifyListeners();
     }
+  }
+
+  Future<String?> summarizeText(String text) async {
+    final isOnline = await checkInitialAndInstantNetwork();
+    if (!isOnline) return null;
+
+    try {
+      final uri = Uri.parse('$_apiBaseUrl/api/summarize');
+      final response = await http
+          .post(
+            uri,
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'text': text}),
+          )
+          .timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        return data['summary'] as String?;
+      }
+    } catch (_) {}
+    return null;
   }
 }

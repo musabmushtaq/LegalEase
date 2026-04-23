@@ -101,6 +101,10 @@ class ShareToggleRequest(BaseModel):
     enabled: bool = True
 
 
+class SummarizeRequest(BaseModel):
+    text: str = Field(min_length=1)
+
+
 def now_iso() -> str:
     return datetime.now(UTC).isoformat()
 
@@ -165,6 +169,8 @@ async def on_startup() -> None:
         get_whisper_model()
         print("=" * 60)
         get_kpipeline()
+        print("=" * 60)
+        get_bart_summarizer()
         
         print("=" * 60)
         print("All systems ready! API accepting requests...")
@@ -434,6 +440,7 @@ from fastapi.responses import StreamingResponse
 
 _whisper_model = None
 _kpipeline = None
+_bart_summarizer = None
 
 def get_kpipeline():
     global _kpipeline
@@ -450,6 +457,18 @@ def get_kpipeline():
             _kpipeline = KPipeline(lang_code='a') 
             print("Successfully loaded Kokoro-82M.")
     return _kpipeline
+
+
+def get_bart_summarizer():
+    global _bart_summarizer
+    if _bart_summarizer is None:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            from transformers import pipeline
+            print("Loading BART summarizer locally...")
+            _bart_summarizer = pipeline("summarization", model="facebook/bart-large-cnn", device=0)
+            print("Successfully loaded BART summarizer on GPU.")
+    return _bart_summarizer
 
 @app.post("/api/tts")
 async def generate_tts(payload: dict):
@@ -529,6 +548,32 @@ async def transcribe_raw(request: Request):
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/summarize")
+async def summarize(payload: SummarizeRequest) -> dict[str, str]:
+    """Summarize text to generate chat titles using BART."""
+    text = payload.text.strip()
+    
+    # Skip very short messages
+    if len(text.split()) < 5:
+        return {"summary": text[:50]}  # Use original text as title if too short
+    
+    try:
+        summarizer = get_bart_summarizer()
+        # BART expects input length max 1024 tokens, limit to first 512 chars
+        truncated_text = text[:512]
+        
+        # Set min_length and max_length for more concise titles (5-10 words)
+        result = summarizer(truncated_text, max_length=20, min_length=5, do_sample=False)
+        summary = result[0]["summary_text"]
+        
+        return {"summary": summary}
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        # Fallback to original text if summarization fails
+        return {"summary": text[:50] + "..." if len(text) > 50 else text}
 
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
