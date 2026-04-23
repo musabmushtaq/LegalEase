@@ -189,8 +189,13 @@ class _ChatScreenState extends State<ChatScreen> {
       body: SafeArea(
         child: Stack(
           children: [
-            // Main Chat Body (Scrollable)
-            _buildChatBody(),
+            // Main Chat Body (Scrollable) - Listens to ChatService changes
+            ListenableBuilder(
+              listenable: _chatService,
+              builder: (context, child) {
+                return _buildChatBody();
+              },
+            ),
 
             // Top Overlay Actions (Menu & New Chat)
             Positioned(
