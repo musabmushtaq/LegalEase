@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:async';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:web_socket_channel/web_socket_channel.dart';
 import '../models/chat.dart';
 
 class ChatService extends ChangeNotifier {
@@ -26,6 +27,13 @@ class ChatService extends ChangeNotifier {
   bool _isAuthenticated = false;
   bool _isTemporaryChat = false;
   int _consecutiveFailures = 0;
+
+  // WebSocket connection
+  WebSocketChannel? _wsChannel;
+  StreamSubscription? _wsSubscription;
+  int _wsReconnectAttempts = 0;
+  static const int _maxWsReconnectAttempts = 5;
+  late Duration _wsReconnectDelay;
 
   bool get isConnected => _isConnected;
   bool get isAuthenticated => _isAuthenticated;
@@ -62,6 +70,8 @@ class ChatService extends ChangeNotifier {
     } else {
       _isTemporaryChat = true;
     }
+    _wsReconnectDelay = const Duration(seconds: 1);
+    _connectWebSocket();
     _startConnectivityMonitoring();
   }
 
@@ -251,9 +261,76 @@ class ChatService extends ChangeNotifier {
     }
   }
 
+  void _connectWebSocket() {
+    try {
+      final wsUrl = _apiBaseUrl.replaceFirst('http', 'ws');
+      final uri = Uri.parse('$wsUrl/ws/health');
+
+      _wsChannel = WebSocketChannel.connect(uri);
+
+      // Listen for messages from server
+      _wsSubscription = _wsChannel!.stream.listen(
+        (message) {
+          // Heartbeat received - connection is alive
+          _wsReconnectAttempts = 0;
+          if (!_isConnected) {
+            _isConnected = true;
+            _consecutiveFailures = 0;
+            notifyListeners();
+          }
+        },
+        onError: (error) {
+          _handleWebSocketError();
+        },
+        onDone: () {
+          _handleWebSocketDisconnect();
+        },
+      );
+    } catch (e) {
+      _handleWebSocketError();
+    }
+  }
+
+  void _handleWebSocketError() {
+    _closeWebSocket();
+    _scheduleWebSocketReconnect();
+  }
+
+  void _handleWebSocketDisconnect() {
+    _closeWebSocket();
+    if (_isConnected) {
+      _forceOfflineState();
+    }
+    _scheduleWebSocketReconnect();
+  }
+
+  void _scheduleWebSocketReconnect() {
+    if (_wsReconnectAttempts < _maxWsReconnectAttempts) {
+      _wsReconnectAttempts++;
+      Future.delayed(_wsReconnectDelay, () {
+        if (_wsChannel == null) {
+          _wsReconnectDelay = Duration(
+            seconds: (_wsReconnectDelay.inSeconds * 2).clamp(1, 60),
+          );
+          _connectWebSocket();
+        }
+      });
+    }
+  }
+
+  void _closeWebSocket() {
+    _wsSubscription?.cancel();
+    _wsSubscription = null;
+    try {
+      _wsChannel?.sink.close();
+    } catch (_) {}
+    _wsChannel = null;
+  }
+
   @override
   void dispose() {
     _connectivityTimer?.cancel();
+    _closeWebSocket();
     super.dispose();
   }
 
@@ -430,7 +507,7 @@ class ChatService extends ChangeNotifier {
     final currentId = _currentChatId!;
     final chat = _chats[currentId];
     final isFirstMessage = chat?.title == 'New Chat';
-    
+
     addMessage(
       content +
           (file != null ? " [Attachment: ${file.path.split('/').last}]" : ""),
@@ -467,7 +544,7 @@ class ChatService extends ChangeNotifier {
           await _saveChats();
           notifyListeners();
         }
-        
+
         // Auto-generate title from first message
         if (isFirstMessage) {
           final summary = await summarizeText(content);
@@ -475,7 +552,7 @@ class ChatService extends ChangeNotifier {
             await renameChat(currentId, summary);
           }
         }
-        
+
         return;
       }
     } catch (_) {}

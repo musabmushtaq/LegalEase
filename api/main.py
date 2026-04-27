@@ -4,6 +4,7 @@ import uuid
 import os
 import sys
 import warnings
+import asyncio
 from datetime import UTC, datetime
 from typing import Any
 
@@ -30,7 +31,7 @@ if os.name == "nt":
             os.add_dll_directory(cudnn)
             os.environ["PATH"] += os.pathsep + cudnn
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 from pydantic import BaseModel, Field
@@ -197,6 +198,25 @@ async def health() -> dict[str, str]:
 async def ping() -> dict[str, str]:
     """Silent connectivity check endpoint - minimal logging"""
     return {"status": "ok"}
+
+
+@app.websocket("/ws/health")
+async def websocket_health(websocket: WebSocket) -> None:
+    """WebSocket endpoint for real-time connection monitoring.
+    Sends heartbeat every 10 seconds to detect disconnection instantly."""
+    await websocket.accept()
+    try:
+        while True:
+            # Send heartbeat every 10 seconds
+            await asyncio.sleep(10)
+            await websocket.send_json({"type": "heartbeat", "timestamp": datetime.now(UTC).isoformat()})
+    except WebSocketDisconnect:
+        pass
+    except Exception as e:
+        try:
+            await websocket.close()
+        except:
+            pass
 
 
 @app.get("/users/{user_id}/chats")
