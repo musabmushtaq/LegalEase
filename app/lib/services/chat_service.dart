@@ -69,7 +69,10 @@ class ChatService extends ChangeNotifier {
   Future<void> initialize() async {
     await _loadAuth();
     if (_isAuthenticated) {
-      await _syncFromApi();
+      // Load current chat from cache for instant UI display
+      await _restoreCurrentChatFromCache();
+      // Fetch fresh data in background
+      _syncFromApi();
     } else {
       _isTemporaryChat = true;
     }
@@ -84,7 +87,6 @@ class ChatService extends ChangeNotifier {
       final tempId = _currentChatId!;
       _chats.remove(tempId);
       _messages.remove(tempId);
-      _saveChats();
       try {
         final uri = Uri.parse('$_apiBaseUrl/chats/$tempId');
         http.delete(uri, headers: _headers());
@@ -187,7 +189,8 @@ class ChatService extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('userId');
     await prefs.remove('authToken');
-    await prefs.remove('chatCache');
+    await prefs.remove('currentChatCache');
+    await prefs.remove('currentChatIdCache');
 
     notifyListeners();
   }
@@ -368,32 +371,34 @@ class ChatService extends ChangeNotifier {
     super.dispose();
   }
 
-  Future<void> _loadChats() async {
+  /// Restore the current chat from cache for instant UI display
+  /// This is lightweight - only loads the active conversation, not all chats
+  Future<void> _restoreCurrentChatFromCache() async {
     final prefs = await SharedPreferences.getInstance();
-    final cacheBytes = prefs.getString('chatCache');
-    if (cacheBytes != null) {
+    final chatCacheJson = prefs.getString('currentChatCache');
+    final currentChatId = prefs.getString('currentChatIdCache');
+    
+    if (chatCacheJson != null && currentChatId != null) {
       try {
-        final List<dynamic> items = jsonDecode(cacheBytes);
-        _chats.clear();
-        _messages.clear();
-        for (final item in items) {
-          final chat = Chat.fromJson(item);
-          _chats[chat.id] = chat;
-          final rawMessages = (item['messages'] as List<dynamic>? ?? [])
-              .whereType<Map<String, dynamic>>()
-              .toList();
-          _messages[chat.id] = rawMessages.map(ChatMessage.fromJson).toList();
-        }
+        final chatJson = jsonDecode(chatCacheJson) as Map<String, dynamic>;
+        final chat = Chat.fromJson(chatJson);
+        _currentChatId = currentChatId;
+        _chats[chat.id] = chat;
+        
+        final rawMessages = (chatJson['messages'] as List<dynamic>? ?? [])
+            .whereType<Map<String, dynamic>>()
+            .toList();
+        _messages[chat.id] = rawMessages.map(ChatMessage.fromJson).toList();
+        
         notifyListeners();
       } catch (_) {}
     }
   }
 
+  /// Sync chats from backend API
+  /// Only caches the current chat to shared preferences for speed
   Future<void> _syncFromApi() async {
     if (_userId == null) return;
-
-    // Load cache first for fast UI display (only when retrieving from server)
-    await _loadChats();
 
     try {
       final uri = Uri.parse('$_apiBaseUrl/users/$_userId/chats');
@@ -420,22 +425,30 @@ class ChatService extends ChangeNotifier {
           _messages[chat.id] = rawMessages.map(ChatMessage.fromJson).toList();
         }
 
-        await _saveChats();
+        // Only cache current chat for instant UI load
+        if (_currentChatId != null && _chats.containsKey(_currentChatId)) {
+          await _saveCurrentChatToCache();
+        }
         notifyListeners();
       }
     } catch (_) {}
   }
 
-  Future<void> _saveChats() async {
+  /// Save only the current chat to cache for fast UI restoration
+  /// Shared preferences is temporary storage layer, not a database
+  Future<void> _saveCurrentChatToCache() async {
+    if (_currentChatId == null || !_chats.containsKey(_currentChatId)) return;
+
     try {
       final prefs = await SharedPreferences.getInstance();
-      var chatList = _chats.values.map((c) {
-        var json = c.toJson();
-        json['messages'] =
-            _messages[c.id]?.map((m) => m.toJson()).toList() ?? [];
-        return json;
-      }).toList();
-      await prefs.setString('chatCache', jsonEncode(chatList));
+      final currentChat = _chats[_currentChatId]!;
+      var json = currentChat.toJson();
+      json['messages'] = _messages[_currentChatId]
+              ?.map((m) => m.toJson())
+              .toList() ?? [];
+      
+      await prefs.setString('currentChatCache', jsonEncode(json));
+      await prefs.setString('currentChatIdCache', _currentChatId!);
     } catch (_) {}
   }
 
@@ -465,7 +478,7 @@ class ChatService extends ChangeNotifier {
         _currentChatId = chat.id;
         _chats[chat.id] = chat;
         _messages[chat.id] = [];
-        await _saveChats();
+        await _saveCurrentChatToCache();
         notifyListeners();
         return;
       }
@@ -481,7 +494,7 @@ class ChatService extends ChangeNotifier {
       updatedAt: DateTime.now(),
     );
     _messages[chatId] = [];
-    await _saveChats();
+    await _saveCurrentChatToCache();
     notifyListeners();
   }
 
@@ -491,6 +504,8 @@ class ChatService extends ChangeNotifier {
     }
     _currentChatId = chatId;
     _isTemporaryChat = false;
+    // Cache the newly selected chat for fast restoration
+    _saveCurrentChatToCache();
     notifyListeners();
   }
 
@@ -502,7 +517,7 @@ class ChatService extends ChangeNotifier {
     notifyListeners();
   }
 
-  void addMessage(String content, String sender, {String? localFilePath}) {
+  Future<void> addMessage(String content, String sender, {String? localFilePath}) async {
     if (_currentChatId == null) return;
 
     final messageId = DateTime.now().millisecondsSinceEpoch.toString();
@@ -517,7 +532,7 @@ class ChatService extends ChangeNotifier {
 
     _messages[_currentChatId]?.add(message);
     _chats[_currentChatId]!.updatedAt = DateTime.now();
-    _saveChats();
+    await _saveCurrentChatToCache();
 
     notifyListeners();
   }
@@ -575,7 +590,7 @@ class ChatService extends ChangeNotifier {
           aiMsg.isNew = true;
           _messages[currentId]?.add(aiMsg);
           _chats[currentId]?.updatedAt = DateTime.now();
-          await _saveChats();
+          await _saveCurrentChatToCache();
           notifyListeners();
         }
 
@@ -631,8 +646,11 @@ class ChatService extends ChangeNotifier {
     _messages.remove(chatId);
     if (_currentChatId == chatId) {
       _currentChatId = null;
+      // Clear cache when current chat is deleted
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('currentChatCache');
+      await prefs.remove('currentChatIdCache');
     }
-    await _saveChats();
     notifyListeners();
 
     try {
@@ -647,7 +665,10 @@ class ChatService extends ChangeNotifier {
 
     if (_chats[chatId] != null) {
       _chats[chatId]!.isPinned = !_chats[chatId]!.isPinned;
-      await _saveChats();
+      // Update cache if this is the current chat
+      if (_currentChatId == chatId) {
+        await _saveCurrentChatToCache();
+      }
       notifyListeners();
     }
   }
@@ -658,7 +679,10 @@ class ChatService extends ChangeNotifier {
 
     if (_chats[chatId] != null) {
       _chats[chatId]!.title = newTitle;
-      await _saveChats();
+      // Update cache if this is the current chat
+      if (_currentChatId == chatId) {
+        await _saveCurrentChatToCache();
+      }
       notifyListeners();
     }
   }
