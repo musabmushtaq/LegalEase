@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'dart:async';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import '../models/chat.dart';
 
 class ChatService extends ChangeNotifier {
@@ -34,6 +35,8 @@ class ChatService extends ChangeNotifier {
   int _wsReconnectAttempts = 0;
   static const int _maxWsReconnectAttempts = 5;
   late Duration _wsReconnectDelay;
+  StreamSubscription? _connectivitySubscription;
+  ConnectivityResult? _lastConnectivityResult;
 
   bool get isConnected => _isConnected;
   bool get isAuthenticated => _isAuthenticated;
@@ -73,6 +76,7 @@ class ChatService extends ChangeNotifier {
     _wsReconnectDelay = const Duration(seconds: 1);
     _connectWebSocket();
     _startConnectivityMonitoring();
+    _listenToConnectivityChanges();
   }
 
   void _cleanupSessionTempChat() {
@@ -197,6 +201,34 @@ class ChatService extends ChangeNotifier {
     );
     // Perform an initial check immediately
     _checkConnectivity();
+  }
+
+  void _listenToConnectivityChanges() {
+    try {
+      final connectivity = Connectivity();
+      _connectivitySubscription = connectivity.onConnectivityChanged.listen((
+        List<ConnectivityResult> results,
+      ) {
+        if (results.isEmpty) return;
+        final newResult = results.first;
+        final wasOffline = _lastConnectivityResult == ConnectivityResult.none;
+        final isNowOnline = newResult != ConnectivityResult.none;
+
+        _lastConnectivityResult = newResult;
+
+        // If we just came back online, immediately attempt WebSocket reconnection
+        if (wasOffline && isNowOnline) {
+          _wsReconnectAttempts = 0;
+          _wsReconnectDelay = const Duration(seconds: 1);
+          _closeWebSocket();
+          _connectWebSocket();
+        }
+      }, onError: (_) {
+        // Gracefully handle missing platform implementation (e.g., in unit tests)
+      });
+    } catch (_) {
+      // Connectivity plugin not available (e.g., in unit tests) - fall back to polling only
+    }
   }
 
   void _forceOfflineState() {
@@ -330,6 +362,7 @@ class ChatService extends ChangeNotifier {
   @override
   void dispose() {
     _connectivityTimer?.cancel();
+    _connectivitySubscription?.cancel();
     _closeWebSocket();
     super.dispose();
   }
