@@ -208,12 +208,14 @@ class _ChatScreenState extends State<ChatScreen> {
                   _buildFloatingIconButton(
                     icon: Icons.menu,
                     isDotted: _chatService.isTemporaryChat,
-                    onPressed: () async {
-                      if (!_chatService.isTemporaryChat) {
-                        await _chatService.checkInitialAndInstantNetwork();
-                      }
+                    onPressed: () {
+                      // Open drawer immediately without blocking network check
                       if (mounted) {
                         _scaffoldKey.currentState?.openDrawer();
+                      }
+                      // Non-blocking background check
+                      if (!_chatService.isTemporaryChat) {
+                        _chatService.checkInitialAndInstantNetwork();
                       }
                     },
                   ),

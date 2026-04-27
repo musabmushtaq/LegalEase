@@ -20,27 +20,22 @@ class ChatDrawer extends StatefulWidget {
 }
 
 class _ChatDrawerState extends State<ChatDrawer> {
-  String? _selectedChatId;
-
   Future<void> _togglePin(String id) async {
     await widget.chatService.togglePinChat(id);
-    setState(() {});
+    // Don't call setState - ChatService notifies listeners
   }
 
   Future<void> _deleteChat(String id) async {
     final wasCurrentChat = widget.chatService.currentChatId == id;
     await widget.chatService.deleteChat(id);
-    
+
     if (wasCurrentChat) {
       // If the deleted chat was the current one, trigger ChatScreen rebuild
       if (mounted) {
         widget.onChatSelected();
       }
     }
-    
-    if (mounted) {
-      setState(() {});
-    }
+    // Don't call setState - ChatService notifies listeners
   }
 
   void _renameChat(String id, String currentTitle) {
@@ -82,7 +77,6 @@ class _ChatDrawerState extends State<ChatDrawer> {
               onPressed: () {
                 if (controller.text.isNotEmpty) {
                   widget.chatService.renameChat(id, controller.text);
-                  setState(() {});
                   Navigator.pop(context);
                 }
               },
@@ -278,39 +272,45 @@ class _ChatDrawerState extends State<ChatDrawer> {
 
               // Chats List Wrapper
               Expanded(
-                child: !widget.chatService.isConnected
-                    ? const Center(
+                child: ListenableBuilder(
+                  listenable: widget.chatService,
+                  builder: (context, _) {
+                    if (!widget.chatService.isConnected) {
+                      return const Center(
                         child: Text(
                           "Cannot connect",
                           style: TextStyle(color: Colors.grey, fontSize: 16),
                         ),
-                      )
-                    : ListView(
-                        physics: const BouncingScrollPhysics(),
-                        children: [
-                          const Padding(
-                            padding: EdgeInsets.only(bottom: 8.0),
-                            child: Text(
-                              "Chats",
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                              ),
+                      );
+                    }
+                    return ListView(
+                      physics: const BouncingScrollPhysics(),
+                      children: [
+                        const Padding(
+                          padding: EdgeInsets.only(bottom: 8.0),
+                          child: Text(
+                            "Chats",
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
+                        ),
 
-                          // Pinned Sublist
-                          if (pinnedChats.isNotEmpty)
-                            ...pinnedChats.map((c) => _buildChatItem(c)),
+                        // Pinned Sublist
+                        if (pinnedChats.isNotEmpty)
+                          ...pinnedChats.map((c) => _buildChatItem(c)),
 
-                          // Recent Sublist
-                          if (recentChats.isNotEmpty) ...[
-                            const SizedBox(height: 12), // Visual separation
-                            ...recentChats.map((c) => _buildChatItem(c)),
-                          ],
+                        // Recent Sublist
+                        if (recentChats.isNotEmpty) ...[
+                          const SizedBox(height: 12), // Visual separation
+                          ...recentChats.map((c) => _buildChatItem(c)),
                         ],
-                      ),
+                      ],
+                    );
+                  },
+                ),
               ),
 
               // Bottom settings/logout
@@ -318,11 +318,15 @@ class _ChatDrawerState extends State<ChatDrawer> {
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: Icon(
-                  widget.chatService.isAuthenticated ? Icons.logout : Icons.login,
+                  widget.chatService.isAuthenticated
+                      ? Icons.logout
+                      : Icons.login,
                   color: Colors.grey,
                 ),
                 title: Text(
-                  widget.chatService.isAuthenticated ? 'Logout' : 'Login / Sign Up',
+                  widget.chatService.isAuthenticated
+                      ? 'Logout'
+                      : 'Login / Sign Up',
                   style: const TextStyle(color: Colors.white),
                 ),
                 onTap: () async {
@@ -333,7 +337,8 @@ class _ChatDrawerState extends State<ChatDrawer> {
                     Navigator.pushReplacement(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => LoginScreen(chatService: widget.chatService),
+                        builder: (_) =>
+                            LoginScreen(chatService: widget.chatService),
                       ),
                     );
                   }
@@ -349,11 +354,9 @@ class _ChatDrawerState extends State<ChatDrawer> {
 
   Widget _buildChatItem(Chat chat) {
     final isCurrentChat = widget.chatService.currentChatId == chat.id;
-    final isMenuSelected = _selectedChatId == chat.id;
 
     return GestureDetector(
       onLongPress: () {
-        setState(() => _selectedChatId = chat.id);
         _showChatMenu(chat);
       },
       onTap: () {
@@ -367,16 +370,12 @@ class _ChatDrawerState extends State<ChatDrawer> {
         decoration: BoxDecoration(
           color: isCurrentChat
               ? AppTheme.highlight.withValues(alpha: 0.2)
-              : (isMenuSelected
-                  ? Colors.grey.withValues(alpha: 0.2)
-                  : Colors.transparent),
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(12.0),
           border: Border.all(
             color: isCurrentChat
                 ? AppTheme.highlight.withValues(alpha: 0.5)
-                : (isMenuSelected
-                    ? Colors.grey.withValues(alpha: 0.3)
-                    : Colors.transparent),
+                : Colors.transparent,
             width: isCurrentChat ? 1.5 : 1,
           ),
         ),
@@ -388,7 +387,9 @@ class _ChatDrawerState extends State<ChatDrawer> {
                 style: TextStyle(
                   color: isCurrentChat ? AppTheme.highlight : Colors.white,
                   fontSize: 15,
-                  fontWeight: isCurrentChat ? FontWeight.w600 : FontWeight.normal,
+                  fontWeight: isCurrentChat
+                      ? FontWeight.w600
+                      : FontWeight.normal,
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,

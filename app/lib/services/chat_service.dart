@@ -206,26 +206,27 @@ class ChatService extends ChangeNotifier {
   void _listenToConnectivityChanges() {
     try {
       final connectivity = Connectivity();
-      _connectivitySubscription = connectivity.onConnectivityChanged.listen((
-        List<ConnectivityResult> results,
-      ) {
-        if (results.isEmpty) return;
-        final newResult = results.first;
-        final wasOffline = _lastConnectivityResult == ConnectivityResult.none;
-        final isNowOnline = newResult != ConnectivityResult.none;
+      _connectivitySubscription = connectivity.onConnectivityChanged.listen(
+        (List<ConnectivityResult> results) {
+          if (results.isEmpty) return;
+          final newResult = results.first;
+          final wasOffline = _lastConnectivityResult == ConnectivityResult.none;
+          final isNowOnline = newResult != ConnectivityResult.none;
 
-        _lastConnectivityResult = newResult;
+          _lastConnectivityResult = newResult;
 
-        // If we just came back online, immediately attempt WebSocket reconnection
-        if (wasOffline && isNowOnline) {
-          _wsReconnectAttempts = 0;
-          _wsReconnectDelay = const Duration(seconds: 1);
-          _closeWebSocket();
-          _connectWebSocket();
-        }
-      }, onError: (_) {
-        // Gracefully handle missing platform implementation (e.g., in unit tests)
-      });
+          // If we just came back online, immediately attempt WebSocket reconnection
+          if (wasOffline && isNowOnline) {
+            _wsReconnectAttempts = 0;
+            _wsReconnectDelay = const Duration(seconds: 1);
+            _closeWebSocket();
+            _connectWebSocket();
+          }
+        },
+        onError: (_) {
+          // Gracefully handle missing platform implementation (e.g., in unit tests)
+        },
+      );
     } catch (_) {
       // Connectivity plugin not available (e.g., in unit tests) - fall back to polling only
     }
