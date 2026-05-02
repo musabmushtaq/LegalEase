@@ -239,11 +239,10 @@ class ChatService extends ChangeNotifier {
   }
 
   void _forceOfflineState() {
-    _isConnected = false;
-    _currentChatId = null;
-    _chats.clear();
-    _messages.clear();
-    notifyListeners();
+    if (_isConnected) {
+      _isConnected = false;
+      notifyListeners();
+    }
   }
 
   Future<bool> checkInitialAndInstantNetwork() async {
@@ -702,7 +701,7 @@ class ChatService extends ChangeNotifier {
       try {
         final uri = Uri.parse('$_apiBaseUrl/chats/$chatId');
         await http
-            .put(
+            .patch(
               uri,
               headers: _headers(),
               body: jsonEncode({'title': newTitle}),

@@ -153,7 +153,7 @@ def call_gemini_api_sync(prompt: str, system_prompt: str, chat_history: list) ->
 
     for _ in range(len(API_KEYS)):
         key = API_KEYS[_current_key_index]
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={key}"
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent?key={key}"
         
         try:
             resp = requests.post(url, json=payload, timeout=30)
