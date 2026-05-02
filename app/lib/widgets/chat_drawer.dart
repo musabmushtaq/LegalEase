@@ -354,6 +354,7 @@ class _ChatDrawerState extends State<ChatDrawer> {
 
   Widget _buildChatItem(Chat chat) {
     final isCurrentChat = widget.chatService.currentChatId == chat.id;
+    final isGeneratingTitle = widget.chatService.isTitleGenerating(chat.id);
 
     return GestureDetector(
       onLongPress: () {
@@ -382,18 +383,22 @@ class _ChatDrawerState extends State<ChatDrawer> {
         child: Row(
           children: [
             Expanded(
-              child: Text(
-                chat.title,
-                style: TextStyle(
-                  color: isCurrentChat ? AppTheme.highlight : Colors.white,
-                  fontSize: 15,
-                  fontWeight: isCurrentChat
-                      ? FontWeight.w600
-                      : FontWeight.normal,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
+              child: isGeneratingTitle
+                  ? _buildAnimatedTitle(chat.title, isCurrentChat)
+                  : Text(
+                      chat.title,
+                      style: TextStyle(
+                        color: isCurrentChat
+                            ? AppTheme.highlight
+                            : Colors.white,
+                        fontSize: 15,
+                        fontWeight: isCurrentChat
+                            ? FontWeight.w600
+                            : FontWeight.normal,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
             ),
             if (chat.isPinned)
               const Padding(
@@ -407,6 +412,27 @@ class _ChatDrawerState extends State<ChatDrawer> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildAnimatedTitle(String title, bool isCurrentChat) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: 0.5, end: 1.0),
+      duration: const Duration(milliseconds: 1000),
+      curve: Curves.easeInOut,
+      builder: (context, opacity, child) {
+        return Text(
+          title,
+          style: TextStyle(
+            color: (isCurrentChat ? AppTheme.highlight : Colors.white)
+                .withValues(alpha: opacity),
+            fontSize: 15,
+            fontWeight: isCurrentChat ? FontWeight.w600 : FontWeight.normal,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        );
+      },
     );
   }
 }

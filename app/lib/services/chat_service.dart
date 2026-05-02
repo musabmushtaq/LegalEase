@@ -22,6 +22,7 @@ class ChatService extends ChangeNotifier {
   String? _currentChatId;
   final Map<String, Chat> _chats = {};
   final Map<String, List<ChatMessage>> _messages = {};
+  final Set<String> _generatingTitles = {}; // Track chats generating titles
 
   bool _isConnected = true;
   Timer? _connectivityTimer;
@@ -49,6 +50,8 @@ class ChatService extends ChangeNotifier {
   List<Chat> get allChats =>
       _chats.values.toList()
         ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+
+  bool isTitleGenerating(String chatId) => _generatingTitles.contains(chatId);
 
   List<Chat> get displayedChats {
     final chatsWithMessages = _chats.values
@@ -377,19 +380,19 @@ class ChatService extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     final chatCacheJson = prefs.getString('currentChatCache');
     final currentChatId = prefs.getString('currentChatIdCache');
-    
+
     if (chatCacheJson != null && currentChatId != null) {
       try {
         final chatJson = jsonDecode(chatCacheJson) as Map<String, dynamic>;
         final chat = Chat.fromJson(chatJson);
         _currentChatId = currentChatId;
         _chats[chat.id] = chat;
-        
+
         final rawMessages = (chatJson['messages'] as List<dynamic>? ?? [])
             .whereType<Map<String, dynamic>>()
             .toList();
         _messages[chat.id] = rawMessages.map(ChatMessage.fromJson).toList();
-        
+
         notifyListeners();
       } catch (_) {}
     }
@@ -443,10 +446,9 @@ class ChatService extends ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       final currentChat = _chats[_currentChatId]!;
       var json = currentChat.toJson();
-      json['messages'] = _messages[_currentChatId]
-              ?.map((m) => m.toJson())
-              .toList() ?? [];
-      
+      json['messages'] =
+          _messages[_currentChatId]?.map((m) => m.toJson()).toList() ?? [];
+
       await prefs.setString('currentChatCache', jsonEncode(json));
       await prefs.setString('currentChatIdCache', _currentChatId!);
     } catch (_) {}
@@ -517,7 +519,11 @@ class ChatService extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> addMessage(String content, String sender, {String? localFilePath}) async {
+  Future<void> addMessage(
+    String content,
+    String sender, {
+    String? localFilePath,
+  }) async {
     if (_currentChatId == null) return;
 
     final messageId = DateTime.now().millisecondsSinceEpoch.toString();
@@ -596,10 +602,17 @@ class ChatService extends ChangeNotifier {
 
         // Auto-generate title from first message
         if (isFirstMessage) {
+          // Show loading state while generating
+          _generatingTitles.add(currentId);
+          _chats[currentId]!.title = 'Generating...';
+          notifyListeners();
+
           final summary = await summarizeText(content);
           if (summary != null && summary.isNotEmpty) {
             await renameChat(currentId, summary);
           }
+
+          _generatingTitles.remove(currentId);
         }
 
         return;
@@ -684,7 +697,26 @@ class ChatService extends ChangeNotifier {
         await _saveCurrentChatToCache();
       }
       notifyListeners();
+
+      // Save title to backend database
+      try {
+        final uri = Uri.parse('$_apiBaseUrl/chats/$chatId');
+        await http
+            .put(
+              uri,
+              headers: _headers(),
+              body: jsonEncode({'title': newTitle}),
+            )
+            .timeout(const Duration(seconds: 10));
+      } catch (_) {}
     }
+  }
+
+  /// Trim summary to max 12 words for chat titles (more descriptive)
+  String _limitSummaryWords(String summary, {int maxWords = 12}) {
+    final words = summary.split(RegExp(r'\s+'));
+    if (words.length <= maxWords) return summary;
+    return words.take(maxWords).join(' ');
   }
 
   Future<String?> summarizeText(String text) async {
@@ -703,7 +735,12 @@ class ChatService extends ChangeNotifier {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
-        return data['summary'] as String?;
+        String? summary = data['summary'] as String?;
+        if (summary != null && summary.isNotEmpty) {
+          // Ensure summary is max 12 words
+          summary = _limitSummaryWords(summary, maxWords: 12);
+        }
+        return summary;
       }
     } catch (_) {}
     return null;

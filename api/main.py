@@ -572,11 +572,11 @@ async def transcribe_raw(request: Request):
 
 @app.post("/api/summarize")
 async def summarize(payload: SummarizeRequest) -> dict[str, str]:
-    """Summarize text to generate chat titles using BART."""
+    """Summarize text to generate chat titles using BART (up to 12 words)."""
     text = payload.text.strip()
     
-    # Skip very short messages
-    if len(text.split()) < 5:
+    # Skip very short messages (less than 2 words)
+    if len(text.split()) < 2:
         return {"summary": text[:50]}  # Use original text as title if too short
     
     try:
@@ -584,8 +584,8 @@ async def summarize(payload: SummarizeRequest) -> dict[str, str]:
         # BART expects input length max 1024 tokens, limit to first 512 chars
         truncated_text = text[:512]
         
-        # Set min_length and max_length for more concise titles (5-10 words)
-        result = summarizer(truncated_text, max_length=20, min_length=5, do_sample=False)
+        # Generate chat titles (up to 12 words for more descriptive names)
+        result = summarizer(truncated_text, max_length=12, min_length=2, do_sample=False)
         summary = result[0]["summary_text"]
         
         return {"summary": summary}
