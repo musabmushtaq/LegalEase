@@ -8,10 +8,14 @@ echo    LegalEase App - Build and Run
 echo ===============================================
 echo.
 
-for /f "delims=" %%A in ('ipconfig ^| find /I "IPv4"') do (
-    set "LINE=%%A"
-    set "IP=!LINE:*: =!"
-    goto :done
+powershell -NoProfile -Command "(Get-NetIPConfiguration | Where-Object { $_.IPv4DefaultGateway -ne $null } | Select-Object -First 1).IPv4Address.IPAddress" > temp_ip.txt
+set /p IP=<temp_ip.txt
+del temp_ip.txt
+
+if "!IP!"=="" (
+    echo ERROR: Could not detect IP address.
+    pause
+    exit /b 1
 )
 
 :done
