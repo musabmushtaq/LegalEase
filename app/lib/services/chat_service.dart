@@ -4,7 +4,6 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:async';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import '../models/chat.dart';
 
@@ -30,12 +29,6 @@ class ChatService extends ChangeNotifier {
   bool _isTemporaryChat = false;
   int _consecutiveFailures = 0;
 
-  // WebSocket connection
-  WebSocketChannel? _wsChannel;
-  StreamSubscription? _wsSubscription;
-  int _wsReconnectAttempts = 0;
-  static const int _maxWsReconnectAttempts = 5;
-  late Duration _wsReconnectDelay;
   StreamSubscription? _connectivitySubscription;
   ConnectivityResult? _lastConnectivityResult;
 
@@ -79,8 +72,6 @@ class ChatService extends ChangeNotifier {
     } else {
       _isTemporaryChat = true;
     }
-    _wsReconnectDelay = const Duration(seconds: 1);
-    _connectWebSocket();
     _startConnectivityMonitoring();
     _listenToConnectivityChanges();
   }
@@ -221,12 +212,9 @@ class ChatService extends ChangeNotifier {
 
           _lastConnectivityResult = newResult;
 
-          // If we just came back online, immediately attempt WebSocket reconnection
+          // If we just came back online, sync from API
           if (wasOffline && isNowOnline) {
-            _wsReconnectAttempts = 0;
-            _wsReconnectDelay = const Duration(seconds: 1);
-            _closeWebSocket();
-            _connectWebSocket();
+            _checkConnectivity();
           }
         },
         onError: (_) {
@@ -299,77 +287,11 @@ class ChatService extends ChangeNotifier {
     }
   }
 
-  void _connectWebSocket() {
-    try {
-      final wsUrl = _apiBaseUrl.replaceFirst('http', 'ws');
-      final uri = Uri.parse('$wsUrl/ws/health');
-
-      _wsChannel = WebSocketChannel.connect(uri);
-
-      // Listen for messages from server
-      _wsSubscription = _wsChannel!.stream.listen(
-        (message) {
-          // Heartbeat received - connection is alive
-          _wsReconnectAttempts = 0;
-          if (!_isConnected) {
-            _isConnected = true;
-            _consecutiveFailures = 0;
-            notifyListeners();
-          }
-        },
-        onError: (error) {
-          _handleWebSocketError();
-        },
-        onDone: () {
-          _handleWebSocketDisconnect();
-        },
-      );
-    } catch (e) {
-      _handleWebSocketError();
-    }
-  }
-
-  void _handleWebSocketError() {
-    _closeWebSocket();
-    _scheduleWebSocketReconnect();
-  }
-
-  void _handleWebSocketDisconnect() {
-    _closeWebSocket();
-    if (_isConnected) {
-      _forceOfflineState();
-    }
-    _scheduleWebSocketReconnect();
-  }
-
-  void _scheduleWebSocketReconnect() {
-    if (_wsReconnectAttempts < _maxWsReconnectAttempts) {
-      _wsReconnectAttempts++;
-      Future.delayed(_wsReconnectDelay, () {
-        if (_wsChannel == null) {
-          _wsReconnectDelay = Duration(
-            seconds: (_wsReconnectDelay.inSeconds * 2).clamp(1, 60),
-          );
-          _connectWebSocket();
-        }
-      });
-    }
-  }
-
-  void _closeWebSocket() {
-    _wsSubscription?.cancel();
-    _wsSubscription = null;
-    try {
-      _wsChannel?.sink.close();
-    } catch (_) {}
-    _wsChannel = null;
-  }
 
   @override
   void dispose() {
     _connectivityTimer?.cancel();
     _connectivitySubscription?.cancel();
-    _closeWebSocket();
     super.dispose();
   }
 

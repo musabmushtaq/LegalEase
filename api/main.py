@@ -256,25 +256,6 @@ async def ping() -> dict[str, str]:
     return {"status": "ok"}
 
 
-@app.websocket("/ws/health")
-async def websocket_health(websocket: WebSocket) -> None:
-    """WebSocket endpoint for real-time connection monitoring.
-    Sends heartbeat every 10 seconds to detect disconnection instantly."""
-    await websocket.accept()
-    try:
-        while True:
-            # Send heartbeat every 10 seconds
-            await asyncio.sleep(10)
-            await websocket.send_json({"type": "heartbeat", "timestamp": datetime.now(UTC).isoformat()})
-    except WebSocketDisconnect:
-        pass
-    except Exception as e:
-        try:
-            await websocket.close()
-        except:
-            pass
-
-
 @app.get("/users/{user_id}/chats")
 async def list_user_chats(user_id: str) -> dict[str, list[dict[str, Any]]]:
     cursor = db.chats.find({"owner_id": user_id}).sort("updated_at", -1)
