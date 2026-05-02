@@ -114,12 +114,68 @@ def make_id(prefix: str) -> str:
     return f"{prefix}_{uuid.uuid4().hex[:12]}"
 
 
-def build_demo_reply(prompt: str) -> str:
-    return (
-        "LegalEase (demo): I received your message - "
-        f"\"{prompt}\". Backend is connected locally. "
-        "Plug Gemini in this endpoint to return real AI responses."
-    )
+import requests
+
+API_KEYS = []
+def load_api_keys():
+    global API_KEYS
+    key_path = os.path.join(os.path.dirname(__file__), "api_keys.csv")
+    try:
+        if os.path.exists(key_path):
+            with open(key_path, "r") as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith("#"):
+                        API_KEYS.append(line)
+    except Exception as e:
+        print(f"Warning: Could not load api_keys.csv: {e}")
+
+load_api_keys()
+_current_key_index = 0
+
+def call_gemini_api_sync(prompt: str, system_prompt: str, chat_history: list) -> str:
+    global _current_key_index
+    if not API_KEYS:
+        return "Error: No API keys configured in api_keys.csv."
+
+    contents = []
+    for msg in chat_history:
+        role = "user" if msg.get("sender") == "user" else "model"
+        contents.append({"role": role, "parts": [{"text": msg.get("content", "")}]})
+        
+    contents.append({"role": "user", "parts": [{"text": prompt}]})
+
+    payload = {
+        "contents": contents
+    }
+    if system_prompt:
+        payload["systemInstruction"] = {"parts": [{"text": system_prompt}]}
+
+    for _ in range(len(API_KEYS)):
+        key = API_KEYS[_current_key_index]
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={key}"
+        
+        try:
+            resp = requests.post(url, json=payload, timeout=30)
+            if resp.status_code == 200:
+                data = resp.json()
+                try:
+                    return data["candidates"][0]["content"]["parts"][0]["text"]
+                except (KeyError, IndexError):
+                    return "Error: Unexpected response format from Gemini."
+            elif resp.status_code == 429:
+                print(f"API Key {_current_key_index} rate limited. Trying next key...")
+                _current_key_index = (_current_key_index + 1) % len(API_KEYS)
+                continue
+            else:
+                return f"Error: Gemini API returned status {resp.status_code}: {resp.text}"
+        except Exception as e:
+            return f"Error: Request to Gemini failed: {e}"
+            
+    return "Error: All API keys are rate limited or unavailable."
+
+async def generate_ai_reply(prompt: str, system_prompt: str, chat_history: list) -> str:
+    return await asyncio.to_thread(call_gemini_api_sync, prompt, system_prompt, chat_history)
 
 
 def chat_to_response(chat: dict[str, Any]) -> dict[str, Any]:
@@ -298,11 +354,16 @@ async def add_message(chat_id: str, payload: AddMessageRequest) -> dict[str, Any
         "user_id": payload.user_id,
     }
 
+    system_prompt = chat.get("system_prompt", settings.default_system_prompt)
+    chat_history = chat.get("messages", [])
+    
+    ai_content = await generate_ai_reply(payload.content, system_prompt, chat_history)
+
     assistant_message = {
         "id": make_id("msg"),
         "chat_id": chat_id,
         "sender": "ai",
-        "content": build_demo_reply(payload.content),
+        "content": ai_content,
         "created_at": now_iso(),
         "user_id": None,
     }
@@ -663,11 +724,16 @@ async def add_message_with_file(chat_id: str, content: str = Form(...), file: Up
         "created_at": created_at
     }
 
+    system_prompt = chat.get("system_prompt", settings.default_system_prompt)
+    chat_history = chat.get("messages", [])
+    
+    ai_content = await generate_ai_reply(content, system_prompt, chat_history)
+
     assistant_message = {
         "id": make_id("msg"),
         "chat_id": chat_id,
         "sender": "ai",
-        "content": build_demo_reply(content),
+        "content": ai_content,
         "created_at": now_iso(),
     }
 
