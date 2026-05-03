@@ -23,7 +23,7 @@ class ConnectivityBanner extends StatelessWidget {
         final isConnecting = chatService.isConnecting;
 
         return Container(
-          margin: const EdgeInsets.symmetric(horizontal: 8.0), // Flex-based pull-in
+          margin: EdgeInsets.zero, // Align perfectly with button edges
           child: ClipRRect(
             borderRadius: BorderRadius.circular(28.0),
             child: BackdropFilter(
