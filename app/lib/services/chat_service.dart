@@ -31,6 +31,8 @@ class ChatService extends ChangeNotifier {
   int _consecutiveFailures = 0;
 
   StreamSubscription? _connectivitySubscription;
+  bool _isRecovering = false;
+  Timer? _recoveryTimer;
   ConnectivityResult? _lastConnectivityResult;
 
   bool get isConnected => _isConnected;
@@ -241,14 +243,51 @@ class ChatService extends ChangeNotifier {
   }
 
   void _forceOfflineState() {
-    if (_isConnected) {
+    if (_isConnected || _isConnecting) {
       _isConnected = false;
+      _isConnecting = false;
       // Clear the volatile chat history when forcing offline
       _chats.clear();
       _messages.clear();
       // Restore the one cached chat so the user can still see their active conversation
       _restoreCurrentChatFromCache();
       notifyListeners();
+      
+      // Start aggressive recovery loop to detect when server is back
+      _startRecoveryLoop();
+    }
+  }
+
+  void _startRecoveryLoop() {
+    if (_isRecovering) return;
+    _isRecovering = true;
+    
+    _recoveryTimer?.cancel();
+    _recoveryTimer = Timer.periodic(const Duration(seconds: 2), (timer) async {
+      if (_isConnected) {
+        timer.cancel();
+        _isRecovering = false;
+        return;
+      }
+      
+      final online = await _checkConnectivityInternal();
+      if (online) {
+        timer.cancel();
+        _isRecovering = false;
+        _isConnected = true;
+        _syncFromApi();
+        notifyListeners();
+      }
+    });
+  }
+
+  Future<bool> _checkConnectivityInternal() async {
+    try {
+      final uri = Uri.parse('$_apiBaseUrl/api/ping');
+      final response = await http.get(uri).timeout(const Duration(seconds: 2));
+      return response.statusCode == 200;
+    } catch (_) {
+      return false;
     }
   }
 
@@ -315,6 +354,7 @@ class ChatService extends ChangeNotifier {
 
   @override
   void dispose() {
+    _recoveryTimer?.cancel();
     _connectivitySubscription?.cancel();
     super.dispose();
   }
