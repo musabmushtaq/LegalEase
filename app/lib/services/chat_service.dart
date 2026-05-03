@@ -75,12 +75,12 @@ class ChatService extends ChangeNotifier {
     if (_isAuthenticated) {
       // Load current chat from cache for instant UI display
       await _restoreCurrentChatFromCache();
-      // Fetch fresh data in background
-      _syncFromApi();
+      // Reactive check on startup
+      checkInitialAndInstantNetwork();
     } else {
-      _isTemporaryChat = true;
+      _isConnecting = false;
+      notifyListeners();
     }
-    _startConnectivityMonitoring();
     _listenToConnectivityChanges();
   }
 
@@ -150,7 +150,7 @@ class ChatService extends ChangeNotifier {
             headers: {'Content-Type': 'application/json'},
             body: jsonEncode({'username': username, 'password': password}),
           )
-          .timeout(const Duration(seconds: 10));
+          .timeout(const Duration(seconds: 5));
 
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body);
@@ -188,7 +188,7 @@ class ChatService extends ChangeNotifier {
               'password': password,
             }),
           )
-          .timeout(const Duration(seconds: 10));
+          .timeout(const Duration(seconds: 5));
 
       if (response.statusCode == 200) {
         return await login(username, password);
@@ -212,17 +212,6 @@ class ChatService extends ChangeNotifier {
     await prefs.remove('currentChatIdCache');
 
     notifyListeners();
-  }
-
-  void _startConnectivityMonitoring() {
-    // Check connectivity every 20 seconds instead of 5 to reduce aggressive polling
-    // This is more friendly to WiFi connections and battery life
-    _connectivityTimer = Timer.periodic(
-      const Duration(seconds: 20),
-      (_) => _checkConnectivity(),
-    );
-    // Perform an initial check immediately
-    _checkConnectivity();
   }
 
   void _listenToConnectivityChanges() {
@@ -266,7 +255,7 @@ class ChatService extends ChangeNotifier {
   Future<bool> checkInitialAndInstantNetwork() async {
     try {
       final uri = Uri.parse('$_apiBaseUrl/api/ping');
-      final response = await http.get(uri).timeout(const Duration(seconds: 3));
+      final response = await http.get(uri).timeout(const Duration(seconds: 5));
       final isOnline = response.statusCode == 200;
       _isConnecting = false;
       if (!isOnline) {
@@ -292,7 +281,7 @@ class ChatService extends ChangeNotifier {
     try {
       final wasConnected = _isConnected;
       final uri = Uri.parse('$_apiBaseUrl/api/ping');
-      final response = await http.get(uri).timeout(const Duration(seconds: 3));
+      final response = await http.get(uri).timeout(const Duration(seconds: 5));
       final isNowConnected = response.statusCode == 200;
 
       if (isNowConnected) {
@@ -326,7 +315,6 @@ class ChatService extends ChangeNotifier {
 
   @override
   void dispose() {
-    _connectivityTimer?.cancel();
     _connectivitySubscription?.cancel();
     super.dispose();
   }
@@ -364,7 +352,7 @@ class ChatService extends ChangeNotifier {
       final uri = Uri.parse('$_apiBaseUrl/users/$_userId/chats');
       final response = await http
           .get(uri, headers: _headers())
-          .timeout(const Duration(seconds: 3));
+          .timeout(const Duration(seconds: 5));
 
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body) as Map<String, dynamic>;
