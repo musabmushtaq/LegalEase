@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/chat_service.dart';
 import 'chat_screen.dart';
 import 'signup_screen.dart';
+import 'settings_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   final ChatService chatService;
@@ -39,7 +40,23 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Login - LegalEase')),
+      appBar: AppBar(
+        title: const Text('Login - LegalEase'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) =>
+                      SettingsScreen(chatService: widget.chatService),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(

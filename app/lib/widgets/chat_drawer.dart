@@ -4,6 +4,7 @@ import '../theme/app_theme.dart';
 import '../models/chat.dart';
 import '../services/chat_service.dart';
 import '../screens/login_screen.dart';
+import '../screens/settings_screen.dart';
 
 class ChatDrawer extends StatefulWidget {
   final ChatService chatService;
@@ -315,6 +316,20 @@ class _ChatDrawerState extends State<ChatDrawer> {
 
               // Bottom settings/logout
               const Divider(color: Color(0xFF363537)),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.settings, color: Colors.grey),
+                title: const Text('Settings', style: TextStyle(color: Colors.white)),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          SettingsScreen(chatService: widget.chatService),
+                    ),
+                  );
+                },
+              ),
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: Icon(

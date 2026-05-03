@@ -8,7 +8,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import '../models/chat.dart';
 
 class ChatService extends ChangeNotifier {
-  static const String _apiBaseUrl = String.fromEnvironment(
+  static String _apiBaseUrl = const String.fromEnvironment(
     'API_BASE_URL',
     defaultValue: 'http://127.0.0.1:8000',
   );
@@ -63,6 +63,7 @@ class ChatService extends ChangeNotifier {
   }
 
   Future<void> initialize() async {
+    await _loadSettings();
     await _loadAuth();
     if (_isAuthenticated) {
       // Load current chat from cache for instant UI display
@@ -100,6 +101,23 @@ class ChatService extends ChangeNotifier {
       _currentChatId = null;
     }
     notifyListeners();
+  }
+
+  Future<void> _loadSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedUrl = prefs.getString('apiBaseUrl');
+    if (savedUrl != null && savedUrl.isNotEmpty) {
+      _apiBaseUrl = savedUrl;
+    }
+  }
+
+  Future<void> updateApiBaseUrl(String newUrl) async {
+    _apiBaseUrl = newUrl;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('apiBaseUrl', newUrl);
+    notifyListeners();
+    // Re-check connectivity after updating the URL
+    _checkConnectivity();
   }
 
   Future<void> _loadAuth() async {
