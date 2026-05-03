@@ -31,73 +31,112 @@ class _UserMessageCard extends StatefulWidget {
   State<_UserMessageCard> createState() => _UserMessageCardState();
 }
 
-class _UserMessageCardState extends State<_UserMessageCard> {
+class _UserMessageCardState extends State<_UserMessageCard> with SingleTickerProviderStateMixin {
   bool _isExpanded = false;
+  late AnimationController _entranceController;
+  late Animation<double> _opacity;
+  late Animation<Offset> _offset;
+
+  @override
+  void initState() {
+    super.initState();
+    _entranceController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    );
+
+    _opacity = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _entranceController, curve: Curves.easeOut),
+    );
+
+    _offset = Tween<Offset>(begin: const Offset(0.05, 0), end: Offset.zero).animate(
+      CurvedAnimation(parent: _entranceController, curve: Curves.easeOutCubic),
+    );
+
+    if (widget.message.isNew) {
+      _entranceController.forward();
+      widget.message.isNew = false;
+    } else {
+      _entranceController.value = 1.0;
+    }
+  }
+
+  @override
+  void dispose() {
+    _entranceController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment.centerRight,
-      child: Container(
-        margin: const EdgeInsets.only(top: 12.0, bottom: 12.0, left: 80.0, right: 16.0),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(18.0),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 30.0, sigmaY: 30.0),
-            child: Container(
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.08),
-                borderRadius: BorderRadius.circular(18.0),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.1),
-                  width: 1.0,
-                ),
-              ),
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    widget.message.content,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      height: 1.5,
-                      fontWeight: FontWeight.w400,
-                      letterSpacing: 0.2,
+    return FadeTransition(
+      opacity: _opacity,
+      child: SlideTransition(
+        position: _offset,
+        child: Align(
+          alignment: Alignment.centerRight,
+          child: Container(
+            margin: const EdgeInsets.only(top: 12.0, bottom: 12.0, left: 80.0, right: 16.0),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(18.0),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 30.0, sigmaY: 30.0),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(18.0),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.1),
+                      width: 1.0,
                     ),
-                    maxLines: _isExpanded ? null : 4,
-                    overflow: _isExpanded ? null : TextOverflow.ellipsis,
                   ),
-                  if (widget.message.content.length > 150)
-                    GestureDetector(
-                      onTap: () => setState(() => _isExpanded = !_isExpanded),
-                      child: Padding(
-                        padding: const EdgeInsets.only(top: 10.0),
-                        child: Text(
-                          _isExpanded ? "COLLAPSE" : "READ MORE",
-                          style: TextStyle(
-                            color: AppTheme.highlight.withValues(alpha: 0.8),
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1.2,
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        widget.message.content,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          height: 1.5,
+                          fontWeight: FontWeight.w400,
+                          letterSpacing: 0.2,
+                        ),
+                        maxLines: _isExpanded ? null : 4,
+                        overflow: _isExpanded ? null : TextOverflow.ellipsis,
+                      ),
+                      if (widget.message.content.length > 150)
+                        GestureDetector(
+                          onTap: () => setState(() => _isExpanded = !_isExpanded),
+                          child: Padding(
+                            padding: const EdgeInsets.only(top: 10.0),
+                            child: Text(
+                              _isExpanded ? "COLLAPSE" : "READ MORE",
+                              style: TextStyle(
+                                color: AppTheme.highlight.withValues(alpha: 0.8),
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 1.2,
+                              ),
+                            ),
                           ),
                         ),
-                      ),
-                    ),
-                  if (widget.message.localFilePath != null) ...[
-                    const SizedBox(height: 12),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(10),
-                      child: Image.file(
-                        File(widget.message.localFilePath!),
-                        height: 140,
-                        width: double.infinity,
-                        fit: BoxFit.cover,
-                      ),
-                    ),
-                  ],
-                ],
+                      if (widget.message.localFilePath != null) ...[
+                        const SizedBox(height: 12),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: Image.file(
+                            File(widget.message.localFilePath!),
+                            height: 140,
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
               ),
             ),
           ),
@@ -115,48 +154,87 @@ class _AiDocumentationMessage extends StatefulWidget {
   State<_AiDocumentationMessage> createState() => _AiDocumentationMessageState();
 }
 
-class _AiDocumentationMessageState extends State<_AiDocumentationMessage> {
+class _AiDocumentationMessageState extends State<_AiDocumentationMessage> with SingleTickerProviderStateMixin {
   bool? _isPositiveFeedback;
+  late AnimationController _entranceController;
+  late Animation<double> _opacity;
+  late Animation<Offset> _offset;
+
+  @override
+  void initState() {
+    super.initState();
+    _entranceController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000),
+    );
+
+    _opacity = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _entranceController, curve: const Interval(0.2, 1.0, curve: Curves.easeIn)),
+    );
+
+    _offset = Tween<Offset>(begin: const Offset(0, 0.1), end: Offset.zero).animate(
+      CurvedAnimation(parent: _entranceController, curve: Curves.easeOutCubic),
+    );
+
+    if (widget.message.isNew) {
+      _entranceController.forward();
+      widget.message.isNew = false;
+    } else {
+      _entranceController.value = 1.0;
+    }
+  }
+
+  @override
+  void dispose() {
+    _entranceController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 40.0, horizontal: 32.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          MarkdownBody(
-            data: widget.message.content,
-            selectable: true,
-            styleSheet: MarkdownStyleSheet(
-              p: const TextStyle(
-                color: AppTheme.textBody,
-                fontSize: 15,
-                height: 1.7,
-                letterSpacing: 0.3,
+    return FadeTransition(
+      opacity: _opacity,
+      child: SlideTransition(
+        position: _offset,
+        child: Container(
+          margin: const EdgeInsets.symmetric(vertical: 24.0, horizontal: 32.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              MarkdownBody(
+                data: widget.message.content,
+                selectable: true,
+                styleSheet: MarkdownStyleSheet(
+                  p: const TextStyle(
+                    color: AppTheme.textBody,
+                    fontSize: 15,
+                    height: 1.7,
+                    letterSpacing: 0.3,
+                  ),
+                  h1: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    height: 2.0,
+                  ),
+                  h2: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                    height: 1.8,
+                  ),
+                  strong: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  listBullet: const TextStyle(color: AppTheme.highlight, fontSize: 16),
+                ),
               ),
-              h1: const TextStyle(
-                color: Colors.white,
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-                height: 2.0,
-              ),
-              h2: const TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-                height: 1.8,
-              ),
-              strong: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-              ),
-              listBullet: const TextStyle(color: AppTheme.highlight, fontSize: 16),
-            ),
+              const SizedBox(height: 24),
+              _buildActionBar(),
+            ],
           ),
-          const SizedBox(height: 24),
-          _buildActionBar(),
-        ],
+        ),
       ),
     );
   }

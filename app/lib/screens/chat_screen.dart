@@ -9,6 +9,7 @@ import '../theme/app_theme.dart';
 import '../widgets/chat_drawer.dart';
 import '../widgets/message_bubble.dart';
 import '../widgets/connectivity_banner.dart';
+import '../widgets/thinking_indicator.dart';
 import '../services/chat_service.dart';
 import 'live_call_screen.dart';
 
@@ -27,6 +28,7 @@ class _ChatScreenState extends State<ChatScreen> {
   final FocusNode _focusNode = FocusNode();
   bool _isTyping = false;
   bool _isInitialized = false;
+  bool _isAiThinking = false;
   File? _attachedFile;
   final ImagePicker _imagePicker = ImagePicker();
 
@@ -227,12 +229,12 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _scrollToBottom() {
-    Future.delayed(const Duration(milliseconds: 100), () {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
         _scrollController.animateTo(
           _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
+          duration: const Duration(milliseconds: 600),
+          curve: Curves.easeOutCubic,
         );
       }
     });
@@ -490,9 +492,12 @@ class _ChatScreenState extends State<ChatScreen> {
 
     return ListView.builder(
       controller: _scrollController,
-      padding: const EdgeInsets.only(top: 80.0, bottom: 100.0),
-      itemCount: messages.length,
+      padding: const EdgeInsets.only(top: 80.0, bottom: 80.0),
+      itemCount: messages.length + (_isAiThinking ? 1 : 0),
       itemBuilder: (context, index) {
+        if (index == messages.length && _isAiThinking) {
+          return const ThinkingIndicator();
+        }
         return MessageBubble(message: messages[index]);
       },
     );
@@ -512,15 +517,24 @@ class _ChatScreenState extends State<ChatScreen> {
     final messageText = text.isEmpty ? "Sent an attachment" : text;
 
     _textController.clear();
+    
+    // sendUserMessage now injects the message into the list instantly
+    final sendFuture = _chatService.sendUserMessage(messageText, file: fileToSend);
+
     setState(() {
       _isTyping = false;
       _attachedFile = null;
+      _isAiThinking = true;
     });
+    
+    _scrollToBottom();
 
-    await _chatService.sendUserMessage(messageText, file: fileToSend);
+    await sendFuture;
 
     if (!mounted) return;
-    setState(() {});
+    setState(() {
+      _isAiThinking = false;
+    });
     _scrollToBottom();
   }
 

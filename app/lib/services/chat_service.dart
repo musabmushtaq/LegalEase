@@ -561,29 +561,30 @@ class ChatService extends ChangeNotifier {
   Future<void> sendUserMessage(String content, {File? file}) async {
     if (_userId == null && !_isTemporaryChat) return;
 
-    // Immediately check network before sending
-    final isOnline = await checkInitialAndInstantNetwork();
-    if (!isOnline && !_isTemporaryChat) {
-      // If offline, checkInitialAndInstantNetwork() already enforces offline state
-      // (clears cache, drops current chat, shows red banner). Just return.
-      return;
-    }
-
     if (_currentChatId == null) {
       await createNewChat();
     }
     if (_currentChatId == null) return;
 
     final currentId = _currentChatId!;
-    final chat = _chats[currentId];
-    final isFirstMessage = chat?.title == 'New Chat';
-
+    
+    // ADD MESSAGE INSTANTLY - DO NOT WAIT FOR NETWORK CHECK
     addMessage(
-      content +
-          (file != null ? " [Attachment: ${file.path.split('/').last}]" : ""),
+      content + (file != null ? " [Attachment: ${file.path.split('/').last}]" : ""),
       'user',
       localFilePath: file?.path,
     );
+    // Mark the last message as new for entrance animation
+    _messages[currentId]?.last.isNew = true;
+
+    // Now perform network checks in the background
+    final isOnline = await checkInitialAndInstantNetwork();
+    if (!isOnline && !_isTemporaryChat) {
+      return;
+    }
+
+    final chat = _chats[currentId];
+    final isFirstMessage = chat?.title == 'New Chat';
 
     // Simple local echo for temporary offline chat, or try backend for temporary online chat
     try {
