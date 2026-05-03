@@ -47,10 +47,15 @@ class ChatService extends ChangeNotifier {
   bool isTitleGenerating(String chatId) => _generatingTitles.contains(chatId);
 
   List<Chat> get displayedChats {
+    // History list is strictly network-driven. 
+    // If we are offline or not authenticated, we don't show the history.
+    if (!_isConnected || !_isAuthenticated) return [];
+
     final chatsWithMessages = _chats.values
         .where((c) => (_messages[c.id]?.isNotEmpty ?? false))
         .toList();
     chatsWithMessages.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    
     // Don't show the current temporary chat in the history list
     if (_isTemporaryChat && _currentChatId != null) {
       chatsWithMessages.removeWhere((c) => c.id == _currentChatId);
@@ -247,6 +252,11 @@ class ChatService extends ChangeNotifier {
   void _forceOfflineState() {
     if (_isConnected) {
       _isConnected = false;
+      // Clear the volatile chat history when forcing offline
+      _chats.clear();
+      _messages.clear();
+      // Restore the one cached chat so the user can still see their active conversation
+      _restoreCurrentChatFromCache();
       notifyListeners();
     }
   }
@@ -354,6 +364,7 @@ class ChatService extends ChangeNotifier {
             .whereType<Map<String, dynamic>>()
             .toList();
 
+        // Clear everything first - history is network driven
         _chats.clear();
         _messages.clear();
 
@@ -367,13 +378,19 @@ class ChatService extends ChangeNotifier {
           _messages[chat.id] = rawMessages.map(ChatMessage.fromJson).toList();
         }
 
-        // Only cache current chat for instant UI load
+        // Only cache the current chat to shared preferences for instant load next time
         if (_currentChatId != null && _chats.containsKey(_currentChatId)) {
           await _saveCurrentChatToCache();
         }
+        _isConnected = true; // Confirm we are online
         notifyListeners();
+      } else {
+        // If server returns error, we handle it as a disconnect for the history list
+        _forceOfflineState();
       }
-    } catch (_) {}
+    } catch (_) {
+      _forceOfflineState();
+    }
   }
 
   /// Save only the current chat to cache for fast UI restoration
