@@ -266,7 +266,7 @@ class ChatService extends ChangeNotifier {
   Future<bool> checkInitialAndInstantNetwork() async {
     try {
       final uri = Uri.parse('$_apiBaseUrl/api/ping');
-      final response = await http.get(uri).timeout(const Duration(seconds: 5));
+      final response = await http.get(uri).timeout(const Duration(seconds: 3));
       final isOnline = response.statusCode == 200;
       _isConnecting = false;
       if (!isOnline) {
@@ -290,36 +290,34 @@ class ChatService extends ChangeNotifier {
 
   Future<void> _checkConnectivity() async {
     try {
-      final uri = Uri.parse('$_apiBaseUrl/api/ping');
-      // Increased timeout from 3s to 10s to handle WiFi latency gracefully
-      final response = await http.get(uri).timeout(const Duration(seconds: 10));
-
       final wasConnected = _isConnected;
+      final uri = Uri.parse('$_apiBaseUrl/api/ping');
+      final response = await http.get(uri).timeout(const Duration(seconds: 3));
       final isNowConnected = response.statusCode == 200;
 
       if (isNowConnected) {
-        // Reset failure counter on successful connection
         _consecutiveFailures = 0;
         _isConnecting = false;
 
-        // Restore connection status if it was previously marked as disconnected
         if (!wasConnected) {
           _isConnected = true;
-          // Sync fresh data from API on reconnection
           await _syncFromApi();
+          notifyListeners();
+        }
+      } else {
+        // If server returns error, handle as disconnect
+        if (_isConnecting || !_isConnected) {
+          _isConnecting = false;
+          _forceOfflineState();
           notifyListeners();
         }
       }
     } catch (e) {
-      // WiFi hiccups shouldn't immediately trigger disconnect
-      // Require 2 consecutive failures before marking as disconnected
       _consecutiveFailures++;
-
-      if (_consecutiveFailures >= 2) {
+      // On startup or if already disconnected, be immediate.
+      if (_consecutiveFailures >= 2 || !_isConnected || _isConnecting) {
         _isConnecting = false;
-        if (_isConnected) {
-          _forceOfflineState();
-        }
+        _forceOfflineState();
         notifyListeners();
       }
     }
@@ -366,7 +364,7 @@ class ChatService extends ChangeNotifier {
       final uri = Uri.parse('$_apiBaseUrl/users/$_userId/chats');
       final response = await http
           .get(uri, headers: _headers())
-          .timeout(const Duration(seconds: 6));
+          .timeout(const Duration(seconds: 3));
 
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body) as Map<String, dynamic>;
