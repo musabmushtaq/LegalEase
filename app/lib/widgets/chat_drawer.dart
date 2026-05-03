@@ -283,10 +283,18 @@ class _ChatDrawerState extends State<ChatDrawer> {
                 child: ListenableBuilder(
                   listenable: widget.chatService,
                   builder: (context, _) {
+                    if (widget.chatService.isConnecting) {
+                      return const Center(
+                        child: CircularProgressIndicator(
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(AppTheme.highlight),
+                        ),
+                      );
+                    }
                     if (!widget.chatService.isConnected) {
                       return const Center(
                         child: Text(
-                          "Cannot connect",
+                          "History unavailable",
                           style: TextStyle(color: Colors.grey, fontSize: 16),
                         ),
                       );

@@ -23,7 +23,8 @@ class ChatService extends ChangeNotifier {
   final Map<String, List<ChatMessage>> _messages = {};
   final Set<String> _generatingTitles = {}; // Track chats generating titles
 
-  bool _isConnected = true;
+  bool _isConnected = false;
+  bool _isConnecting = true;
   Timer? _connectivityTimer;
   bool _isAuthenticated = false;
   bool _isTemporaryChat = false;
@@ -33,6 +34,7 @@ class ChatService extends ChangeNotifier {
   ConnectivityResult? _lastConnectivityResult;
 
   bool get isConnected => _isConnected;
+  bool get isConnecting => _isConnecting;
   bool get isAuthenticated => _isAuthenticated;
   bool get isTemporaryChat => _isTemporaryChat;
   String? get currentChatId => _currentChatId;
@@ -264,8 +266,9 @@ class ChatService extends ChangeNotifier {
   Future<bool> checkInitialAndInstantNetwork() async {
     try {
       final uri = Uri.parse('$_apiBaseUrl/api/ping');
-      final response = await http.get(uri).timeout(const Duration(seconds: 3));
+      final response = await http.get(uri).timeout(const Duration(seconds: 5));
       final isOnline = response.statusCode == 200;
+      _isConnecting = false;
       if (!isOnline) {
         _forceOfflineState();
       } else {
@@ -273,12 +276,14 @@ class ChatService extends ChangeNotifier {
           _isConnected = true;
           _consecutiveFailures = 0;
           await _syncFromApi();
-          notifyListeners();
         }
       }
+      notifyListeners();
       return isOnline;
     } catch (_) {
+      _isConnecting = false;
       _forceOfflineState();
+      notifyListeners();
       return false;
     }
   }
@@ -295,6 +300,7 @@ class ChatService extends ChangeNotifier {
       if (isNowConnected) {
         // Reset failure counter on successful connection
         _consecutiveFailures = 0;
+        _isConnecting = false;
 
         // Restore connection status if it was previously marked as disconnected
         if (!wasConnected) {
@@ -309,8 +315,12 @@ class ChatService extends ChangeNotifier {
       // Require 2 consecutive failures before marking as disconnected
       _consecutiveFailures++;
 
-      if (_consecutiveFailures >= 2 && _isConnected) {
-        _forceOfflineState();
+      if (_consecutiveFailures >= 2) {
+        _isConnecting = false;
+        if (_isConnected) {
+          _forceOfflineState();
+        }
+        notifyListeners();
       }
     }
   }
@@ -383,12 +393,15 @@ class ChatService extends ChangeNotifier {
           await _saveCurrentChatToCache();
         }
         _isConnected = true; // Confirm we are online
+        _isConnecting = false;
         notifyListeners();
       } else {
         // If server returns error, we handle it as a disconnect for the history list
+        _isConnecting = false;
         _forceOfflineState();
       }
     } catch (_) {
+      _isConnecting = false;
       _forceOfflineState();
     }
   }
