@@ -237,6 +237,17 @@ class _ChatScreenState extends State<ChatScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  // Connectivity Banner integrated into the same column for perfect alignment
+                  ConnectivityBanner(chatService: _chatService),
+                  
+                  // Consistent spacing between banner and content below
+                  ListenableBuilder(
+                    listenable: _chatService,
+                    builder: (context, _) => !_chatService.isConnected || _chatService.isConnecting 
+                      ? const SizedBox(height: 12) 
+                      : const SizedBox.shrink(),
+                  ),
+
                   if (_chatService.isTemporaryChat)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 8.0),
@@ -459,9 +470,6 @@ class _ChatScreenState extends State<ChatScreen> {
                 ],
               ),
             ),
-
-            // Connection Banner Floating
-            ConnectivityBanner(chatService: _chatService),
           ],
         ),
       ),
