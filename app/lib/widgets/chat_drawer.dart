@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:ui';
 import 'package:dotted_border/dotted_border.dart';
 import '../theme/app_theme.dart';
 import '../models/chat.dart';
@@ -160,8 +161,21 @@ class _ChatDrawerState extends State<ChatDrawer> {
     final recentChats = chats.where((c) => !c.isPinned).toList();
 
     return Drawer(
-      backgroundColor: AppTheme.background,
-      child: SafeArea(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 20.0, sigmaY: 20.0),
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.5),
+            border: Border(
+              right: BorderSide(
+                color: Colors.white.withValues(alpha: 0.1),
+                width: 1.0,
+              ),
+            ),
+          ),
+          child: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16.0),
           child: Column(
@@ -173,19 +187,12 @@ class _ChatDrawerState extends State<ChatDrawer> {
               Container(
                 height: 48,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1F1F1F),
-                  borderRadius: BorderRadius.circular(24.0),
+                  color: Colors.white.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(12.0),
                   border: Border.all(
-                    color: const Color(0xFF363537),
+                    color: Colors.white.withValues(alpha: 0.1),
                     width: 1.0,
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.6),
-                      blurRadius: 12.0,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
                 ),
                 padding: const EdgeInsets.symmetric(horizontal: 16.0),
                 child: Row(
@@ -364,8 +371,10 @@ class _ChatDrawerState extends State<ChatDrawer> {
           ),
         ),
       ),
-    );
-  }
+    ),
+  ),
+);
+}
 
   Widget _buildChatItem(Chat chat) {
     final isCurrentChat = widget.chatService.currentChatId == chat.id;
