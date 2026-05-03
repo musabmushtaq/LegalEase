@@ -1,37 +1,59 @@
 import 'package:flutter/material.dart';
 import '../services/chat_service.dart';
+import '../theme/app_theme.dart';
 
 class SettingsScreen extends StatefulWidget {
   final ChatService chatService;
-  const SettingsScreen({Key? key, required this.chatService}) : super(key: key);
+  const SettingsScreen({super.key, required this.chatService});
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  late TextEditingController _urlController;
+  final TextEditingController _ipController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    _urlController = TextEditingController(text: ChatService.apiBaseUrl);
+    // Extract just the IP address from the full URL
+    String currentUrl = ChatService.apiBaseUrl;
+    String currentIp = '';
+    try {
+      final uri = Uri.parse(currentUrl);
+      currentIp = uri.host;
+    } catch (e) {
+      currentIp = '127.0.0.1';
+    }
+    
+    // Fallback if parsing failed but we know it contains an IP
+    if (currentIp.isEmpty) {
+      currentIp = currentUrl.replaceAll('http://', '').replaceAll(':8000', '');
+    }
+
+    _ipController.text = currentIp;
   }
 
   @override
   void dispose() {
-    _urlController.dispose();
+    _ipController.dispose();
     super.dispose();
   }
 
   void _saveSettings() {
-    final newUrl = _urlController.text.trim();
-    if (newUrl.isNotEmpty) {
-      // Remove trailing slash if user accidentally added one
-      final cleanUrl = newUrl.endsWith('/') ? newUrl.substring(0, newUrl.length - 1) : newUrl;
-      widget.chatService.updateApiBaseUrl(cleanUrl);
+    final newIp = _ipController.text.trim();
+    if (newIp.isNotEmpty) {
+      // Reconstruct the full URL
+      final newUrl = 'http://$newIp:8000';
+      widget.chatService.updateApiBaseUrl(newUrl);
+      
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Settings saved! Connecting to new server...')),
+        SnackBar(
+          content: const Text('Settings saved! Connecting to new server...', style: TextStyle(color: Colors.white)),
+          backgroundColor: Colors.green.withOpacity(0.8),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
       );
       Navigator.of(context).pop();
     }
@@ -40,12 +62,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A), // Slate 900
+      backgroundColor: AppTheme.background,
       appBar: AppBar(
-        title: const Text('Settings'),
+        title: const Text('Settings', style: TextStyle(color: Colors.white)),
         backgroundColor: Colors.transparent,
         elevation: 0,
         centerTitle: true,
+        iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: Padding(
         padding: const EdgeInsets.all(24.0),
@@ -56,48 +79,62 @@ class _SettingsScreenState extends State<SettingsScreen> {
               'Network Configuration',
               style: TextStyle(
                 color: Colors.white,
-                fontSize: 20,
+                fontSize: 24,
                 fontWeight: FontWeight.bold,
               ),
             ),
             const SizedBox(height: 8),
-            Text(
-              'Update the backend API server address. Useful for testing on different Wi-Fi networks.',
+            const Text(
+              'Update the backend API IP address. The app will automatically connect via port 8000.',
               style: TextStyle(
-                color: Colors.grey[400],
+                color: Colors.grey,
                 fontSize: 14,
+                height: 1.4,
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 32),
+            
+            // Input Field
             TextField(
-              controller: _urlController,
-              style: const TextStyle(color: Colors.white),
+              controller: _ipController,
+              style: const TextStyle(color: Colors.white, fontSize: 16),
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
               decoration: InputDecoration(
-                labelText: 'API Base URL',
-                labelStyle: const TextStyle(color: Colors.white54),
-                hintText: 'http://192.168.x.x:8000',
-                hintStyle: const TextStyle(color: Colors.white24),
+                labelText: 'IPv4 Address',
+                labelStyle: const TextStyle(color: Colors.grey),
+                hintText: '192.168.x.x',
+                hintStyle: TextStyle(color: Colors.white.withOpacity(0.2)),
+                prefixIcon: const Icon(Icons.wifi, color: Colors.grey),
+                suffixText: ':8000',
+                suffixStyle: const TextStyle(color: Colors.grey, fontSize: 16),
                 filled: true,
                 fillColor: Colors.white.withOpacity(0.05),
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(16),
                   borderSide: BorderSide.none,
                 ),
-                prefixIcon: const Icon(Icons.link, color: Colors.white54),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  borderSide: const BorderSide(color: AppTheme.highlight, width: 1.5),
+                ),
               ),
-              keyboardType: TextInputType.url,
             ),
-            const SizedBox(height: 32),
+            
+            const Spacer(),
+            
+            // Save Button
             SizedBox(
               width: double.infinity,
-              height: 50,
+              height: 56,
               child: ElevatedButton(
                 onPressed: _saveSettings,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF3B82F6), // Blue 500
+                  backgroundColor: AppTheme.highlight,
+                  foregroundColor: AppTheme.background,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(16),
                   ),
+                  elevation: 0,
                 ),
                 child: const Text(
                   'Save Settings',
@@ -105,6 +142,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               ),
             ),
+            const SizedBox(height: 16),
           ],
         ),
       ),
