@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
@@ -355,78 +356,78 @@ class _ChatScreenState extends State<ChatScreen> {
                                           dashPattern: [6, 4],
                                           strokeWidth: 1.5,
                                         ),
-                                    child: Container(
-                                      decoration: BoxDecoration(
-                                        color: AppTheme.background,
-                                        borderRadius: BorderRadius.circular(
-                                          24.0,
-                                        ),
-                                      ),
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 16.0,
-                                      ),
-                                      child: TextField(
-                                        controller: _textController,
-                                        style: const TextStyle(
-                                          color: AppTheme.textBody,
-                                        ),
-                                        decoration: const InputDecoration(
-                                          hintText: "Ask LegalEase...",
-                                          hintStyle: TextStyle(
-                                            color: Colors.grey,
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(24.0),
+                                      child: BackdropFilter(
+                                        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                                        child: Container(
+                                          decoration: BoxDecoration(
+                                            color: Colors.white.withOpacity(0.05),
                                           ),
-                                          border: InputBorder.none,
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 16.0,
+                                          ),
+                                          child: TextField(
+                                            controller: _textController,
+                                            style: const TextStyle(
+                                              color: AppTheme.textBody,
+                                            ),
+                                            decoration: InputDecoration(
+                                              hintText: "Ask LegalEase...",
+                                              hintStyle: TextStyle(
+                                                color: Colors.white.withOpacity(0.4),
+                                              ),
+                                              border: InputBorder.none,
+                                            ),
+                                            onChanged: (text) {
+                                              setState(() {
+                                                _isTyping = text.trim().isNotEmpty;
+                                              });
+                                            },
+                                            maxLines: 3,
+                                            minLines: 1,
+                                          ),
                                         ),
-                                        onChanged: (text) {
-                                          setState(() {
-                                            _isTyping = text.trim().isNotEmpty;
-                                          });
-                                        },
-                                        maxLines: 3,
-                                        minLines: 1,
                                       ),
                                     ),
                                   )
-                                : Container(
-                                    decoration: BoxDecoration(
-                                      color: AppTheme.background,
-                                      borderRadius: BorderRadius.circular(24.0),
-                                      border: Border.all(
-                                        color: AppTheme.highlight,
-                                        width: 1.5,
-                                      ),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.black.withValues(
-                                            alpha: 0.5,
+                                : ClipRRect(
+                                    borderRadius: BorderRadius.circular(24.0),
+                                    child: BackdropFilter(
+                                      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                                      child: Container(
+                                        decoration: BoxDecoration(
+                                          color: Colors.white.withOpacity(0.05),
+                                          borderRadius: BorderRadius.circular(24.0),
+                                          border: Border.all(
+                                            color: Colors.white.withOpacity(0.15),
+                                            width: 1.5,
                                           ),
-                                          blurRadius: 8.0,
-                                          offset: const Offset(0, 4),
                                         ),
-                                      ],
-                                    ),
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 16.0,
-                                    ),
-                                    child: TextField(
-                                      controller: _textController,
-                                      style: const TextStyle(
-                                        color: AppTheme.textBody,
-                                      ),
-                                      decoration: const InputDecoration(
-                                        hintText: "Ask LegalEase...",
-                                        hintStyle: TextStyle(
-                                          color: Colors.grey,
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 16.0,
                                         ),
-                                        border: InputBorder.none,
+                                        child: TextField(
+                                          controller: _textController,
+                                          style: const TextStyle(
+                                            color: AppTheme.textBody,
+                                          ),
+                                          decoration: InputDecoration(
+                                            hintText: "Ask LegalEase...",
+                                            hintStyle: TextStyle(
+                                              color: Colors.white.withOpacity(0.4),
+                                            ),
+                                            border: InputBorder.none,
+                                          ),
+                                          onChanged: (text) {
+                                            setState(() {
+                                              _isTyping = text.trim().isNotEmpty;
+                                            });
+                                          },
+                                          maxLines: 3,
+                                          minLines: 1,
+                                        ),
                                       ),
-                                      onChanged: (text) {
-                                        setState(() {
-                                          _isTyping = text.trim().isNotEmpty;
-                                        });
-                                      },
-                                      maxLines: 3,
-                                      minLines: 1,
                                     ),
                                   ),
                           ],
@@ -470,9 +471,21 @@ class _ChatScreenState extends State<ChatScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Center(
+            child: Icon(
+              Icons.balance,
+              size: 100,
+              color: AppTheme.highlight.withOpacity(0.08),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Center(
             child: Text(
               "Ask me something...",
-              style: Theme.of(context).textTheme.bodyLarge,
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.4),
+                fontSize: 18,
+                letterSpacing: 1.2,
+              ),
             ),
           ),
         ],
@@ -535,23 +548,23 @@ class _ChatScreenState extends State<ChatScreen> {
     required VoidCallback onPressed,
     bool isDotted = false,
   }) {
-    if (isDotted) {
-      return DottedBorder(
-        options: const CircularDottedBorderOptions(
-          color: AppTheme.highlight,
-          dashPattern: [6, 4],
-          strokeWidth: 2.0,
-          padding: EdgeInsets.zero,
-        ),
+    final glassContainer = ClipRRect(
+      borderRadius: BorderRadius.circular(30),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
         child: Container(
           decoration: BoxDecoration(
-            color: AppTheme.background,
+            color: Colors.white.withOpacity(0.05),
             shape: BoxShape.circle,
+            border: Border.all(
+              color: isDotted ? Colors.transparent : Colors.white.withOpacity(0.15),
+              width: 1.5,
+            ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.8),
-                blurRadius: 16.0,
-                offset: const Offset(0, 8),
+                color: Colors.black.withOpacity(0.3),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
               ),
             ],
           ),
@@ -560,49 +573,33 @@ class _ChatScreenState extends State<ChatScreen> {
             child: InkWell(
               onTap: onPressed,
               customBorder: const CircleBorder(),
-              splashColor: AppTheme.highlight.withValues(alpha: 0.2),
+              splashColor: AppTheme.highlight.withOpacity(0.2),
               child: Padding(
-                padding: const EdgeInsets.all(12.0),
-                child: Icon(icon, color: Colors.white, size: 24),
+                padding: const EdgeInsets.all(14.0),
+                child: Icon(
+                  icon, 
+                  color: AppTheme.highlight,
+                  size: 24
+                ),
               ),
             ),
           ),
         ),
+      ),
+    );
+
+    if (isDotted) {
+      return DottedBorder(
+        options: const CircularDottedBorderOptions(
+          color: AppTheme.highlight,
+          dashPattern: [6, 4],
+          strokeWidth: 2.0,
+          padding: EdgeInsets.zero,
+        ),
+        child: glassContainer,
       );
     }
 
-    return Container(
-      decoration: BoxDecoration(
-        color: AppTheme.background,
-        shape: BoxShape.circle,
-        border: Border.all(color: AppTheme.highlight, width: 2.0),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.8),
-            blurRadius: 16.0,
-            offset: const Offset(0, 8),
-            spreadRadius: 2.0,
-          ),
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.4),
-            blurRadius: 8.0,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onPressed,
-          customBorder: const CircleBorder(),
-          splashColor: AppTheme.highlight.withValues(alpha: 0.2),
-          highlightColor: AppTheme.highlight.withValues(alpha: 0.1),
-          child: Padding(
-            padding: const EdgeInsets.all(12.0),
-            child: Icon(icon, color: Colors.white, size: 24),
-          ),
-        ),
-      ),
-    );
+    return glassContainer;
   }
 }
