@@ -67,65 +67,97 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
+  bool _isAttachmentMenuOpen = false;
+
   void _showAttachmentOptions() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: AppTheme.background,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (context) => Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+    setState(() {
+      _isAttachmentMenuOpen = !_isAttachmentMenuOpen;
+    });
+  }
+
+  Widget _buildAttachmentMenu() {
+    return AnimatedOpacity(
+      duration: const Duration(milliseconds: 250),
+      opacity: _isAttachmentMenuOpen ? 1.0 : 0.0,
+      child: IgnorePointer(
+        ignoring: !_isAttachmentMenuOpen,
+        child: Stack(
           children: [
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.grey.withValues(alpha: 0.5),
-                borderRadius: BorderRadius.circular(2),
+            // Backdrop tap to close
+            GestureDetector(
+              onTap: () => setState(() => _isAttachmentMenuOpen = false),
+              child: Container(
+                color: Colors.black.withValues(alpha: 0.3),
               ),
             ),
-            const SizedBox(height: 16),
-            ListTile(
-              leading: const Icon(Icons.camera_alt, color: AppTheme.highlight),
-              title: const Text(
-                'Camera',
-                style: TextStyle(color: Colors.white),
+            Positioned(
+              left: 16,
+              bottom: 84, // Start floating above the main button
+              child: TweenAnimationBuilder<double>(
+                duration: const Duration(milliseconds: 400),
+                curve: Curves.easeOutCubic,
+                tween: Tween(
+                  begin: 0.0,
+                  end: _isAttachmentMenuOpen ? 1.0 : 0.0,
+                ),
+                builder: (context, value, child) {
+                  return Opacity(
+                    opacity: value.clamp(0.0, 1.0),
+                    child: Transform.translate(
+                      offset: Offset(0, 20 * (1 - value)), // Subtle slide-up effect
+                      child: child,
+                    ),
+                  );
+                },
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildFloatingIconButton(
+                      icon: Icons.camera_alt,
+                      onPressed: () {
+                        _showAttachmentOptions();
+                        _pickImage(ImageSource.camera);
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    _buildFloatingIconButton(
+                      icon: Icons.image,
+                      onPressed: () {
+                        _showAttachmentOptions();
+                        _pickImage(ImageSource.gallery);
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    _buildFloatingIconButton(
+                      icon: Icons.insert_drive_file,
+                      onPressed: () {
+                        _showAttachmentOptions();
+                        _pickFile();
+                      },
+                    ),
+                  ],
+                ),
               ),
-              onTap: () {
-                Navigator.pop(context);
-                _pickImage(ImageSource.camera);
-              },
             ),
-            ListTile(
-              leading: const Icon(Icons.image, color: AppTheme.highlight),
-              title: const Text(
-                'Gallery',
-                style: TextStyle(color: Colors.white),
-              ),
-              onTap: () {
-                Navigator.pop(context);
-                _pickImage(ImageSource.gallery);
-              },
-            ),
-            ListTile(
-              leading: const Icon(
-                Icons.insert_drive_file,
-                color: AppTheme.highlight,
-              ),
-              title: const Text(
-                'Document or File',
-                style: TextStyle(color: Colors.white),
-              ),
-              onTap: () {
-                Navigator.pop(context);
-                _pickFile();
-              },
-            ),
-            const SizedBox(height: 16),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAttachmentItem({
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    return Container(
+      height: 56, // Exactly one module
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          child: Center(
+            child: Icon(icon, color: Colors.white, size: 24),
+          ),
         ),
       ),
     );
@@ -264,16 +296,9 @@ class _ChatScreenState extends State<ChatScreen> {
                   Row(
                     children: [
                       _buildFloatingIconButton(
-                        icon: Icons.attach_file,
+                        icon: _isAttachmentMenuOpen ? Icons.close : Icons.attach_file,
                         isDotted: _chatService.isTemporaryChat,
-                        onPressed: () async {
-                          if (!_chatService.isTemporaryChat) {
-                            final isOnline = await _chatService
-                                .checkInitialAndInstantNetwork();
-                            if (!isOnline) return;
-                          }
-                          if (mounted) _showAttachmentOptions();
-                        },
+                        onPressed: _showAttachmentOptions,
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -470,6 +495,9 @@ class _ChatScreenState extends State<ChatScreen> {
                 ],
               ),
             ),
+
+            // Attachment Menu Overlay
+            _buildAttachmentMenu(),
           ],
         ),
       ),
@@ -580,10 +608,17 @@ class _ChatScreenState extends State<ChatScreen> {
                 splashColor: AppTheme.highlight.withValues(alpha: 0.2),
                 child: Padding(
                   padding: const EdgeInsets.all(14.0),
-                  child: Icon(
-                    icon, 
-                    color: Colors.white,
-                    size: 24,
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 200),
+                    transitionBuilder: (Widget child, Animation<double> animation) {
+                      return ScaleTransition(scale: animation, child: child);
+                    },
+                    child: Icon(
+                      icon, 
+                      key: ValueKey<IconData>(icon),
+                      color: Colors.white,
+                      size: 24,
+                    ),
                   ),
                 ),
               ),
