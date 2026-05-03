@@ -96,60 +96,92 @@ class _ChatDrawerState extends State<ChatDrawer> {
   void _showChatMenu(Chat chat) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: AppTheme.background,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.5),
       builder: (context) => Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 40,
-              height: 4,
+        padding: const EdgeInsets.all(20.0),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(24.0),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 15.0, sigmaY: 15.0),
+            child: Container(
               decoration: BoxDecoration(
-                color: Colors.grey.withValues(alpha: 0.5),
-                borderRadius: BorderRadius.circular(2),
+                color: AppTheme.background.withValues(alpha: 0.8),
+                borderRadius: BorderRadius.circular(24.0),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.1),
+                  width: 1.0,
+                ),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(height: 12),
+                  Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _buildMenuItem(
+                    icon: Icons.edit,
+                    label: 'Rename',
+                    color: AppTheme.highlight,
+                    onTap: () {
+                      Navigator.pop(context);
+                      _renameChat(chat.id, chat.title);
+                    },
+                  ),
+                  _buildMenuItem(
+                    icon: chat.isPinned ? Icons.push_pin : Icons.push_pin_outlined,
+                    label: chat.isPinned ? 'Unpin' : 'Pin',
+                    color: AppTheme.highlight,
+                    onTap: () {
+                      Navigator.pop(context);
+                      _togglePin(chat.id);
+                    },
+                  ),
+                  const Divider(color: Colors.white10, height: 1),
+                  _buildMenuItem(
+                    icon: Icons.delete,
+                    label: 'Delete',
+                    color: Colors.redAccent,
+                    onTap: () {
+                      Navigator.pop(context);
+                      _deleteChat(chat.id);
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                ],
               ),
             ),
-            const SizedBox(height: 16),
-            ListTile(
-              leading: const Icon(Icons.edit, color: AppTheme.highlight),
-              title: const Text(
-                'Rename',
-                style: TextStyle(color: Colors.white),
-              ),
-              onTap: () {
-                Navigator.pop(context);
-                _renameChat(chat.id, chat.title);
-              },
-            ),
-            ListTile(
-              leading: Icon(
-                chat.isPinned ? Icons.push_pin : Icons.push_pin_outlined,
-                color: AppTheme.highlight,
-              ),
-              title: Text(
-                chat.isPinned ? 'Unpin' : 'Pin',
-                style: const TextStyle(color: Colors.white),
-              ),
-              onTap: () {
-                Navigator.pop(context);
-                _togglePin(chat.id);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.delete, color: Colors.red),
-              title: const Text('Delete', style: TextStyle(color: Colors.red)),
-              onTap: () {
-                Navigator.pop(context);
-                _deleteChat(chat.id);
-              },
-            ),
-          ],
+          ),
         ),
       ),
+    );
+  }
+
+  Widget _buildMenuItem({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return ListTile(
+      leading: Icon(icon, color: color, size: 22),
+      title: Text(
+        label,
+        style: TextStyle(
+          color: Colors.white.withValues(alpha: 0.9),
+          fontSize: 15,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+      onTap: onTap,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
     );
   }
 
@@ -188,7 +220,7 @@ class _ChatDrawerState extends State<ChatDrawer> {
                 height: 48,
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(12.0),
+                  borderRadius: BorderRadius.circular(28.0),
                   border: Border.all(
                     color: Colors.white.withValues(alpha: 0.1),
                     width: 1.0,
@@ -244,35 +276,16 @@ class _ChatDrawerState extends State<ChatDrawer> {
                       alignment: Alignment.centerLeft,
                     ),
                   ),
-                  IconButton(
-                    onPressed: () {
+                  _buildGlassActionButton(
+                    icon: Icons.chat_bubble_outline,
+                    isActive: widget.chatService.isTemporaryChat,
+                    onTap: () {
                       widget.chatService.toggleTemporaryChat();
                       if (context.mounted) {
                         widget.onChatSelected();
                         Navigator.pop(context);
                       }
                     },
-                    icon: widget.chatService.isTemporaryChat
-                        ? DottedBorder(
-                            options: const CircularDottedBorderOptions(
-                              color: AppTheme.highlight,
-                              dashPattern: [4, 4],
-                              strokeWidth: 1.5,
-                            ),
-                            child: const Padding(
-                              padding: EdgeInsets.all(4.0),
-                              child: Icon(
-                                Icons.chat_bubble_outline,
-                                color: AppTheme.highlight,
-                                size: 20,
-                              ),
-                            ),
-                          )
-                        : const Icon(
-                            Icons.chat_bubble_outline,
-                            color: Colors.grey,
-                          ),
-                    tooltip: "Temporary Chat Mode",
                   ),
                 ],
               ),
@@ -332,19 +345,18 @@ class _ChatDrawerState extends State<ChatDrawer> {
               // Bottom settings/logout
               const Divider(color: Color(0xFF363537)),
               ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.settings, color: Colors.grey),
-                title: const Text('Settings', style: TextStyle(color: Colors.white)),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) =>
-                          SettingsScreen(chatService: widget.chatService),
-                    ),
-                  );
-                },
-              ),
+              leading: const Icon(Icons.settings, color: Colors.grey),
+              title: const Text('Settings', style: TextStyle(color: Colors.white)),
+              onTap: () {
+                Navigator.pop(context); // Close drawer first
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => SettingsScreen(chatService: widget.chatService),
+                  ),
+                );
+              },
+            ),
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: Icon(
@@ -466,5 +478,53 @@ class _ChatDrawerState extends State<ChatDrawer> {
         );
       },
     );
+  }
+
+  Widget _buildGlassActionButton({
+    required IconData icon,
+    required bool isActive,
+    required VoidCallback onTap,
+  }) {
+    final container = Container(
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: Colors.white.withValues(alpha: 0.05),
+        border: Border.all(
+          color: isActive 
+              ? AppTheme.highlight.withValues(alpha: 0.4) 
+              : Colors.white.withValues(alpha: 0.1),
+          width: 1.0,
+        ),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          customBorder: const CircleBorder(),
+          child: Padding(
+            padding: const EdgeInsets.all(10.0),
+            child: Icon(
+              icon,
+              color: isActive ? AppTheme.highlight : Colors.grey[400],
+              size: 20,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    if (isActive) {
+      return DottedBorder(
+        options: const RoundedRectDottedBorderOptions(
+          radius: Radius.circular(30),
+          color: AppTheme.highlight,
+          dashPattern: [4, 4],
+          strokeWidth: 1.5,
+        ),
+        child: container,
+      );
+    }
+
+    return container;
   }
 }

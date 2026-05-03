@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../services/chat_service.dart';
 import '../theme/app_theme.dart';
@@ -12,11 +13,11 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   final TextEditingController _ipController = TextEditingController();
+  bool _isSaved = false;
 
   @override
   void initState() {
     super.initState();
-    // Extract just the IP address from the full URL
     String currentUrl = ChatService.apiBaseUrl;
     String currentIp = '';
     try {
@@ -26,11 +27,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       currentIp = '127.0.0.1';
     }
     
-    // Fallback if parsing failed but we know it contains an IP
     if (currentIp.isEmpty) {
       currentIp = currentUrl.replaceAll('http://', '').replaceAll(':8000', '');
     }
-
     _ipController.text = currentIp;
   }
 
@@ -43,108 +42,177 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void _saveSettings() {
     final newIp = _ipController.text.trim();
     if (newIp.isNotEmpty) {
-      // Reconstruct the full URL
       final newUrl = 'http://$newIp:8000';
       widget.chatService.updateApiBaseUrl(newUrl);
       
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Settings saved! Connecting to new server...', style: TextStyle(color: Colors.white)),
-          backgroundColor: Colors.green.withOpacity(0.8),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        ),
-      );
-      Navigator.of(context).pop();
+      setState(() {
+        _isSaved = true;
+      });
+      
+      // Reset the saved state after a few seconds
+      Future.delayed(const Duration(seconds: 3), () {
+        if (mounted) {
+          setState(() {
+            _isSaved = false;
+          });
+        }
+      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.background,
+      backgroundColor: Colors.transparent,
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: const Text('Settings', style: TextStyle(color: Colors.white)),
+        title: const Text(
+          'Settings', 
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 20,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.5,
+          ),
+        ),
         backgroundColor: Colors.transparent,
         elevation: 0,
         centerTitle: true,
         iconTheme: const IconThemeData(color: Colors.white),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Network Configuration',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 30.0, sigmaY: 30.0),
+              child: Container(
+                color: Colors.black.withValues(alpha: 0.8),
               ),
             ),
-            const SizedBox(height: 8),
-            const Text(
-              'Update the backend API IP address. The app will automatically connect via port 8000.',
-              style: TextStyle(
-                color: Colors.grey,
-                fontSize: 14,
-                height: 1.4,
-              ),
-            ),
-            const SizedBox(height: 32),
-            
-            // Input Field
-            TextField(
-              controller: _ipController,
-              style: const TextStyle(color: Colors.white, fontSize: 16),
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: InputDecoration(
-                labelText: 'IPv4 Address',
-                labelStyle: const TextStyle(color: Colors.grey),
-                hintText: '192.168.x.x',
-                hintStyle: TextStyle(color: Colors.white.withOpacity(0.2)),
-                prefixIcon: const Icon(Icons.wifi, color: Colors.grey),
-                suffixText: ':8000',
-                suffixStyle: const TextStyle(color: Colors.grey, fontSize: 16),
-                filled: true,
-                fillColor: Colors.white.withOpacity(0.05),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  borderSide: BorderSide.none,
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  borderSide: const BorderSide(color: AppTheme.highlight, width: 1.5),
-                ),
-              ),
-            ),
-            
-            const Spacer(),
-            
-            // Save Button
-            SizedBox(
-              width: double.infinity,
-              height: 56,
-              child: ElevatedButton(
-                onPressed: _saveSettings,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.highlight,
-                  foregroundColor: AppTheme.background,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
+          ),
+          
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Network Configuration',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: -0.5,
+                    ),
                   ),
-                  elevation: 0,
-                ),
-                child: const Text(
-                  'Save Settings',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Set the backend API IP address. The app connects via port 8000 by default.',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.5),
+                      fontSize: 14,
+                      height: 1.5,
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+                  
+                  Container(
+                    height: 60,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.05),
+                      borderRadius: BorderRadius.circular(28.0),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.1),
+                        width: 1.0,
+                      ),
+                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.wifi, color: Colors.white54, size: 20),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: TextField(
+                            controller: _ipController,
+                            onChanged: (_) {
+                              if (_isSaved) setState(() => _isSaved = false);
+                            },
+                            style: const TextStyle(color: Colors.white, fontSize: 16),
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            decoration: const InputDecoration(
+                              hintText: '192.168.x.x',
+                              hintStyle: TextStyle(color: Colors.white24),
+                              border: InputBorder.none,
+                              contentPadding: EdgeInsets.zero,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          ':8000',
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.3),
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  
+                  const Spacer(),
+                  
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(28),
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 300),
+                        width: double.infinity,
+                        height: 56,
+                        decoration: BoxDecoration(
+                          color: _isSaved 
+                              ? Colors.white.withValues(alpha: 0.1)
+                              : AppTheme.highlight.withValues(alpha: 0.9),
+                          borderRadius: BorderRadius.circular(28),
+                          border: _isSaved 
+                              ? Border.all(color: AppTheme.highlight.withValues(alpha: 0.5))
+                              : null,
+                        ),
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: _saveSettings,
+                            child: Center(
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  if (_isSaved) 
+                                    const Icon(Icons.check_circle_outline, color: AppTheme.highlight, size: 20),
+                                  if (_isSaved) const SizedBox(width: 8),
+                                  Text(
+                                    _isSaved ? 'Settings Saved' : 'Save Configuration',
+                                    style: TextStyle(
+                                      color: _isSaved ? AppTheme.highlight : AppTheme.background,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 0.5,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                ],
               ),
             ),
-            const SizedBox(height: 16),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

@@ -413,10 +413,10 @@ class _ChatScreenState extends State<ChatScreen> {
                                       filter: ImageFilter.blur(sigmaX: 15.0, sigmaY: 15.0),
                                       child: Container(
                                         decoration: BoxDecoration(
-                                          color: AppTheme.background.withOpacity(0.7),
+                                          color: AppTheme.background.withValues(alpha: 0.6),
                                           borderRadius: BorderRadius.circular(24.0),
                                           border: Border.all(
-                                            color: Colors.white.withOpacity(0.1),
+                                            color: Colors.white.withValues(alpha: 0.1),
                                             width: 1.0,
                                           ),
                                         ),
@@ -552,48 +552,39 @@ class _ChatScreenState extends State<ChatScreen> {
     required IconData icon,
     required VoidCallback onPressed,
     bool isDotted = false,
-    Color? color,
   }) {
-    final iconColor = Colors.white;
-    
-    final glassContainer = ClipRRect(
-      borderRadius: BorderRadius.circular(30),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 15.0, sigmaY: 15.0),
-        child: Container(
-          decoration: BoxDecoration(
-            color: AppTheme.background.withOpacity(0.7),
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: isDotted ? Colors.transparent : Colors.white.withOpacity(0.1),
-              width: 1.0,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.4),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
+    final glassContainer = Container(
+      decoration: const BoxDecoration(
+        shape: BoxShape.circle,
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(30),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 15.0, sigmaY: 15.0),
+          child: Container(
+            decoration: BoxDecoration(
+              color: AppTheme.background.withValues(alpha: 0.7),
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: isDotted 
+                    ? Colors.white.withValues(alpha: 0.3) 
+                    : Colors.white.withValues(alpha: 0.1),
+                width: 1.0,
               ),
-            ],
-          ),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: onPressed,
-              customBorder: const CircleBorder(),
-              splashColor: AppTheme.highlight.withOpacity(0.2),
-              child: Padding(
-                padding: const EdgeInsets.all(14.0),
-                child: Icon(
-                  icon, 
-                  color: iconColor,
-                  size: 24,
-                  shadows: [
-                    Shadow(
-                      color: AppTheme.highlight.withOpacity(0.8),
-                      blurRadius: 12.0,
-                    ),
-                  ],
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: onPressed,
+                customBorder: const CircleBorder(),
+                splashColor: AppTheme.highlight.withValues(alpha: 0.2),
+                child: Padding(
+                  padding: const EdgeInsets.all(14.0),
+                  child: Icon(
+                    icon, 
+                    color: Colors.white,
+                    size: 24,
+                  ),
                 ),
               ),
             ),
@@ -604,11 +595,11 @@ class _ChatScreenState extends State<ChatScreen> {
 
     if (isDotted) {
       return DottedBorder(
-        options: const CircularDottedBorderOptions(
+        options: const RoundedRectDottedBorderOptions(
+          radius: Radius.circular(32),
           color: AppTheme.highlight,
           dashPattern: [6, 4],
-          strokeWidth: 2.0,
-          padding: EdgeInsets.zero,
+          strokeWidth: 1.5,
         ),
         child: glassContainer,
       );
