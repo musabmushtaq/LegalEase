@@ -221,7 +221,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     },
                   ),
                   _buildFloatingIconButton(
-                    icon: Icons.edit_square,
+                    icon: Icons.edit_outlined,
                     isDotted: _chatService.isTemporaryChat,
                     onPressed: _createNewChat,
                   ),
@@ -359,10 +359,15 @@ class _ChatScreenState extends State<ChatScreen> {
                                     child: ClipRRect(
                                       borderRadius: BorderRadius.circular(24.0),
                                       child: BackdropFilter(
-                                        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                                        filter: ImageFilter.blur(sigmaX: 15.0, sigmaY: 15.0),
                                         child: Container(
                                           decoration: BoxDecoration(
-                                            color: Colors.white.withOpacity(0.05),
+                                            color: AppTheme.background.withOpacity(0.7),
+                                            border: Border.all(
+                                              color: Colors.white.withOpacity(0.1),
+                                              width: 1.0,
+                                            ),
+                                            borderRadius: BorderRadius.circular(24.0),
                                           ),
                                           padding: const EdgeInsets.symmetric(
                                             horizontal: 16.0,
@@ -394,14 +399,14 @@ class _ChatScreenState extends State<ChatScreen> {
                                 : ClipRRect(
                                     borderRadius: BorderRadius.circular(24.0),
                                     child: BackdropFilter(
-                                      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+                                      filter: ImageFilter.blur(sigmaX: 15.0, sigmaY: 15.0),
                                       child: Container(
                                         decoration: BoxDecoration(
-                                          color: Colors.white.withOpacity(0.05),
+                                          color: AppTheme.background.withOpacity(0.7),
                                           borderRadius: BorderRadius.circular(24.0),
                                           border: Border.all(
-                                            color: Colors.white.withOpacity(0.15),
-                                            width: 1.5,
+                                            color: Colors.white.withOpacity(0.1),
+                                            width: 1.0,
                                           ),
                                         ),
                                         padding: const EdgeInsets.symmetric(
@@ -471,14 +476,6 @@ class _ChatScreenState extends State<ChatScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Center(
-            child: Icon(
-              Icons.balance,
-              size: 100,
-              color: AppTheme.highlight.withOpacity(0.08),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Center(
             child: Text(
               "Ask me something...",
               style: TextStyle(
@@ -547,22 +544,25 @@ class _ChatScreenState extends State<ChatScreen> {
     required IconData icon,
     required VoidCallback onPressed,
     bool isDotted = false,
+    Color? color,
   }) {
+    final iconColor = Colors.white;
+    
     final glassContainer = ClipRRect(
       borderRadius: BorderRadius.circular(30),
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        filter: ImageFilter.blur(sigmaX: 15.0, sigmaY: 15.0),
         child: Container(
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.05),
+            color: AppTheme.background.withOpacity(0.7),
             shape: BoxShape.circle,
             border: Border.all(
-              color: isDotted ? Colors.transparent : Colors.white.withOpacity(0.15),
-              width: 1.5,
+              color: isDotted ? Colors.transparent : Colors.white.withOpacity(0.1),
+              width: 1.0,
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.3),
+                color: Colors.black.withOpacity(0.4),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),
@@ -578,8 +578,14 @@ class _ChatScreenState extends State<ChatScreen> {
                 padding: const EdgeInsets.all(14.0),
                 child: Icon(
                   icon, 
-                  color: AppTheme.highlight,
-                  size: 24
+                  color: iconColor,
+                  size: 24,
+                  shadows: [
+                    Shadow(
+                      color: AppTheme.highlight.withOpacity(0.8),
+                      blurRadius: 12.0,
+                    ),
+                  ],
                 ),
               ),
             ),
