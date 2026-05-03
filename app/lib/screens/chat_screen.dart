@@ -21,13 +21,16 @@ class ChatScreen extends StatefulWidget {
 
 class _ChatScreenState extends State<ChatScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-  final TextEditingController _textController = TextEditingController();
+  late AttachmentTextEditingController _textController;
   final ChatService _chatService = ChatService();
   late ScrollController _scrollController;
+  final FocusNode _focusNode = FocusNode();
   bool _isTyping = false;
   bool _isInitialized = false;
   File? _attachedFile;
   final ImagePicker _imagePicker = ImagePicker();
+
+  @override
 
   Future<void> _pickImage(ImageSource source) async {
     try {
@@ -35,7 +38,20 @@ class _ChatScreenState extends State<ChatScreen> {
       if (image != null) {
         setState(() {
           _attachedFile = File(image.path);
-          _isTyping = true; // allow sending immediately
+          _isTyping = true;
+          // Insert the inline token placeholder with a trailing space
+          final text = _textController.text;
+          final selection = _textController.selection;
+          final newText = text.replaceRange(
+            selection.start.clamp(0, text.length),
+            selection.end.clamp(0, text.length),
+            '\uFFFC ', // No leading space, tight hug
+          );
+          _textController.text = newText;
+          _textController.selection = TextSelection.collapsed(
+            offset: selection.start + 2,
+          );
+          _focusNode.requestFocus();
         });
       }
     } catch (e) {
@@ -56,7 +72,20 @@ class _ChatScreenState extends State<ChatScreen> {
       if (result != null && result.files.single.path != null) {
         setState(() {
           _attachedFile = File(result.files.single.path!);
-          _isTyping = true; // allow sending immediately
+          _isTyping = true;
+          // Insert the inline token placeholder with a trailing space
+          final text = _textController.text;
+          final selection = _textController.selection;
+          final newText = text.replaceRange(
+            selection.start.clamp(0, text.length),
+            selection.end.clamp(0, text.length),
+            '\uFFFC ', // No leading space, tight hug
+          );
+          _textController.text = newText;
+          _textController.selection = TextSelection.collapsed(
+            offset: selection.start + 2,
+          );
+          _focusNode.requestFocus();
         });
       }
     } catch (e) {
@@ -167,6 +196,13 @@ class _ChatScreenState extends State<ChatScreen> {
   void initState() {
     super.initState();
     _scrollController = ScrollController();
+    _textController = AttachmentTextEditingController(
+      onFileRemoved: () {
+        setState(() {
+          _attachedFile = null;
+        });
+      },
+    );
     _initializeService();
     _textController.addListener(() {
       setState(() {
@@ -186,6 +222,7 @@ class _ChatScreenState extends State<ChatScreen> {
   void dispose() {
     _textController.dispose();
     _scrollController.dispose();
+    _focusNode.dispose();
     super.dispose();
   }
 
@@ -306,83 +343,7 @@ class _ChatScreenState extends State<ChatScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            if (_attachedFile != null)
-                              Container(
-                                margin: const EdgeInsets.only(bottom: 8),
-                                child: Stack(
-                                  clipBehavior: Clip.none,
-                                  children: [
-                                    _chatService.isTemporaryChat
-                                        ? DottedBorder(
-                                            options:
-                                                const RoundedRectDottedBorderOptions(
-                                                  radius: Radius.circular(12),
-                                                  color: AppTheme.highlight,
-                                                  dashPattern: [6, 4],
-                                                  strokeWidth: 2.0,
-                                                ),
-                                            child: ClipRRect(
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
-                                              child: Image.file(
-                                                _attachedFile!,
-                                                height: 80,
-                                                width: 80,
-                                                fit: BoxFit.cover,
-                                                errorBuilder:
-                                                    (
-                                                      context,
-                                                      error,
-                                                      stackTrace,
-                                                    ) {
-                                                      return _buildFilePlaceholder();
-                                                    },
-                                              ),
-                                            ),
-                                          )
-                                        : ClipRRect(
-                                            borderRadius: BorderRadius.circular(
-                                              12,
-                                            ),
-                                            child: Image.file(
-                                              _attachedFile!,
-                                              height: 80,
-                                              width: 80,
-                                              fit: BoxFit.cover,
-                                              errorBuilder:
-                                                  (context, error, stackTrace) {
-                                                    return _buildFilePlaceholder();
-                                                  },
-                                            ),
-                                          ),
-                                    Positioned(
-                                      top: -8,
-                                      right: -8,
-                                      child: GestureDetector(
-                                        onTap: () {
-                                          setState(() {
-                                            _attachedFile = null;
-                                            _isTyping =
-                                                _textController.text.isNotEmpty;
-                                          });
-                                        },
-                                        child: Container(
-                                          decoration: const BoxDecoration(
-                                            color: Colors.redAccent,
-                                            shape: BoxShape.circle,
-                                          ),
-                                          padding: const EdgeInsets.all(4),
-                                          child: const Icon(
-                                            Icons.close,
-                                            size: 16,
-                                            color: Colors.white,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
+                            // Inline Tokens are handled by the TextField now
                             _chatService.isTemporaryChat
                                 ? DottedBorder(
                                     options:
@@ -410,6 +371,7 @@ class _ChatScreenState extends State<ChatScreen> {
                                           ),
                                           child: TextField(
                                             controller: _textController,
+                                            focusNode: _focusNode,
                                             style: const TextStyle(
                                               color: AppTheme.textBody,
                                             ),
@@ -450,6 +412,7 @@ class _ChatScreenState extends State<ChatScreen> {
                                         ),
                                         child: TextField(
                                           controller: _textController,
+                                          focusNode: _focusNode,
                                           style: const TextStyle(
                                             color: AppTheme.textBody,
                                           ),
@@ -641,5 +604,83 @@ class _ChatScreenState extends State<ChatScreen> {
     }
 
     return glassContainer;
+  }
+}
+
+class AttachmentTextEditingController extends TextEditingController {
+  final VoidCallback onFileRemoved;
+
+  AttachmentTextEditingController({required this.onFileRemoved});
+
+  @override
+  TextSpan buildTextSpan({
+    required BuildContext context,
+    TextStyle? style,
+    required bool withComposing,
+  }) {
+    final List<InlineSpan> children = [];
+    
+    // Split by the Object Replacement Character (\uFFFC)
+    text.splitMapJoin(
+      '\uFFFC',
+      onMatch: (Match match) {
+        children.add(
+          WidgetSpan(
+            alignment: PlaceholderAlignment.middle,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 2.0),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.2),
+                        width: 1.0,
+                      ),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.attach_file, color: Colors.white, size: 12),
+                        SizedBox(width: 4),
+                        Text(
+                          'Attachment',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        return '';
+      },
+      onNonMatch: (String text) {
+        children.add(TextSpan(text: text, style: style));
+        return '';
+      },
+    );
+
+    return TextSpan(children: children, style: style);
+  }
+
+  @override
+  set text(String newText) {
+    // Detect if the file anchor (\uFFFC) was removed or partially deleted
+    if (text.contains('\uFFFC') && !newText.contains('\uFFFC')) {
+      onFileRemoved();
+    }
+    super.text = newText;
   }
 }
