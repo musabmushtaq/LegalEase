@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:math';
@@ -235,152 +236,203 @@ class _LiveCallScreenState extends State<LiveCallScreen>
 
   @override
   Widget build(BuildContext context) {
+    final Color topBarAuraColor = _isAiSpeaking
+        ? const Color(0xFFFCE566) // Gold for AI
+        : _isMuted
+            ? const Color(0xFF424242) // Dim grey for muted
+            : const Color(0xFF4A90E2); // Blue for User
+
     return Scaffold(
-      backgroundColor: const Color(0xFF131315), // Deep dark background
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Top bar (Live indicator)
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 24.0,
-                vertical: 16.0,
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.auto_awesome, color: Colors.white, size: 20),
-                  const SizedBox(width: 8),
-                  const Text(
-                    "Live",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
+      backgroundColor: const Color(0xFF09090B), // Ultra dark background
+      body: Stack(
+        children: [
+          // 1. Glowing Aura (The Entity)
+          Positioned.fill(
+            child: Center(
+              child: AnimatedBuilder(
+                animation: _glowController,
+                builder: (context, child) {
+                  // Determine aura color based on state
+                  final Color auraColor = _isAiSpeaking
+                      ? const Color(0xFFFCE566) // Gold for AI
+                      : _isMuted
+                          ? const Color(0xFF424242) // Dim grey for muted (when AI not speaking)
+                          : const Color(0xFF4A90E2); // Blue for User
+
+                  // Calculate dynamic size based on amplitude and pulse
+                  final double baseIntensity = _isAiSpeaking
+                      ? 0.4 + (_glowController.value * 0.4)
+                      : _isMuted
+                          ? 0.1 // Flat intensity when muted
+                          : (_smoothedLevel > 0.1)
+                              ? _smoothedLevel + (_glowController.value * _smoothedLevel * 0.5)
+                              : 0.2 + (_glowController.value * 0.1);
+
+                  final double intensity = baseIntensity.clamp(0.0, 1.0);
+                  final double orbSize = 200 + (intensity * 150);
+
+                  return Container(
+                    width: orbSize,
+                    height: orbSize,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: RadialGradient(
+                        colors: [
+                          auraColor.withValues(alpha: 0.8),
+                          auraColor.withValues(alpha: 0.3),
+                          Colors.transparent,
+                        ],
+                        stops: const [0.2, 0.6, 1.0],
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: auraColor.withValues(alpha: 0.5),
+                          blurRadius: 100,
+                          spreadRadius: intensity * 50,
+                        ),
+                      ],
                     ),
-                  ),
-                ],
+                  );
+                },
               ),
             ),
+          ),
 
-            // Visualization area (Upper large rectangle with glow inside)
-            Expanded(
+          // 2. Frosted Glass Overlay
+          Positioned.fill(
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 80.0, sigmaY: 80.0),
               child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 12.0),
-                decoration: BoxDecoration(
-                  color: const Color(
-                    0xFF1C1C1E,
-                  ), // Slightly lighter dark background
-                  borderRadius: BorderRadius.circular(24.0),
+                color: Colors.black.withValues(alpha: 0.3), // Darken the glass
+              ),
+            ),
+          ),
+
+          // 3. UI Layer
+          SafeArea(
+            child: Column(
+              children: [
+                // Top Bar
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 24.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.auto_awesome,
+                        color: topBarAuraColor,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        _isAiSpeaking ? "LegalEase Speaking" : (_isMuted ? "Muted" : "Listening..."),
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.9),
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 1.2,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                clipBehavior: Clip.antiAlias,
-                child: Stack(
-                  children: [
-                    // Bottom-up Animated Gas Flow / Glow (contained within rectangle)
-                    Align(
-                      alignment: Alignment.bottomCenter,
-                      child: AnimatedBuilder(
-                        animation: _glowController,
-                        builder: (context, child) {
-                          // Color switches between yellow for AI (future) and blueish for user
-                          final baseColor = _isAiSpeaking
-                              ? const Color(0xFFFCE566)
-                              : const Color(0xFF4A90E2);
 
-                          // Calculate intensity (AI simulates amplitude, User uses real mic level)
-                          final intensity = _isAiSpeaking
-                              ? 0.4 + (_glowController.value * 0.4)
-                              : (_smoothedLevel > 0.1)
-                              ? _smoothedLevel +
-                                    (_glowController.value *
-                                        _smoothedLevel *
-                                        0.8)
-                              : 0.35 +
-                                    (_glowController.value *
-                                        0.15); // Prominent idle glow
-
-                          return Container(
-                            height:
-                                150 +
-                                (intensity.clamp(0.0, 2.0) *
-                                    300), // Rises when louder
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.bottomCenter,
-                                end: Alignment.topCenter,
-                                colors: [
-                                  baseColor.withValues(
-                                    alpha: (0.6 * intensity).clamp(0.0, 1.0),
-                                  ),
-                                  baseColor.withValues(
-                                    alpha: (0.15 * intensity).clamp(0.0, 1.0),
-                                  ),
-                                  Colors.transparent,
-                                ],
-                                stops: const [0.0, 0.6, 1.0],
-                              ),
-                            ),
-                          );
-                        },
+                // Transcription Area (Center)
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 40.0),
+                    child: Center(
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 800),
+                        child: Text(
+                          (_isMuted && !_isAiSpeaking)
+                              ? ""
+                              : _transcription.isEmpty ? "Say something..." : _transcription,
+                          key: ValueKey((_isMuted && !_isAiSpeaking) ? "muted" : _transcription),
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: (_transcription.isEmpty || (_isMuted && !_isAiSpeaking)) ? 0.3 : 0.9),
+                            fontSize: 28,
+                            fontWeight: FontWeight.w300,
+                            height: 1.4,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
                       ),
                     ),
-                  ],
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 24),
-
-            // Bottom Action Buttons
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // Mute Button
-                InkWell(
-                  onTap: _toggleMute,
-                  customBorder: const CircleBorder(),
-                  child: Container(
-                    width: 64,
-                    height: 64,
-                    decoration: BoxDecoration(
-                      color: _isMuted
-                          ? Colors.white
-                          : const Color(0xFF2A2A2E), // Dark grey
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      _isMuted ? Icons.mic_off : Icons.mic,
-                      color: _isMuted ? Colors.black : Colors.white,
-                      size: 28,
-                    ),
                   ),
                 ),
-                const SizedBox(width: 24),
-                // End Call Button
-                InkWell(
-                  onTap: () {
-                    Navigator.pop(context);
-                  },
-                  customBorder: const CircleBorder(),
-                  child: Container(
-                    width: 64,
-                    height: 64,
-                    decoration: const BoxDecoration(
-                      color: Color(0xFFE53935), // Red
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.close,
-                      color: Colors.white,
-                      size: 28,
-                    ),
+
+                // Bottom Action Cluster
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 48.0, top: 24.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      // Mute Button (Glassmorphic)
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(40),
+                        child: BackdropFilter(
+                          filter: ImageFilter.blur(sigmaX: 20.0, sigmaY: 20.0),
+                          child: InkWell(
+                            onTap: _toggleMute,
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 200),
+                              width: 72,
+                              height: 72,
+                              decoration: BoxDecoration(
+                                color: _isMuted 
+                                    ? Colors.white.withValues(alpha: 0.9)
+                                    : Colors.white.withValues(alpha: 0.1),
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: Colors.white.withValues(alpha: _isMuted ? 1.0 : 0.2),
+                                  width: 1.0,
+                                ),
+                              ),
+                              child: Icon(
+                                _isMuted ? Icons.mic_off : Icons.mic,
+                                color: _isMuted ? Colors.black : Colors.white,
+                                size: 28,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      
+                      const SizedBox(width: 32),
+                      
+                      // End Call Button
+                      InkWell(
+                        onTap: () => Navigator.pop(context),
+                        child: Container(
+                          width: 72,
+                          height: 72,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE53935),
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFFE53935).withValues(alpha: 0.4),
+                                blurRadius: 20,
+                                spreadRadius: 2,
+                              ),
+                            ],
+                          ),
+                          child: const Icon(
+                            Icons.call_end,
+                            color: Colors.white,
+                            size: 28,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 32),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
