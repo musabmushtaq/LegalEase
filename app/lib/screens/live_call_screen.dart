@@ -58,12 +58,15 @@ class _LiveCallScreenState extends State<LiveCallScreen>
 
       if (status.isGranted) {
         _setupVadHandler();
-        await _vadHandler.startListening(
-          positiveSpeechThreshold: 0.5,
-          negativeSpeechThreshold: 0.35,
-          minSpeechFrames: 2,
-        );
-        debugPrint('LiveCallScreen: VAD started listening');
+        if (!_isMuted) {
+          await _vadHandler.startListening(
+            baseAssetPath: 'assets/models/',
+            positiveSpeechThreshold: 0.5,
+            negativeSpeechThreshold: 0.35,
+            minSpeechFrames: 2,
+          );
+          debugPrint('LiveCallScreen: VAD started listening');
+        }
       } else {
         debugPrint('LiveCallScreen: Permission not granted');
       }
@@ -161,10 +164,16 @@ class _LiveCallScreenState extends State<LiveCallScreen>
           _micLevel = 0.0;
         }
 
-        // Smoothly transition amplitude for the gas/flow effect
-        // Lower smoothing factor = more gradual, linear animation
+        // Envelope follower for organic fluid movement
         final target = (_isMuted && !_isAiSpeaking) ? 0.0 : _micLevel;
-        _smoothedLevel += (target - _smoothedLevel) * 0.15;
+        
+        if (target > _smoothedLevel) {
+          // Fast attack: jump up quickly when sound starts
+          _smoothedLevel += (target - _smoothedLevel) * 0.6;
+        } else {
+          // Slow release: fade down gently like a glowing ember
+          _smoothedLevel += (target - _smoothedLevel) * 0.05;
+        }
       });
     });
   }
@@ -211,23 +220,32 @@ class _LiveCallScreenState extends State<LiveCallScreen>
   }
 
   Future<void> _toggleMute() async {
+    final bool willMute = !_isMuted;
     setState(() {
-      _isMuted = !_isMuted;
+      _isMuted = willMute;
     });
 
-    if (_isMuted) {
+    if (willMute) {
       await _vadHandler.stopListening();
-      setState(() {
-        _micLevel = 0.0;
-        _smoothedLevel = 0.0;
-      });
+      if (mounted) {
+        setState(() {
+          _micLevel = 0.0;
+          _smoothedLevel = 0.0;
+        });
+      }
     } else {
-      await _vadHandler.startListening();
+      await _vadHandler.startListening(
+        baseAssetPath: 'assets/models/',
+        positiveSpeechThreshold: 0.5,
+        negativeSpeechThreshold: 0.35,
+        minSpeechFrames: 2,
+      );
     }
   }
 
   @override
   void dispose() {
+    _vadHandler.stopListening(); // Force mic release
     _vadHandler.dispose();
     _glowController.dispose();
     _audioPlayer.dispose();
