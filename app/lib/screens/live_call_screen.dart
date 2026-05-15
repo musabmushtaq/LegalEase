@@ -64,6 +64,7 @@ class _LiveCallScreenState extends State<LiveCallScreen>
             positiveSpeechThreshold: 0.5,
             negativeSpeechThreshold: 0.35,
             minSpeechFrames: 2,
+            redemptionFrames: 30, // Allows ~1 second of pause without cutting off
           );
           debugPrint('LiveCallScreen: VAD started listening');
         }
@@ -155,7 +156,8 @@ class _LiveCallScreenState extends State<LiveCallScreen>
       }
       // Calculate RMS and scale smoothly to [0..1] range visually
       double rms = sqrt(sumSquares / frameData.frame.length);
-      double level = (rms * 5).clamp(0.0, 1.0);
+      // Cranked up multiplier from 5 to 15 so it's much more reactive to normal talking
+      double level = (rms * 15.0).clamp(0.0, 1.0);
 
       setState(() {
         if (!_isMuted) {
@@ -168,11 +170,11 @@ class _LiveCallScreenState extends State<LiveCallScreen>
         final target = (_isMuted && !_isAiSpeaking) ? 0.0 : _micLevel;
         
         if (target > _smoothedLevel) {
-          // Fast attack: jump up quickly when sound starts
-          _smoothedLevel += (target - _smoothedLevel) * 0.6;
+          // Fast attack: jump up very quickly when sound starts (punchy)
+          _smoothedLevel += (target - _smoothedLevel) * 0.8;
         } else {
           // Slow release: fade down gently like a glowing ember
-          _smoothedLevel += (target - _smoothedLevel) * 0.05;
+          _smoothedLevel += (target - _smoothedLevel) * 0.1;
         }
       });
     });
@@ -239,6 +241,7 @@ class _LiveCallScreenState extends State<LiveCallScreen>
         positiveSpeechThreshold: 0.5,
         negativeSpeechThreshold: 0.35,
         minSpeechFrames: 2,
+        redemptionFrames: 30, // Allows ~1 second of pause without cutting off
       );
     }
   }
