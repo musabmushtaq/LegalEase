@@ -75,9 +75,7 @@ class ChatService extends ChangeNotifier {
     await _loadSettings();
     await _loadAuth();
     if (_isAuthenticated) {
-      // Load current chat from cache for instant UI display
-      await _restoreCurrentChatFromCache();
-      // Reactive check on startup
+      // Reactive check on startup - skip restoring from cache for fresh start
       checkInitialAndInstantNetwork();
     } else {
       _isConnecting = false;
