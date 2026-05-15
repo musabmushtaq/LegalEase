@@ -32,8 +32,6 @@ class _ChatScreenState extends State<ChatScreen> {
   File? _attachedFile;
   final ImagePicker _imagePicker = ImagePicker();
 
-  @override
-
   Future<void> _pickImage(ImageSource source) async {
     try {
       final XFile? image = await _imagePicker.pickImage(source: source);
@@ -449,8 +447,10 @@ class _ChatScreenState extends State<ChatScreen> {
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (context) =>
-                                        const LiveCallScreen(),
+                                    builder: (context) => LiveCallScreen(
+                                      chatService: _chatService,
+                                      chatId: _chatService.currentChatId,
+                                    ),
                                   ),
                                 );
                               },

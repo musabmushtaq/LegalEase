@@ -326,7 +326,7 @@ async def add_message(chat_id: str, payload: AddMessageRequest) -> dict[str, Any
         raise HTTPException(status_code=404, detail="Chat not found")
 
     created_at = now_iso()
-    user_message = {
+    new_message = {
         "id": make_id("msg"),
         "chat_id": chat_id,
         "sender": payload.sender,
@@ -335,10 +335,37 @@ async def add_message(chat_id: str, payload: AddMessageRequest) -> dict[str, Any
         "user_id": payload.user_id,
     }
 
+    await db.chats.update_one(
+        {"chat_id": chat_id},
+        {
+            "$push": {"messages": new_message},
+            "$set": {"updated_at": now_iso()},
+        },
+    )
+
+    return {
+        "chat_id": chat_id,
+        "message": new_message,
+    }
+
+
+@app.post("/chats/{chat_id}/generate_ai")
+async def generate_ai(chat_id: str) -> dict[str, Any]:
+    chat = await db.chats.find_one({"chat_id": chat_id})
+    if not chat:
+        raise HTTPException(status_code=404, detail="Chat not found")
+
     system_prompt = chat.get("system_prompt", settings.default_system_prompt)
     chat_history = chat.get("messages", [])
     
-    ai_content = await generate_ai_reply(payload.content, system_prompt, chat_history)
+    prompt = "Continue the conversation."
+    context_history = chat_history
+
+    if chat_history and chat_history[-1].get("sender") == "user":
+        prompt = chat_history[-1].get("content", "")
+        context_history = chat_history[:-1]
+
+    ai_content = await generate_ai_reply(prompt, system_prompt, context_history)
 
     assistant_message = {
         "id": make_id("msg"),
@@ -352,14 +379,13 @@ async def add_message(chat_id: str, payload: AddMessageRequest) -> dict[str, Any
     await db.chats.update_one(
         {"chat_id": chat_id},
         {
-            "$push": {"messages": {"$each": [user_message, assistant_message]}},
+            "$push": {"messages": assistant_message},
             "$set": {"updated_at": now_iso()},
         },
     )
 
     return {
         "chat_id": chat_id,
-        "user_message": user_message,
         "assistant_message": assistant_message,
     }
 
@@ -705,27 +731,14 @@ async def add_message_with_file(chat_id: str, content: str = Form(...), file: Up
         "created_at": created_at
     }
 
-    system_prompt = chat.get("system_prompt", settings.default_system_prompt)
-    chat_history = chat.get("messages", [])
-    
-    ai_content = await generate_ai_reply(content, system_prompt, chat_history)
-
-    assistant_message = {
-        "id": make_id("msg"),
-        "chat_id": chat_id,
-        "sender": "ai",
-        "content": ai_content,
-        "created_at": now_iso(),
-    }
-
     await db.chats.update_one(
         {"chat_id": chat_id},
         {
-            "$push": {"messages": {"$each": [user_message, assistant_message]}},
+            "$push": {"messages": user_message},
             "$set": {"updated_at": now_iso()},
         },
     )
-    return {"chat_id": chat_id, "user_message": user_message, "assistant_message": assistant_message}
+    return {"chat_id": chat_id, "message": user_message}
 
 @app.get("/users/{user_id}/search")
 async def search_chats(user_id: str, query: str):

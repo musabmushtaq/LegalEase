@@ -534,6 +534,96 @@ class ChatService extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Specialized method for Live Call to save interactions
+  /// without triggering the standard automated AI response loop.
+  Future<void> recordLiveCallInteraction({
+    required String userText,
+    required String aiText,
+    String? chatId,
+  }) async {
+    // 1. Resolve which chat we are working with
+    final targetChatId = chatId ?? _currentChatId;
+    
+    // 2. If no chat exists, create a new one first
+    if (targetChatId == null) {
+      await createNewChat();
+    }
+    
+    final finalChatId = _currentChatId;
+    if (finalChatId == null) return;
+
+    // 3. Add User message
+    final userMsgId = DateTime.now().millisecondsSinceEpoch.toString();
+    final userMsg = ChatMessage(
+      id: userMsgId,
+      chatId: finalChatId,
+      sender: 'user',
+      content: userText,
+      createdAt: DateTime.now(),
+    );
+    _messages[finalChatId]?.add(userMsg);
+
+    // 4. Add AI message (the "LegalEase received" response)
+    final aiMsgId = (DateTime.now().millisecondsSinceEpoch + 1).toString();
+    final aiMsg = ChatMessage(
+      id: aiMsgId,
+      chatId: finalChatId,
+      sender: 'ai',
+      content: aiText,
+      createdAt: DateTime.now().add(const Duration(milliseconds: 100)),
+    );
+    _messages[finalChatId]?.add(aiMsg);
+
+    // Update timestamp and cache
+    _chats[finalChatId]?.updatedAt = DateTime.now();
+    await _saveCurrentChatToCache();
+    notifyListeners();
+
+    // 5. Background sync to server if online
+    final isOnline = await _checkConnectivityInternal();
+    if (isOnline) {
+      try {
+        final uri = Uri.parse('$_apiBaseUrl/chats/$finalChatId/messages');
+        
+        // Sync User message
+        final userResponse = await http.post(
+          uri,
+          headers: _headers(),
+          body: jsonEncode({'content': userText, 'sender': 'user'}),
+        );
+
+        // Sync AI message
+        final aiResponse = await http.post(
+          uri,
+          headers: _headers(),
+          body: jsonEncode({'content': aiText, 'sender': 'ai'}),
+        );
+
+        if (userResponse.statusCode != 200 || aiResponse.statusCode != 200) {
+          debugPrint('ChatService: Sync failed. User: ${userResponse.statusCode}, AI: ${aiResponse.statusCode}');
+        } else {
+          debugPrint('ChatService: Successfully synced call log to database');
+        }
+      } catch (e) {
+        debugPrint('ChatService: Error during sync: $e');
+      }
+    }
+
+    // 6. Auto-generate title if this is the first interaction
+    if (_chats[finalChatId]?.title == 'New Chat') {
+      _generatingTitles.add(finalChatId);
+      _chats[finalChatId]!.title = 'Generating...';
+      notifyListeners();
+
+      final summary = await summarizeText(userText);
+      if (summary != null && summary.isNotEmpty) {
+        await renameChat(finalChatId, summary);
+      }
+      _generatingTitles.remove(finalChatId);
+      notifyListeners();
+    }
+  }
+
   Future<void> addMessage(
     String content,
     String sender, {
@@ -552,7 +642,9 @@ class ChatService extends ChangeNotifier {
     );
 
     _messages[_currentChatId]?.add(message);
-    _chats[_currentChatId]!.updatedAt = DateTime.now();
+    if (_chats.containsKey(_currentChatId)) {
+      _chats[_currentChatId]!.updatedAt = DateTime.now();
+    }
     await _saveCurrentChatToCache();
 
     notifyListeners();
@@ -561,10 +653,10 @@ class ChatService extends ChangeNotifier {
   Future<void> sendUserMessage(String content, {File? file}) async {
     if (_userId == null && !_isTemporaryChat) return;
 
-    if (_currentChatId == null) {
+    if (_currentChatId == null || !_chats.containsKey(_currentChatId)) {
       await createNewChat();
     }
-    if (_currentChatId == null) return;
+    if (_currentChatId == null || !_chats.containsKey(_currentChatId)) return;
 
     final currentId = _currentChatId!;
     
@@ -603,17 +695,30 @@ class ChatService extends ChangeNotifier {
       final streamedResponse = await request.send();
       final response = await http.Response.fromStream(streamedResponse);
 
+      if (response.statusCode == 404) {
+        // Server says chat doesn't exist - clear and retry once
+        _currentChatId = null;
+        _saveCurrentChatToCache();
+        return sendUserMessage(content, file: file);
+      }
+
       if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body) as Map<String, dynamic>;
-        final assistantMessage =
-            decoded['assistant_message'] as Map<String, dynamic>?;
-        if (assistantMessage != null) {
-          final aiMsg = ChatMessage.fromJson(assistantMessage);
-          aiMsg.isNew = true;
-          _messages[currentId]?.add(aiMsg);
-          _chats[currentId]?.updatedAt = DateTime.now();
-          await _saveCurrentChatToCache();
-          notifyListeners();
+        // Message saved. Now explicitly ask for AI response.
+        final aiUri = Uri.parse('$_apiBaseUrl/chats/$currentId/generate_ai');
+        final aiResponse = await http.post(aiUri, headers: _headers());
+        
+        if (aiResponse.statusCode == 200) {
+          final decoded = jsonDecode(aiResponse.body) as Map<String, dynamic>;
+          final assistantMessage = decoded['assistant_message'] as Map<String, dynamic>?;
+          
+          if (assistantMessage != null) {
+            final aiMsg = ChatMessage.fromJson(assistantMessage);
+            aiMsg.isNew = true;
+            _messages[currentId]?.add(aiMsg);
+            _chats[currentId]?.updatedAt = DateTime.now();
+            await _saveCurrentChatToCache();
+            notifyListeners();
+          }
         }
 
         // Auto-generate title from first message

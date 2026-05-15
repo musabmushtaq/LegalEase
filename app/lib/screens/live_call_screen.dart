@@ -11,7 +11,14 @@ import 'package:audioplayers/audioplayers.dart';
 import '../services/chat_service.dart';
 
 class LiveCallScreen extends StatefulWidget {
-  const LiveCallScreen({super.key});
+  final ChatService chatService;
+  final String? chatId;
+
+  const LiveCallScreen({
+    super.key,
+    required this.chatService,
+    this.chatId,
+  });
 
   @override
   State<LiveCallScreen> createState() => _LiveCallScreenState();
@@ -132,7 +139,15 @@ class _LiveCallScreenState extends State<LiveCallScreen>
               _transcription = data['text'] ?? '';
             });
             debugPrint('LiveCallScreen: Transcribed: $_transcription');
-            _playTTS('LegalEase received: $_transcription');
+            final aiText = 'LegalEase received: $_transcription';
+            _playTTS(aiText);
+
+            // Record the interaction to chat history (hijacking logic)
+            widget.chatService.recordLiveCallInteraction(
+              userText: _transcription,
+              aiText: aiText,
+              chatId: widget.chatId,
+            );
           }
         } else {
           debugPrint(
