@@ -173,8 +173,8 @@ class _LiveCallScreenState extends State<LiveCallScreen>
       }
       // Calculate RMS and scale smoothly to [0..1] range visually
       double rms = sqrt(sumSquares / frameData.frame.length);
-      // Extreme sensitivity boost
-      double level = (rms * 60.0).clamp(0.0, 1.0);
+      // Even more amplification (100x)
+      double level = (rms * 100.0).clamp(0.0, 1.0);
 
       setState(() {
         if (!_isMuted) {
@@ -185,8 +185,12 @@ class _LiveCallScreenState extends State<LiveCallScreen>
 
         final target = (_isMuted && !_isAiSpeaking) ? 0.0 : _micLevel;
         
-        // Even faster tracking (0.8) for instant response
-        _smoothedLevel += (target - _smoothedLevel) * 0.8;
+        // Asymmetric physics: fast attack (0.7), slow release (0.1) for a smooth fade-out
+        if (target > _smoothedLevel) {
+          _smoothedLevel += (target - _smoothedLevel) * 0.7;
+        } else {
+          _smoothedLevel += (target - _smoothedLevel) * 0.1;
+        }
       });
     });
   }
@@ -360,7 +364,7 @@ class _LiveCallScreenState extends State<LiveCallScreen>
                   final double t = DateTime.now().millisecondsSinceEpoch / 1000.0;
 
                   return SizedBox(
-                    height: 160,
+                    height: 240,
                     width: double.infinity,
                     child: CustomPaint(
                       painter: WaveformPainter(
@@ -505,7 +509,7 @@ class WaveformPainter extends CustomPainter {
     if (size.width == 0 || size.height == 0) return;
     final double midY = size.height / 2;
     // Taller vertical range for more impact
-    final double maxH = size.height * 0.8; 
+    final double maxH = size.height * 0.9; 
 
     // Layered drawing for neon glow effect
     _drawLayer(canvas, size, midY, maxH, 8.0, 0.15); // Outer glow
