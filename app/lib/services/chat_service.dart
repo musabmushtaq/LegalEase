@@ -301,14 +301,6 @@ class ChatService extends ChangeNotifier {
       final response = await http.get(uri).timeout(const Duration(seconds: 5));
       final isOnline = response.statusCode == 200;
       
-      // Minimum visibility: Let the beautiful banner stay for at least 1.5s 
-      // so it doesn't just "flicker" on fast networks.
-      final elapsed = DateTime.now().difference(startTime);
-      const minDuration = Duration(milliseconds: 1500);
-      if (elapsed < minDuration) {
-        await Future.delayed(minDuration - elapsed);
-      }
-      
       _isConnecting = false;
       if (!isOnline) {
         _forceOfflineState();
@@ -322,13 +314,6 @@ class ChatService extends ChangeNotifier {
       notifyListeners();
       return isOnline;
     } catch (_) {
-      // For failures, we still wait for the full thorough check (e.g. 3-5s)
-      final elapsed = DateTime.now().difference(startTime);
-      const thoroughDuration = Duration(seconds: 3);
-      if (elapsed < thoroughDuration) {
-        await Future.delayed(thoroughDuration - elapsed);
-      }
-      
       _isConnecting = false;
       _forceOfflineState();
       notifyListeners();
