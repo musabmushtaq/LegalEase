@@ -435,10 +435,13 @@ class _ChatScreenState extends State<ChatScreen> {
                       ),
                       
                       Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
+                        child: AnimatedSize(
+                          duration: const Duration(milliseconds: 200),
+                          curve: Curves.easeOutBack,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
                             // Inline Tokens are handled by the TextField now
                             _chatService.isTemporaryChat
                                 ? DottedBorder(
@@ -539,6 +542,7 @@ class _ChatScreenState extends State<ChatScreen> {
                           ],
                         ),
                       ),
+                    ),
 
                       // Animated Send/Action Button
                       AnimatedSwitcher(
