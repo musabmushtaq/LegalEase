@@ -408,6 +408,7 @@ class _ChatScreenState extends State<ChatScreen> {
                       ),
                     ),
                   Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       // Animated Attachment Button
                       AnimatedSwitcher(
@@ -453,6 +454,8 @@ class _ChatScreenState extends State<ChatScreen> {
                                       child: BackdropFilter(
                                         filter: ImageFilter.blur(sigmaX: 15.0, sigmaY: 15.0),
                                         child: Container(
+                                          constraints: const BoxConstraints(minHeight: 52.0),
+                                          alignment: Alignment.center,
                                           decoration: BoxDecoration(
                                             color: AppTheme.background.withOpacity(0.7),
                                             border: Border.all(
@@ -476,13 +479,14 @@ class _ChatScreenState extends State<ChatScreen> {
                                                 color: Colors.white.withOpacity(0.4),
                                               ),
                                               border: InputBorder.none,
+                                              isDense: true,
                                             ),
                                             onChanged: (text) {
                                               setState(() {
                                                 _isTyping = text.trim().isNotEmpty;
                                               });
                                             },
-                                            maxLines: 3,
+                                            maxLines: 5,
                                             minLines: 1,
                                           ),
                                         ),
@@ -494,6 +498,8 @@ class _ChatScreenState extends State<ChatScreen> {
                                     child: BackdropFilter(
                                       filter: ImageFilter.blur(sigmaX: 15.0, sigmaY: 15.0),
                                       child: Container(
+                                        constraints: const BoxConstraints(minHeight: 52.0),
+                                        alignment: Alignment.center,
                                         decoration: BoxDecoration(
                                           color: AppTheme.background.withValues(alpha: 0.6),
                                           borderRadius: BorderRadius.circular(24.0),
@@ -517,13 +523,14 @@ class _ChatScreenState extends State<ChatScreen> {
                                               color: Colors.white.withOpacity(0.4),
                                             ),
                                             border: InputBorder.none,
+                                            isDense: true,
                                           ),
                                           onChanged: (text) {
                                             setState(() {
                                               _isTyping = text.trim().isNotEmpty;
                                             });
                                           },
-                                          maxLines: 3,
+                                          maxLines: 5,
                                           minLines: 1,
                                         ),
                                       ),
