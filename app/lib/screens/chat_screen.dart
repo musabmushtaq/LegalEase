@@ -394,7 +394,7 @@ class _ChatScreenState extends State<ChatScreen> {
                       : const SizedBox.shrink(),
                   ),
 
-                  if (_chatService.isTemporaryChat)
+                  if (_chatService.isTemporaryChat && _chatService.currentMessages.isEmpty)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 8.0),
                       child: Text(
