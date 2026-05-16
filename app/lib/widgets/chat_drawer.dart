@@ -209,7 +209,7 @@ class _ChatDrawerState extends State<ChatDrawer> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const SizedBox(height: 24),
-
+                  
                   // Capsule Search Bar
                   Container(
                     height: 52,
@@ -249,7 +249,7 @@ class _ChatDrawerState extends State<ChatDrawer> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 12),
 
                   // Capsule Action Row
                   Row(
@@ -313,11 +313,11 @@ class _ChatDrawerState extends State<ChatDrawer> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 40),
+                  const SizedBox(height: 20),
 
                   // Section Header
                   Padding(
-                    padding: const EdgeInsets.only(left: 4.0, bottom: 16.0),
+                    padding: const EdgeInsets.only(left: 4.0, bottom: 8.0),
                     child: Text(
                       "HISTORY",
                       style: TextStyle(
@@ -389,9 +389,9 @@ class _ChatDrawerState extends State<ChatDrawer> {
                   ),
 
                   // Bottom Section
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 8),
                   Container(
-                    padding: const EdgeInsets.symmetric(vertical: 20),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
                     decoration: BoxDecoration(
                       border: Border(
                         top: BorderSide(
@@ -415,7 +415,7 @@ class _ChatDrawerState extends State<ChatDrawer> {
                             );
                           },
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 2),
                         _buildFooterItem(
                           icon: widget.chatService.isAuthenticated
                               ? Icons.logout_rounded
