@@ -206,7 +206,7 @@ class _UserMessageCardState extends State<_UserMessageCard> with SingleTickerPro
     // 2. Try download if fileId exists
     if (widget.message.fileId != null) {
       final fileName = widget.message.fileName ?? 'attachment';
-      final downloadedFile = await chatService.downloadFile(widget.message.fileId!, fileName);
+      final downloadedFile = await chatService.downloadFile(widget.message.id, widget.message.fileId!, fileName);
       
       if (downloadedFile != null) {
         await OpenFile.open(downloadedFile.path);

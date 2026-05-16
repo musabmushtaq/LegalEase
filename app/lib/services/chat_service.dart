@@ -925,7 +925,7 @@ class ChatService extends ChangeNotifier {
   bool get isDownloading => _isDownloading;
   String? get downloadingFileName => _downloadingFileName;
 
-  Future<File?> downloadFile(String fileId, String fileName) async {
+  Future<File?> downloadFile(String messageId, String fileId, String fileName) async {
     _isDownloading = true;
     _downloadingFileName = fileName;
     notifyListeners();
@@ -949,6 +949,26 @@ class ChatService extends ChangeNotifier {
         });
         await sink.close();
         client.close();
+        
+        // Caching: Update the local message path so we don't download again
+        if (_currentChatId != null && _messages.containsKey(_currentChatId)) {
+          final index = _messages[_currentChatId]!.indexWhere((m) => m.id == messageId);
+          if (index != -1) {
+            final oldMsg = _messages[_currentChatId]![index];
+            _messages[_currentChatId]![index] = ChatMessage(
+              id: oldMsg.id,
+              chatId: oldMsg.chatId,
+              sender: oldMsg.sender,
+              content: oldMsg.content,
+              createdAt: oldMsg.createdAt,
+              localFilePath: filePath, // Persist the local path
+              fileId: oldMsg.fileId,
+              fileName: oldMsg.fileName,
+            );
+            notifyListeners();
+            _saveCurrentChatToCache(); // Persist to shared preferences
+          }
+        }
         
         return file;
       }

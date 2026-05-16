@@ -322,7 +322,7 @@ class _ChatScreenState extends State<ChatScreen> {
                       final Color pillColor = Colors.white.withValues(alpha: 0.12);
                       
                       return Container(
-                        margin: const EdgeInsets.only(bottom: 12),
+                        margin: const EdgeInsets.only(bottom: 4),
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(28.0),
                           child: BackdropFilter(
@@ -380,7 +380,7 @@ class _ChatScreenState extends State<ChatScreen> {
                   ListenableBuilder(
                     listenable: _chatService,
                     builder: (context, _) => (!_chatService.isConnected || _chatService.isConnecting) || _chatService.isDownloading 
-                      ? const SizedBox(height: 12) 
+                      ? const SizedBox(height: 8) 
                       : const SizedBox.shrink(),
                   ),
 
