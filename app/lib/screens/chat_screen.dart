@@ -516,24 +516,26 @@ class _ChatScreenState extends State<ChatScreen> {
                           ],
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      _buildFloatingIconButton(
-                        icon: _isTyping ? Icons.send : Icons.mic,
-                        isDotted: _chatService.isTemporaryChat,
-                        onPressed: _isTyping
-                            ? _sendMessage
-                            : () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => LiveCallScreen(
-                                      chatService: _chatService,
-                                      chatId: _chatService.currentChatId,
+                      if (!_chatService.isTemporaryChat || _isTyping) ...[
+                        const SizedBox(width: 12),
+                        _buildFloatingIconButton(
+                          icon: _isTyping ? Icons.send : Icons.mic,
+                          isDotted: _chatService.isTemporaryChat,
+                          onPressed: _isTyping
+                              ? _sendMessage
+                              : () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => LiveCallScreen(
+                                        chatService: _chatService,
+                                        chatId: _chatService.currentChatId,
+                                      ),
                                     ),
-                                  ),
-                                );
-                              },
-                      ),
+                                  );
+                                },
+                        ),
+                      ],
                     ],
                   ),
                 ],
