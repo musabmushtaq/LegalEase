@@ -518,9 +518,8 @@ class ChatService extends ChangeNotifier {
 
   /// Specialized method for Live Call to save interactions
   /// without triggering the standard automated AI response loop.
-  Future<void> recordLiveCallInteraction({
+  Future<String?> recordLiveCallInteraction({
     required String userText,
-    required String aiText,
     String? chatId,
   }) async {
     // 1. Resolve which chat we are working with
@@ -532,9 +531,9 @@ class ChatService extends ChangeNotifier {
       finalChatId = _currentChatId;
     }
     
-    if (finalChatId == null) return;
+    if (finalChatId == null) return null;
 
-    // 3. Add User message
+    // 3. Add User message locally
     final userMsgId = DateTime.now().millisecondsSinceEpoch.toString();
     final userMsg = ChatMessage(
       id: userMsgId,
@@ -545,19 +544,58 @@ class ChatService extends ChangeNotifier {
     );
     _messages.putIfAbsent(finalChatId, () => []);
     _messages[finalChatId]!.add(userMsg);
+    notifyListeners();
 
-    // 4. Add AI message (the "LegalEase received" response)
+    // 4. Background sync User message to server if online and NOT temporary
+    if (!_isTemporaryChat) {
+      _syncMessageToServer(finalChatId, userText, 'user');
+    }
+
+    // 5. Generate AI Response via specialized Live endpoint
+    String? aiResponseText;
+    try {
+      final liveUri = Uri.parse('$_apiBaseUrl/api/generate_live');
+      final Map<String, dynamic> body = {};
+      if (!_isTemporaryChat) {
+        body['chat_id'] = finalChatId;
+      } else {
+        body['messages'] = _messages[finalChatId]?.map((m) => {
+          'sender': m.sender,
+          'content': m.content,
+        }).toList() ?? [];
+      }
+
+      final response = await http.post(
+        liveUri,
+        headers: _headers(),
+        body: jsonEncode(body),
+      );
+
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+        final assistantMsg = decoded['assistant_message'];
+        if (assistantMsg != null) {
+          aiResponseText = assistantMsg['content'];
+        }
+      }
+    } catch (e) {
+      debugPrint('ChatService: Error generating live response: $e');
+    }
+
+    // Fallback if AI generation fails
+    final finalAiText = aiResponseText ?? "I'm sorry, I encountered an error processing your voice request.";
+
+    // 6. Add AI message locally
     final aiMsgId = (DateTime.now().millisecondsSinceEpoch + 1).toString();
     final aiMsg = ChatMessage(
       id: aiMsgId,
       chatId: finalChatId,
       sender: 'ai',
-      content: aiText,
+      content: finalAiText,
       createdAt: DateTime.now().add(const Duration(milliseconds: 100)),
     );
-    _messages.putIfAbsent(finalChatId, () => []);
     _messages[finalChatId]!.add(aiMsg);
-
+    
     // Update timestamp and cache
     if (_chats.containsKey(finalChatId)) {
       _chats[finalChatId]!.updatedAt = DateTime.now();
@@ -565,52 +603,47 @@ class ChatService extends ChangeNotifier {
     await _saveCurrentChatToCache();
     notifyListeners();
 
-    // 5. Background sync to server if online and NOT temporary
+    // 7. Background sync AI message to server if online and NOT temporary
     if (!_isTemporaryChat) {
-      final isOnline = await _checkConnectivityInternal();
-      if (isOnline) {
-        try {
-          final uri = Uri.parse('$_apiBaseUrl/chats/$finalChatId/messages');
-          debugPrint('ChatService: Syncing call to $uri');
-          
-          // Sync User message
-          final userResponse = await http.post(
-            uri,
-            headers: _headers(),
-            body: jsonEncode({'content': userText, 'sender': 'user', 'user_id': _userId}),
-          );
-
-          // Sync AI message
-          final aiResponse = await http.post(
-            uri,
-            headers: _headers(),
-            body: jsonEncode({'content': aiText, 'sender': 'ai', 'user_id': _userId}),
-          );
-
-          if (userResponse.statusCode != 200 || aiResponse.statusCode != 200) {
-            debugPrint('ChatService: Sync failed. User: ${userResponse.statusCode} (${userResponse.body}), AI: ${aiResponse.statusCode} (${aiResponse.body})');
-          } else {
-            debugPrint('ChatService: Successfully synced call log to database');
-          }
-        } catch (e) {
-          debugPrint('ChatService: Exception during sync: $e');
-        }
-      }
+      _syncMessageToServer(finalChatId, finalAiText, 'ai');
     }
 
-    // 6. Auto-generate title if this is the first interaction
+    // 8. Auto-generate title if this is the first interaction
     if (_chats[finalChatId]?.title == 'New Chat') {
-      _generatingTitles.add(finalChatId);
-      _chats[finalChatId]!.title = 'Generating...';
-      notifyListeners();
-
-      final summary = await summarizeText(userText);
-      if (summary != null && summary.isNotEmpty) {
-        await renameChat(finalChatId, summary);
-      }
-      _generatingTitles.remove(finalChatId);
-      notifyListeners();
+      _generateTitleInBackground(finalChatId, userText);
     }
+
+    return finalAiText;
+  }
+
+  // Helper for background syncing to avoid blocking the voice flow
+  void _syncMessageToServer(String chatId, String content, String sender) async {
+    final isOnline = await _checkConnectivityInternal();
+    if (!isOnline) return;
+
+    try {
+      final uri = Uri.parse('$_apiBaseUrl/chats/$chatId/messages');
+      await http.post(
+        uri,
+        headers: _headers(),
+        body: jsonEncode({'content': content, 'sender': sender, 'user_id': _userId}),
+      );
+    } catch (e) {
+      debugPrint('ChatService: Background sync failed: $e');
+    }
+  }
+
+  void _generateTitleInBackground(String chatId, String firstMessage) async {
+    _generatingTitles.add(chatId);
+    _chats[chatId]!.title = 'Generating...';
+    notifyListeners();
+
+    final summary = await summarizeText(firstMessage);
+    if (summary != null && summary.isNotEmpty) {
+      await renameChat(chatId, summary);
+    }
+    _generatingTitles.remove(chatId);
+    notifyListeners();
   }
 
   Future<void> addMessage(

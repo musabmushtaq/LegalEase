@@ -435,6 +435,32 @@ async def generate_ai(payload: GenerateAiRequest) -> dict[str, Any]:
     }
 
 
+class GenerateLiveRequest(BaseModel):
+    chat_id: str | None = None
+    messages: list[dict[str, Any]] | None = None
+
+
+@app.post("/api/generate_live")
+async def generate_live(payload: GenerateLiveRequest) -> dict[str, Any]:
+    """
+    Specialized AI generation for Live Calls.
+    Optimized for short, concise, and conversational legal guidance.
+    """
+    # For now, return a mock response as requested
+    mock_content = "I understand your query. As your legal assistant, I recommend reviewing the relevant statutes regarding this matter. Would you like me to explain the specific requirements for your jurisdiction?"
+    
+    assistant_message = {
+        "id": make_id("msg"),
+        "sender": "ai",
+        "content": mock_content,
+        "created_at": now_iso(),
+    }
+    
+    return {
+        "assistant_message": assistant_message,
+    }
+
+
 @app.post("/chats/{chat_id}/share")
 async def share_chat(chat_id: str, payload: ShareToggleRequest) -> dict[str, Any]:
     chat = await db.chats.find_one({"chat_id": chat_id})

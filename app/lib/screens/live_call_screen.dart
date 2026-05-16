@@ -139,15 +139,16 @@ class _LiveCallScreenState extends State<LiveCallScreen>
               _transcription = data['text'] ?? '';
             });
             debugPrint('LiveCallScreen: Transcribed: $_transcription');
-            final aiText = 'LegalEase received: $_transcription';
-            _playTTS(aiText);
-
-            // Record the interaction to chat history (hijacking logic)
-            widget.chatService.recordLiveCallInteraction(
+            // 1. Record the interaction and fetch the intelligent AI response
+            final aiResponseText = await widget.chatService.recordLiveCallInteraction(
               userText: _transcription,
-              aiText: aiText,
               chatId: widget.chatId,
             );
+
+            // 2. Play the synthesized AI response
+            if (aiResponseText != null && mounted) {
+              _playTTS(aiResponseText);
+            }
           }
         } else {
           debugPrint(
