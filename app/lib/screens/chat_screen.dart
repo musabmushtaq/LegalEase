@@ -409,14 +409,30 @@ class _ChatScreenState extends State<ChatScreen> {
                     ),
                   Row(
                     children: [
-                      if (!_chatService.isTemporaryChat) ...[
-                        _buildFloatingIconButton(
-                          icon: _isAttachmentMenuOpen ? Icons.close : Icons.attach_file,
-                          isDotted: _chatService.isTemporaryChat,
-                          onPressed: _showAttachmentOptions,
-                        ),
-                        const SizedBox(width: 12),
-                      ],
+                      // Animated Attachment Button
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 150),
+                        switchInCurve: Curves.easeOutCubic,
+                        switchOutCurve: Curves.easeOutCubic,
+                        transitionBuilder: (Widget child, Animation<double> animation) {
+                          return SizeTransition(
+                            sizeFactor: animation,
+                            axis: Axis.horizontal,
+                            child: FadeTransition(opacity: animation, child: child),
+                          );
+                        },
+                        child: !_chatService.isTemporaryChat
+                            ? Padding(
+                                padding: const EdgeInsets.only(right: 12.0),
+                                child: _buildFloatingIconButton(
+                                  icon: _isAttachmentMenuOpen ? Icons.close : Icons.attach_file,
+                                  isDotted: _chatService.isTemporaryChat,
+                                  onPressed: _showAttachmentOptions,
+                                ),
+                              )
+                            : const SizedBox.shrink(),
+                      ),
+                      
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -516,26 +532,42 @@ class _ChatScreenState extends State<ChatScreen> {
                           ],
                         ),
                       ),
-                      if (!_chatService.isTemporaryChat || _isTyping) ...[
-                        const SizedBox(width: 12),
-                        _buildFloatingIconButton(
-                          icon: _isTyping ? Icons.send : Icons.mic,
-                          isDotted: _chatService.isTemporaryChat,
-                          onPressed: _isTyping
-                              ? _sendMessage
-                              : () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => LiveCallScreen(
-                                        chatService: _chatService,
-                                        chatId: _chatService.currentChatId,
-                                      ),
-                                    ),
-                                  );
-                                },
-                        ),
-                      ],
+
+                      // Animated Send/Action Button
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 150),
+                        switchInCurve: Curves.easeOutCubic,
+                        switchOutCurve: Curves.easeOutCubic,
+                        transitionBuilder: (Widget child, Animation<double> animation) {
+                          return SizeTransition(
+                            sizeFactor: animation,
+                            axis: Axis.horizontal,
+                            child: FadeTransition(opacity: animation, child: child),
+                          );
+                        },
+                        child: (!_chatService.isTemporaryChat || _isTyping)
+                            ? Padding(
+                                padding: const EdgeInsets.only(left: 12.0),
+                                child: _buildFloatingIconButton(
+                                  icon: _isTyping ? Icons.send : Icons.mic,
+                                  isDotted: _chatService.isTemporaryChat,
+                                  onPressed: _isTyping
+                                      ? _sendMessage
+                                      : () {
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (context) => LiveCallScreen(
+                                                chatService: _chatService,
+                                                chatId: _chatService.currentChatId,
+                                              ),
+                                            ),
+                                          );
+                                        },
+                                ),
+                              )
+                            : const SizedBox.shrink(),
+                      ),
                     ],
                   ),
                 ],
