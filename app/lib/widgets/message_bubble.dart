@@ -151,23 +151,23 @@ class _UserMessageCardState extends State<_UserMessageCard> with SingleTickerPro
                   }
                 },
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.white.withOpacity(0.3)),
+                    color: Colors.white.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.white.withOpacity(0.2)),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: const [
-                      Icon(Icons.attach_file, color: Colors.white, size: 12),
-                      SizedBox(width: 4),
+                      Icon(Icons.attach_file, color: Colors.white, size: 10),
+                      SizedBox(width: 3),
                       Text(
                         'Attachment',
                         style: TextStyle(
                           color: Colors.white,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w500,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w400,
                         ),
                       ),
                     ],
