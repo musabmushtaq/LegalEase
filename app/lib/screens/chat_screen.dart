@@ -578,7 +578,7 @@ class _ChatScreenState extends State<ChatScreen> {
             Colors.black,
             Colors.black.withValues(alpha: 0),
           ],
-          stops: const [0.0, 0.1, 0.9, 1.0], // Fade in first 10% and out last 10%
+          stops: const [0.0, 0.2, 0.8, 1.0], // Fade in first 20% and out last 20%
         ).createShader(bounds);
       },
       blendMode: BlendMode.dstIn,
