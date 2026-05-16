@@ -75,6 +75,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.get("/api/ping")
+async def ping():
+    return {"status": "ok"}
+
 mongo_client = AsyncIOMotorClient(settings.mongodb_uri)
 db: AsyncIOMotorDatabase = mongo_client[settings.mongodb_db]
 
