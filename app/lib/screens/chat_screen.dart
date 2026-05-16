@@ -409,12 +409,14 @@ class _ChatScreenState extends State<ChatScreen> {
                     ),
                   Row(
                     children: [
-                      _buildFloatingIconButton(
-                        icon: _isAttachmentMenuOpen ? Icons.close : Icons.attach_file,
-                        isDotted: _chatService.isTemporaryChat,
-                        onPressed: _showAttachmentOptions,
-                      ),
-                      const SizedBox(width: 12),
+                      if (!_chatService.isTemporaryChat) ...[
+                        _buildFloatingIconButton(
+                          icon: _isAttachmentMenuOpen ? Icons.close : Icons.attach_file,
+                          isDotted: _chatService.isTemporaryChat,
+                          onPressed: _showAttachmentOptions,
+                        ),
+                        const SizedBox(width: 12),
+                      ],
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
