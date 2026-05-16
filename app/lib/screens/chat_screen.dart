@@ -312,10 +312,74 @@ class _ChatScreenState extends State<ChatScreen> {
                   // Connectivity Banner integrated into the same column for perfect alignment
                   ConnectivityBanner(chatService: _chatService),
                   
+                  // Download Status Banner (Standardized Style)
+                  ListenableBuilder(
+                    listenable: _chatService,
+                    builder: (context, _) {
+                      if (!_chatService.isDownloading) return const SizedBox.shrink();
+                      
+                      // Custom color variable for you Musab:
+                      final Color pillColor = Colors.white.withValues(alpha: 0.12);
+                      
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(28.0),
+                          child: BackdropFilter(
+                            filter: ImageFilter.blur(sigmaX: 15.0, sigmaY: 15.0),
+                            child: Container(
+                              height: 56.0,
+                              padding: const EdgeInsets.symmetric(horizontal: 24),
+                              decoration: BoxDecoration(
+                                color: pillColor,
+                                borderRadius: BorderRadius.circular(28.0),
+                                border: Border.all(
+                                  color: Colors.white.withValues(alpha: 0.1),
+                                  width: 1.0,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.2),
+                                    blurRadius: 12,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
+                              ),
+                              child: Row(
+                                children: [
+                                  const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      'Downloading ${_chatService.downloadingFileName ?? "file"}...',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w500,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  
                   // Consistent spacing between banner and content below
                   ListenableBuilder(
                     listenable: _chatService,
-                    builder: (context, _) => !_chatService.isConnected || _chatService.isConnecting 
+                    builder: (context, _) => (!_chatService.isConnected || _chatService.isConnecting) || _chatService.isDownloading 
                       ? const SizedBox(height: 12) 
                       : const SizedBox.shrink(),
                   ),
@@ -462,61 +526,6 @@ class _ChatScreenState extends State<ChatScreen> {
                   ),
                 ],
               ),
-            ),
-
-            // Download Status Pill (Optimistic UI)
-            Consumer<ChatService>(
-              builder: (context, service, _) {
-                if (!service.isDownloading) return const SizedBox.shrink();
-                return Positioned(
-                  bottom: 110,
-                  left: 0,
-                  right: 0,
-                  child: Center(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.8),
-                        borderRadius: BorderRadius.circular(30),
-                        border: Border.all(
-                          color: AppTheme.highlight.withValues(alpha: 0.4),
-                          width: 1.5,
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppTheme.highlight.withValues(alpha: 0.2),
-                            blurRadius: 20,
-                            spreadRadius: 2,
-                          )
-                        ],
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const SizedBox(
-                            width: 14,
-                            height: 14,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(AppTheme.highlight),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Text(
-                            'Downloading ${service.downloadingFileName ?? "file"}...',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
-                              letterSpacing: 0.3,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                );
-              },
             ),
 
             // Attachment Menu Overlay
