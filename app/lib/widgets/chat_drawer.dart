@@ -215,24 +215,24 @@ class _ChatDrawerState extends State<ChatDrawer> {
                     height: 52,
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.05),
-                      borderRadius: BorderRadius.circular(26.0), // Full capsule
+                      borderRadius: BorderRadius.circular(26.0),
                       border: Border.all(
                         color: Colors.white.withValues(alpha: 0.08),
                         width: 1.0,
                       ),
                     ),
-                    padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
                     child: Row(
                       children: [
                         Icon(Icons.search_rounded, 
-                             color: Colors.white.withValues(alpha: 0.4), 
+                             color: Colors.white.withValues(alpha: 0.3), 
                              size: 20),
                         const SizedBox(width: 12),
                         const Expanded(
                           child: TextField(
                             style: TextStyle(
                               color: Colors.white,
-                              fontSize: 15,
+                              fontSize: 14,
                             ),
                             decoration: InputDecoration(
                               hintText: "Search conversations",
@@ -242,7 +242,7 @@ class _ChatDrawerState extends State<ChatDrawer> {
                               ),
                               border: InputBorder.none,
                               isDense: true,
-                              contentPadding: EdgeInsets.symmetric(vertical: 12.0),
+                              contentPadding: EdgeInsets.zero,
                             ),
                           ),
                         ),
@@ -255,45 +255,45 @@ class _ChatDrawerState extends State<ChatDrawer> {
                   Row(
                     children: [
                       Expanded(
-                        child: Material(
-                          color: AppTheme.highlight.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(30), // Full capsule
-                          child: InkWell(
-                            onTap: () async {
-                              await widget.chatService.createNewChat();
-                              if (!context.mounted) return;
-                              widget.onChatSelected();
-                              Navigator.pop(context);
-                            },
-                            borderRadius: BorderRadius.circular(30),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                vertical: 14, 
-                                horizontal: 20
-                              ),
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(30),
-                                border: Border.all(
-                                  color: AppTheme.highlight.withValues(alpha: 0.2),
-                                  width: 1,
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  const Icon(Icons.add_rounded, 
-                                            color: AppTheme.highlight, 
-                                            size: 22),
-                                  const SizedBox(width: 12),
-                                  Text(
-                                    "New Chat",
-                                    style: TextStyle(
-                                      color: AppTheme.highlight,
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w700,
-                                      letterSpacing: 0.3,
+                        child: Container(
+                          height: 52,
+                          decoration: BoxDecoration(
+                            color: AppTheme.highlight.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(26),
+                            border: Border.all(
+                              color: AppTheme.highlight.withValues(alpha: 0.2),
+                              width: 1,
+                            ),
+                          ),
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: () async {
+                                await widget.chatService.createNewChat();
+                                if (!context.mounted) return;
+                                widget.onChatSelected();
+                                Navigator.pop(context);
+                              },
+                              borderRadius: BorderRadius.circular(26),
+                              child: const Padding(
+                                padding: EdgeInsets.symmetric(horizontal: 20),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.add_rounded, 
+                                         color: AppTheme.highlight, 
+                                         size: 22),
+                                    SizedBox(width: 12),
+                                    Text(
+                                      "New Chat",
+                                      style: TextStyle(
+                                        color: AppTheme.highlight,
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w700,
+                                        letterSpacing: 0.3,
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
                             ),
                           ),
@@ -301,7 +301,7 @@ class _ChatDrawerState extends State<ChatDrawer> {
                       ),
                       const SizedBox(width: 12),
                       _buildGlassActionButton(
-                        icon: Icons.chat_bubble_outline, // Restored icon
+                        icon: Icons.chat_bubble_outline,
                         isActive: widget.chatService.isTemporaryChat,
                         onTap: () {
                           widget.chatService.toggleTemporaryChat();
@@ -349,21 +349,25 @@ class _ChatDrawerState extends State<ChatDrawer> {
                         
                         if (chats.isEmpty) {
                           return Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.chat_bubble_outline_rounded, 
-                                     color: Colors.white.withValues(alpha: 0.1), 
-                                     size: 48),
-                                const SizedBox(height: 16),
-                                Text(
-                                  "No chats yet",
-                                  style: TextStyle(
-                                    color: Colors.white.withValues(alpha: 0.2),
-                                    fontSize: 14,
+                            child: Opacity(
+                              opacity: 0.4,
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.chat_bubble_outline_rounded, 
+                                       color: Colors.white.withValues(alpha: 0.2), 
+                                       size: 40),
+                                  const SizedBox(height: 16),
+                                  const Text(
+                                    "No chats yet",
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 13,
+                                      letterSpacing: 0.5,
+                                    ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           );
                         }
@@ -566,6 +570,8 @@ class _ChatDrawerState extends State<ChatDrawer> {
     required VoidCallback onTap,
   }) {
     final container = Container(
+      width: 52,
+      height: 52,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: Colors.white.withValues(alpha: 0.05),
@@ -581,11 +587,10 @@ class _ChatDrawerState extends State<ChatDrawer> {
         child: InkWell(
           onTap: onTap,
           customBorder: const CircleBorder(),
-          child: Padding(
-            padding: const EdgeInsets.all(10.0),
+          child: Center(
             child: Icon(
               icon,
-              color: isActive ? AppTheme.highlight : Colors.grey[400],
+              color: isActive ? AppTheme.highlight : Colors.white.withValues(alpha: 0.4),
               size: 20,
             ),
           ),
@@ -596,7 +601,7 @@ class _ChatDrawerState extends State<ChatDrawer> {
     if (isActive) {
       return DottedBorder(
         options: const RoundedRectDottedBorderOptions(
-          radius: Radius.circular(30),
+          radius: Radius.circular(26),
           color: AppTheme.highlight,
           dashPattern: [4, 4],
           strokeWidth: 1.5,
