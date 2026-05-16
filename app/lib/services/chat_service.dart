@@ -542,14 +542,14 @@ class ChatService extends ChangeNotifier {
     String? chatId,
   }) async {
     // 1. Resolve which chat we are working with
-    final targetChatId = chatId ?? _currentChatId;
+    String? finalChatId = chatId ?? _currentChatId;
     
     // 2. If no chat exists, create a new one first
-    if (targetChatId == null) {
+    if (finalChatId == null) {
       await createNewChat();
+      finalChatId = _currentChatId;
     }
     
-    final finalChatId = _currentChatId;
     if (finalChatId == null) return;
 
     // 3. Add User message
@@ -561,7 +561,8 @@ class ChatService extends ChangeNotifier {
       content: userText,
       createdAt: DateTime.now(),
     );
-    _messages[finalChatId]?.add(userMsg);
+    _messages.putIfAbsent(finalChatId, () => []);
+    _messages[finalChatId]!.add(userMsg);
 
     // 4. Add AI message (the "LegalEase received" response)
     final aiMsgId = (DateTime.now().millisecondsSinceEpoch + 1).toString();
@@ -572,10 +573,13 @@ class ChatService extends ChangeNotifier {
       content: aiText,
       createdAt: DateTime.now().add(const Duration(milliseconds: 100)),
     );
-    _messages[finalChatId]?.add(aiMsg);
+    _messages.putIfAbsent(finalChatId, () => []);
+    _messages[finalChatId]!.add(aiMsg);
 
     // Update timestamp and cache
-    _chats[finalChatId]?.updatedAt = DateTime.now();
+    if (_chats.containsKey(finalChatId)) {
+      _chats[finalChatId]!.updatedAt = DateTime.now();
+    }
     await _saveCurrentChatToCache();
     notifyListeners();
 
@@ -584,28 +588,29 @@ class ChatService extends ChangeNotifier {
     if (isOnline) {
       try {
         final uri = Uri.parse('$_apiBaseUrl/chats/$finalChatId/messages');
+        debugPrint('ChatService: Syncing call to $uri');
         
         // Sync User message
         final userResponse = await http.post(
           uri,
           headers: _headers(),
-          body: jsonEncode({'content': userText, 'sender': 'user'}),
+          body: jsonEncode({'content': userText, 'sender': 'user', 'user_id': _userId}),
         );
 
         // Sync AI message
         final aiResponse = await http.post(
           uri,
           headers: _headers(),
-          body: jsonEncode({'content': aiText, 'sender': 'ai'}),
+          body: jsonEncode({'content': aiText, 'sender': 'ai', 'user_id': _userId}),
         );
 
         if (userResponse.statusCode != 200 || aiResponse.statusCode != 200) {
-          debugPrint('ChatService: Sync failed. User: ${userResponse.statusCode}, AI: ${aiResponse.statusCode}');
+          debugPrint('ChatService: Sync failed. User: ${userResponse.statusCode} (${userResponse.body}), AI: ${aiResponse.statusCode} (${aiResponse.body})');
         } else {
           debugPrint('ChatService: Successfully synced call log to database');
         }
       } catch (e) {
-        debugPrint('ChatService: Error during sync: $e');
+        debugPrint('ChatService: Exception during sync: $e');
       }
     }
 
