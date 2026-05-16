@@ -521,6 +521,7 @@ class ChatService extends ChangeNotifier {
   Future<String?> recordLiveCallInteraction({
     required String userText,
     String? chatId,
+    bool skipAiResponse = false,
   }) async {
     // 1. Resolve which chat we are working with
     String? finalChatId = chatId ?? _currentChatId;
@@ -551,7 +552,17 @@ class ChatService extends ChangeNotifier {
       _syncMessageToServer(finalChatId, userText, 'user');
     }
 
-    // 5. Generate AI Response via specialized Live endpoint
+    // 5. If we only want to record the user (e.g. because of an interruption), stop here
+    if (skipAiResponse) {
+      debugPrint('ChatService: Skipping AI response for interrupted user thought.');
+      // Still trigger auto-rename if this was the first message
+      if (_chats[finalChatId]?.title == 'New Chat') {
+        _generateTitleInBackground(finalChatId, userText);
+      }
+      return null;
+    }
+
+    // 6. Generate AI Response via specialized Live endpoint
     String? aiResponseText;
     try {
       final liveUri = Uri.parse('$_apiBaseUrl/api/generate_live');
@@ -585,7 +596,7 @@ class ChatService extends ChangeNotifier {
     // Fallback if AI generation fails
     final finalAiText = aiResponseText ?? "I'm sorry, I encountered an error processing your voice request.";
 
-    // 6. Add AI message locally
+    // 7. Add AI message locally
     final aiMsgId = (DateTime.now().millisecondsSinceEpoch + 1).toString();
     final aiMsg = ChatMessage(
       id: aiMsgId,
@@ -603,12 +614,12 @@ class ChatService extends ChangeNotifier {
     await _saveCurrentChatToCache();
     notifyListeners();
 
-    // 7. Background sync AI message to server if online and NOT temporary
+    // 8. Background sync AI message to server if online and NOT temporary
     if (!_isTemporaryChat) {
       _syncMessageToServer(finalChatId, finalAiText, 'ai');
     }
 
-    // 8. Auto-generate title if this is the first interaction
+    // 9. Auto-generate title if this is the first interaction
     if (_chats[finalChatId]?.title == 'New Chat') {
       debugPrint('ChatService: Triggering auto-rename for $finalChatId');
       _generateTitleInBackground(finalChatId, userText);

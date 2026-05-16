@@ -146,31 +146,26 @@ class _LiveCallScreenState extends State<LiveCallScreen>
         if (response.statusCode == 200) {
           final data = jsonDecode(response.body);
           if (mounted) {
-            // Check if we were interrupted during the API call
-            if (myInteractionId != _activeInteractionId) {
-              debugPrint('LiveCallScreen: Ignoring transcription - user interrupted');
-              return;
-            }
-
             setState(() {
               _transcription = data['text'] ?? '';
             });
             debugPrint('LiveCallScreen: Transcribed: $_transcription');
-            
-            // 1. Record the interaction and fetch the intelligent AI response
+
+            // 1. Determine if we should skip the AI response (because the user interrupted during STT)
+            final bool shouldSkipAi = (myInteractionId != _activeInteractionId);
+            if (shouldSkipAi) {
+              debugPrint('LiveCallScreen: Interruption detected during STT. Recording user message only.');
+            }
+
+            // 2. Record the interaction (always saves user message; only gets AI response if not skipped)
             final aiResponseText = await widget.chatService.recordLiveCallInteraction(
               userText: _transcription,
               chatId: widget.chatId,
+              skipAiResponse: shouldSkipAi,
             );
 
-            // Check interruption again after the DB/Brain sync
-            if (myInteractionId != _activeInteractionId) {
-              debugPrint('LiveCallScreen: Ignoring AI response - user interrupted');
-              return;
-            }
-
-            // 2. Play the synthesized AI response
-            if (aiResponseText != null && mounted) {
+            // 3. Play the synthesized AI response only if we have a fresh one
+            if (aiResponseText != null && mounted && myInteractionId == _activeInteractionId) {
               _playTTS(aiResponseText);
             }
           }
