@@ -109,7 +109,6 @@ class ShareToggleRequest(BaseModel):
 class SummarizeRequest(BaseModel):
     text: str = Field(min_length=1)
 
-
 def now_iso() -> str:
     return datetime.now(UTC).isoformat()
 
@@ -353,43 +352,46 @@ async def add_message(chat_id: str, payload: AddMessageRequest) -> dict[str, Any
     }
 
 
-@app.post("/chats/{chat_id}/generate_ai")
-async def generate_ai(chat_id: str) -> dict[str, Any]:
-    chat = await db.chats.find_one({"chat_id": chat_id})
-    if not chat:
-        raise HTTPException(status_code=404, detail="Chat not found")
+class GenerateAiRequest(BaseModel):
+    chat_id: str | None = None
+    messages: list[dict[str, Any]] | None = None
+    system_prompt: str | None = None
 
-    system_prompt = chat.get("system_prompt", settings.default_system_prompt)
-    chat_history = chat.get("messages", [])
+
+@app.post("/api/generate_ai")
+async def generate_ai(payload: GenerateAiRequest) -> dict[str, Any]:
+    # 1. Gather Context
+    chat_history = []
+    system_prompt = payload.system_prompt or settings.default_system_prompt
     
+    if payload.chat_id:
+        chat = await db.chats.find_one({"chat_id": payload.chat_id})
+        if chat:
+            chat_history = chat.get("messages", [])
+            system_prompt = chat.get("system_prompt", system_prompt)
+    elif payload.messages is not None:
+        chat_history = payload.messages
+
+    # 2. Extract prompt
     prompt = "Continue the conversation."
     context_history = chat_history
-
+    
     if chat_history and chat_history[-1].get("sender") == "user":
         prompt = chat_history[-1].get("content", "")
         context_history = chat_history[:-1]
-
+        
+    # 3. Generate Reply
     ai_content = await generate_ai_reply(prompt, system_prompt, context_history)
-
+    
     assistant_message = {
         "id": make_id("msg"),
-        "chat_id": chat_id,
         "sender": "ai",
         "content": ai_content,
         "created_at": now_iso(),
-        "user_id": None,
     }
-
-    await db.chats.update_one(
-        {"chat_id": chat_id},
-        {
-            "$push": {"messages": assistant_message},
-            "$set": {"updated_at": now_iso()},
-        },
-    )
-
+    
+    # 4. Return without saving (App is responsible for persistence)
     return {
-        "chat_id": chat_id,
         "assistant_message": assistant_message,
     }
 

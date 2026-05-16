@@ -455,40 +455,38 @@ class ChatService extends ChangeNotifier {
   Future<void> createNewChat() async {
     if (_userId == null && !_isTemporaryChat) return;
 
-    final actualUserId = _userId ?? 'temp_user';
+    if (!_isTemporaryChat) {
+      final isOnline = await checkInitialAndInstantNetwork();
+      if (isOnline) {
+        try {
+          final uri = Uri.parse('$_apiBaseUrl/users/$_userId/chats');
+          final response = await http
+              .post(
+                uri,
+                headers: _headers(),
+                body: jsonEncode({'title': 'New Chat'}),
+              )
+              .timeout(const Duration(seconds: 6));
 
-    final isOnline = await checkInitialAndInstantNetwork();
-    if (!isOnline && !_isTemporaryChat) {
-      return;
-    }
-
-    try {
-      final uri = Uri.parse('$_apiBaseUrl/users/$actualUserId/chats');
-      final response = await http
-          .post(
-            uri,
-            headers: _headers(),
-            body: jsonEncode({'title': 'New Chat'}),
-          )
-          .timeout(const Duration(seconds: 6));
-
-      if (response.statusCode == 200) {
-        final chatJson = jsonDecode(response.body) as Map<String, dynamic>;
-        final chat = Chat.fromJson(chatJson);
-        _currentChatId = chat.id;
-        _chats[chat.id] = chat;
-        _messages[chat.id] = [];
-        await _saveCurrentChatToCache();
-        notifyListeners();
-        return;
+          if (response.statusCode == 200) {
+            final chatJson = jsonDecode(response.body) as Map<String, dynamic>;
+            final chat = Chat.fromJson(chatJson);
+            _currentChatId = chat.id;
+            _chats[chat.id] = chat;
+            _messages[chat.id] = [];
+            await _saveCurrentChatToCache();
+            notifyListeners();
+            return;
+          }
+        } catch (_) {}
       }
-    } catch (_) {}
+    }
 
     final chatId = DateTime.now().millisecondsSinceEpoch.toString();
     _currentChatId = chatId;
     _chats[chatId] = Chat(
       id: chatId,
-      userId: actualUserId,
+      userId: _userId ?? 'temp_user',
       title: 'New Chat',
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
@@ -566,34 +564,36 @@ class ChatService extends ChangeNotifier {
     await _saveCurrentChatToCache();
     notifyListeners();
 
-    // 5. Background sync to server if online
-    final isOnline = await _checkConnectivityInternal();
-    if (isOnline) {
-      try {
-        final uri = Uri.parse('$_apiBaseUrl/chats/$finalChatId/messages');
-        debugPrint('ChatService: Syncing call to $uri');
-        
-        // Sync User message
-        final userResponse = await http.post(
-          uri,
-          headers: _headers(),
-          body: jsonEncode({'content': userText, 'sender': 'user', 'user_id': _userId}),
-        );
+    // 5. Background sync to server if online and NOT temporary
+    if (!_isTemporaryChat) {
+      final isOnline = await _checkConnectivityInternal();
+      if (isOnline) {
+        try {
+          final uri = Uri.parse('$_apiBaseUrl/chats/$finalChatId/messages');
+          debugPrint('ChatService: Syncing call to $uri');
+          
+          // Sync User message
+          final userResponse = await http.post(
+            uri,
+            headers: _headers(),
+            body: jsonEncode({'content': userText, 'sender': 'user', 'user_id': _userId}),
+          );
 
-        // Sync AI message
-        final aiResponse = await http.post(
-          uri,
-          headers: _headers(),
-          body: jsonEncode({'content': aiText, 'sender': 'ai', 'user_id': _userId}),
-        );
+          // Sync AI message
+          final aiResponse = await http.post(
+            uri,
+            headers: _headers(),
+            body: jsonEncode({'content': aiText, 'sender': 'ai', 'user_id': _userId}),
+          );
 
-        if (userResponse.statusCode != 200 || aiResponse.statusCode != 200) {
-          debugPrint('ChatService: Sync failed. User: ${userResponse.statusCode} (${userResponse.body}), AI: ${aiResponse.statusCode} (${aiResponse.body})');
-        } else {
-          debugPrint('ChatService: Successfully synced call log to database');
+          if (userResponse.statusCode != 200 || aiResponse.statusCode != 200) {
+            debugPrint('ChatService: Sync failed. User: ${userResponse.statusCode} (${userResponse.body}), AI: ${aiResponse.statusCode} (${aiResponse.body})');
+          } else {
+            debugPrint('ChatService: Successfully synced call log to database');
+          }
+        } catch (e) {
+          debugPrint('ChatService: Exception during sync: $e');
         }
-      } catch (e) {
-        debugPrint('ChatService: Exception during sync: $e');
       }
     }
 
@@ -657,85 +657,130 @@ class ChatService extends ChangeNotifier {
     // Mark the last message as new for entrance animation
     _messages[currentId]?.last.isNew = true;
 
-    // Now perform network checks in the background
+    // Now perform network checks
     final isOnline = await checkInitialAndInstantNetwork();
     if (!isOnline && !_isTemporaryChat) {
       return;
     }
 
+    if (_isTemporaryChat) {
+      if (!isOnline) {
+        addMessage('Backend unavailable. AI response requires connection.', 'ai');
+        return;
+      }
+    } else {
+      // 1. Persistent Chat: Save User Message to DB first
+      try {
+        final uri = Uri.parse('$_apiBaseUrl/chats/$currentId/messages_with_file');
+
+        var request = http.MultipartRequest('POST', uri);
+        if (_authToken != null) {
+          request.headers['Authorization'] = 'Bearer $_authToken';
+        }
+        request.fields['content'] = content;
+
+        if (file != null) {
+          request.files.add(await http.MultipartFile.fromPath('file', file.path));
+        }
+
+        final streamedResponse = await request.send();
+        final response = await http.Response.fromStream(streamedResponse);
+
+        if (response.statusCode == 404) {
+          // Server says chat doesn't exist - clear and retry once
+          _currentChatId = null;
+          _saveCurrentChatToCache();
+          return sendUserMessage(content, file: file);
+        }
+
+        if (response.statusCode != 200) {
+          _forceOfflineState();
+          return;
+        }
+      } catch (_) {
+        _forceOfflineState();
+        return;
+      }
+    }
+
     final chat = _chats[currentId];
     final isFirstMessage = chat?.title == 'New Chat';
 
-    // Simple local echo for temporary offline chat, or try backend for temporary online chat
+    // 2. Fetch AI Response using unified endpoint
     try {
-      final uri = Uri.parse('$_apiBaseUrl/chats/$currentId/messages_with_file');
-
-      var request = http.MultipartRequest('POST', uri);
-      if (_authToken != null) {
-        request.headers['Authorization'] = 'Bearer $_authToken';
-      }
-      request.fields['content'] = content;
-
-      if (file != null) {
-        request.files.add(await http.MultipartFile.fromPath('file', file.path));
-      }
-
-      final streamedResponse = await request.send();
-      final response = await http.Response.fromStream(streamedResponse);
-
-      if (response.statusCode == 404) {
-        // Server says chat doesn't exist - clear and retry once
-        _currentChatId = null;
-        _saveCurrentChatToCache();
-        return sendUserMessage(content, file: file);
+      final aiUri = Uri.parse('$_apiBaseUrl/api/generate_ai');
+      
+      final Map<String, dynamic> body = {};
+      if (!_isTemporaryChat) {
+         // App asks AI to read context from DB
+         body['chat_id'] = currentId;
+      } else {
+         // App provides context directly for temporary chat
+         final history = _messages[currentId]?.map((m) => {
+           'sender': m.sender,
+           'content': m.content,
+         }).toList() ?? [];
+         body['messages'] = history;
       }
 
-      if (response.statusCode == 200) {
-        // Message saved. Now explicitly ask for AI response.
-        final aiUri = Uri.parse('$_apiBaseUrl/chats/$currentId/generate_ai');
-        final aiResponse = await http.post(aiUri, headers: _headers());
+      final aiResponse = await http.post(
+        aiUri, 
+        headers: _headers(),
+        body: jsonEncode(body),
+      );
+      
+      if (aiResponse.statusCode == 200) {
+        final decoded = jsonDecode(aiResponse.body) as Map<String, dynamic>;
+        final assistantMessage = decoded['assistant_message'] as Map<String, dynamic>?;
         
-        if (aiResponse.statusCode == 200) {
-          final decoded = jsonDecode(aiResponse.body) as Map<String, dynamic>;
-          final assistantMessage = decoded['assistant_message'] as Map<String, dynamic>?;
+        if (assistantMessage != null) {
+          // Inject the currentId so the fromJson parser doesn't crash
+          assistantMessage['chat_id'] = currentId;
           
-          if (assistantMessage != null) {
-            final aiMsg = ChatMessage.fromJson(assistantMessage);
-            aiMsg.isNew = true;
-            _messages[currentId]?.add(aiMsg);
-            _chats[currentId]?.updatedAt = DateTime.now();
-            await _saveCurrentChatToCache();
-            notifyListeners();
-          }
-        }
-
-        // Auto-generate title from first message
-        if (isFirstMessage) {
-          // Show loading state while generating
-          _generatingTitles.add(currentId);
-          _chats[currentId]!.title = 'Generating...';
+          final aiMsg = ChatMessage.fromJson(assistantMessage);
+          aiMsg.isNew = true;
+          _messages[currentId]?.add(aiMsg);
+          _chats[currentId]?.updatedAt = DateTime.now();
+          await _saveCurrentChatToCache();
           notifyListeners();
 
-          final summary = await summarizeText(content);
-          if (summary != null && summary.isNotEmpty) {
-            await renameChat(currentId, summary);
+          // 3. Persistent Chat: App explicitly saves AI Message to DB
+          if (!_isTemporaryChat) {
+             try {
+               final saveAiUri = Uri.parse('$_apiBaseUrl/chats/$currentId/messages');
+               await http.post(
+                 saveAiUri,
+                 headers: _headers(),
+                 body: jsonEncode({
+                   'content': aiMsg.content,
+                   'sender': 'ai',
+                   'user_id': _userId,
+                 }),
+               );
+             } catch (_) {}
           }
+        }
+      } else if (_isTemporaryChat) {
+        addMessage('Error connecting to AI. Please try again.', 'ai');
+      }
 
-          _generatingTitles.remove(currentId);
+      // Auto-generate title from first message
+      if (isFirstMessage && !_isTemporaryChat) {
+        _generatingTitles.add(currentId);
+        _chats[currentId]!.title = 'Generating...';
+        notifyListeners();
+
+        final summary = await summarizeText(content);
+        if (summary != null && summary.isNotEmpty) {
+          await renameChat(currentId, summary);
         }
 
-        return;
+        _generatingTitles.remove(currentId);
       }
-    } catch (_) {}
-
-    if (_isTemporaryChat) {
-      addMessage(
-        'Backend unavailable or network error. Please ensure API is reachable.',
-        'ai',
-      );
-    } else {
-      // If actual request fails dynamically despite earlier ping, force offline state
-      _forceOfflineState();
+    } catch (_) {
+      if (_isTemporaryChat) {
+        addMessage('Error connecting to AI. Please try again.', 'ai');
+      }
     }
   }
 
