@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'dart:async';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:path_provider/path_provider.dart';
 import '../models/chat.dart';
 
 class ChatService extends ChangeNotifier {
@@ -682,6 +683,28 @@ class ChatService extends ChangeNotifier {
         final streamedResponse = await request.send();
         final response = await http.Response.fromStream(streamedResponse);
 
+        if (response.statusCode == 200) {
+          final decoded = jsonDecode(response.body) as Map<String, dynamic>;
+          final msgData = decoded['message'] as Map<String, dynamic>?;
+          if (msgData != null) {
+            // Find our local message and update it with the persistent IDs
+            final index = _messages[currentId]?.indexWhere((m) => m.content == content) ?? -1;
+            if (index != -1) {
+              final oldMsg = _messages[currentId]![index];
+              _messages[currentId]![index] = ChatMessage(
+                id: oldMsg.id,
+                chatId: oldMsg.chatId,
+                sender: oldMsg.sender,
+                content: oldMsg.content,
+                createdAt: oldMsg.createdAt,
+                localFilePath: oldMsg.localFilePath,
+                fileId: msgData['file_id'] as String?,
+                fileName: msgData['filename'] as String?,
+              );
+            }
+          }
+        }
+
         if (response.statusCode == 404) {
           // Server says chat doesn't exist - clear and retry once
           _currentChatId = null;
@@ -893,6 +916,50 @@ class ChatService extends ChangeNotifier {
         return summary;
       }
     } catch (_) {}
+    return null;
+  }
+
+  bool _isDownloading = false;
+  String? _downloadingFileName;
+  
+  bool get isDownloading => _isDownloading;
+  String? get downloadingFileName => _downloadingFileName;
+
+  Future<File?> downloadFile(String fileId, String fileName) async {
+    _isDownloading = true;
+    _downloadingFileName = fileName;
+    notifyListeners();
+    
+    try {
+      final uri = Uri.parse('$_apiBaseUrl/api/files/$fileId');
+      final client = http.Client();
+      final request = http.Request('GET', uri);
+      request.headers.addAll(_headers());
+      
+      final streamedResponse = await client.send(request);
+      
+      if (streamedResponse.statusCode == 200) {
+        final directory = await getTemporaryDirectory();
+        final filePath = '${directory.path}/$fileName';
+        final file = File(filePath);
+        
+        final sink = file.openWrite();
+        await streamedResponse.stream.forEach((chunk) {
+          sink.add(chunk);
+        });
+        await sink.close();
+        client.close();
+        
+        return file;
+      }
+      client.close();
+    } catch (e) {
+      debugPrint('ChatService: Error downloading file: $e');
+    } finally {
+      _isDownloading = false;
+      _downloadingFileName = null;
+      notifyListeners();
+    }
     return null;
   }
 }

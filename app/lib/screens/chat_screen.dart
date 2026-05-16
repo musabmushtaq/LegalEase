@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:open_file/open_file.dart';
+import 'package:provider/provider.dart';
 
 import 'package:dotted_border/dotted_border.dart';
 import '../theme/app_theme.dart';
@@ -24,7 +25,7 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   late AttachmentTextEditingController _textController;
-  final ChatService _chatService = ChatService();
+  late ChatService _chatService;
   late ScrollController _scrollController;
   final FocusNode _focusNode = FocusNode();
   bool _isTyping = false;
@@ -205,19 +206,19 @@ class _ChatScreenState extends State<ChatScreen> {
       },
       getFile: () => _attachedFile,
     );
-    _initializeService();
     _textController.addListener(() {
       setState(() {
         _isTyping = _textController.text.isNotEmpty;
       });
     });
+    // Already initialized in main()
+    _isInitialized = true;
   }
 
-  Future<void> _initializeService() async {
-    await _chatService.initialize();
-    setState(() {
-      _isInitialized = true;
-    });
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _chatService = Provider.of<ChatService>(context);
   }
 
   @override
@@ -461,6 +462,61 @@ class _ChatScreenState extends State<ChatScreen> {
                   ),
                 ],
               ),
+            ),
+
+            // Download Status Pill (Optimistic UI)
+            Consumer<ChatService>(
+              builder: (context, service, _) {
+                if (!service.isDownloading) return const SizedBox.shrink();
+                return Positioned(
+                  bottom: 110,
+                  left: 0,
+                  right: 0,
+                  child: Center(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.8),
+                        borderRadius: BorderRadius.circular(30),
+                        border: Border.all(
+                          color: AppTheme.highlight.withValues(alpha: 0.4),
+                          width: 1.5,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppTheme.highlight.withValues(alpha: 0.2),
+                            blurRadius: 20,
+                            spreadRadius: 2,
+                          )
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(AppTheme.highlight),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            'Downloading ${service.downloadingFileName ?? "file"}...',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              letterSpacing: 0.3,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
             ),
 
             // Attachment Menu Overlay

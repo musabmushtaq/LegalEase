@@ -4,8 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:open_file/open_file.dart';
+import 'package:provider/provider.dart';
 import '../models/chat.dart';
 import '../theme/app_theme.dart';
+import '../services/chat_service.dart';
 
 class MessageBubble extends StatelessWidget {
   final ChatMessage message;
@@ -33,7 +35,6 @@ class _UserMessageCard extends StatefulWidget {
 }
 
 class _UserMessageCardState extends State<_UserMessageCard> with SingleTickerProviderStateMixin {
-  bool _isExpanded = false;
   late AnimationController _entranceController;
   late Animation<double> _opacity;
   late Animation<Offset> _offset;
@@ -77,7 +78,7 @@ class _UserMessageCardState extends State<_UserMessageCard> with SingleTickerPro
         child: Align(
           alignment: Alignment.centerRight,
           child: Container(
-            margin: const EdgeInsets.only(top: 12.0, bottom: 12.0, left: 80.0, right: 16.0),
+            margin: const EdgeInsets.only(top: 12.0, bottom: 12.0, left: 80.0, right: 8.0),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(18.0),
               child: BackdropFilter(
@@ -116,7 +117,7 @@ class _UserMessageCardState extends State<_UserMessageCard> with SingleTickerPro
   List<InlineSpan> _buildMessageSpans(BuildContext context) {
     final List<InlineSpan> spans = [];
     final String content = widget.message.content;
-    final bool hasAttachment = widget.message.localFilePath != null;
+    final bool hasAttachment = widget.message.localFilePath != null || widget.message.fileId != null;
     
     if (!hasAttachment) {
       spans.add(TextSpan(text: content));
@@ -136,44 +137,7 @@ class _UserMessageCardState extends State<_UserMessageCard> with SingleTickerPro
             alignment: PlaceholderAlignment.middle,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 4.0),
-              child: GestureDetector(
-                onTap: () async {
-                  if (widget.message.localFilePath != null) {
-                    final path = widget.message.localFilePath!;
-                    final result = await OpenFile.open(path);
-                    if (result.type != ResultType.done) {
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Could not open file: ${result.message}')),
-                        );
-                      }
-                    }
-                  }
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.white.withOpacity(0.2)),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: const [
-                      Icon(Icons.attach_file, color: Colors.white, size: 10),
-                      SizedBox(width: 3),
-                      Text(
-                        'Attachment',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w400,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+              child: _buildPillWidget(context),
             ),
           ),
         );
@@ -186,7 +150,7 @@ class _UserMessageCardState extends State<_UserMessageCard> with SingleTickerPro
         WidgetSpan(
           child: Padding(
             padding: const EdgeInsets.only(top: 8.0),
-            child: _buildAttachmentPill(context),
+            child: _buildPillWidget(context, larger: true),
           ),
         ),
       );
@@ -195,45 +159,65 @@ class _UserMessageCardState extends State<_UserMessageCard> with SingleTickerPro
     return spans;
   }
 
-  Widget _buildAttachmentPill(BuildContext context) {
+  Widget _buildPillWidget(BuildContext context, {bool larger = false}) {
     return GestureDetector(
-      onTap: () async {
-        if (widget.message.localFilePath != null) {
-          final path = widget.message.localFilePath!;
-          final result = await OpenFile.open(path);
-          if (result.type != ResultType.done) {
-            if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Could not open file: ${result.message}')),
-              );
-            }
-          }
-        }
-      },
+      onTap: () => _handleFileTap(context),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        padding: EdgeInsets.symmetric(
+          horizontal: larger ? 10 : 6, 
+          vertical: larger ? 6 : 2
+        ),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.2),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withOpacity(0.3)),
+          color: Colors.white.withOpacity(0.15),
+          borderRadius: BorderRadius.circular(larger ? 16 : 8),
+          border: Border.all(color: Colors.white.withOpacity(0.2)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
-          children: const [
-            Icon(Icons.attach_file, color: Colors.white, size: 12),
-            SizedBox(width: 4),
+          children: [
+            Icon(Icons.attach_file, color: Colors.white, size: larger ? 12 : 10),
+            SizedBox(width: larger ? 4 : 3),
             Text(
               'Attachment',
               style: TextStyle(
                 color: Colors.white,
-                fontSize: 11,
-                fontWeight: FontWeight.w500,
+                fontSize: larger ? 11 : 10,
+                fontWeight: larger ? FontWeight.w500 : FontWeight.w400,
               ),
             ),
           ],
         ),
       ),
     );
+  }
+
+  Future<void> _handleFileTap(BuildContext context) async {
+    final chatService = context.read<ChatService>();
+    
+    // 1. Try local file first
+    if (widget.message.localFilePath != null) {
+      final file = File(widget.message.localFilePath!);
+      if (await file.exists()) {
+        final result = await OpenFile.open(file.path);
+        if (result.type == ResultType.done) return;
+      }
+    }
+    
+    // 2. Try download if fileId exists
+    if (widget.message.fileId != null) {
+      final fileName = widget.message.fileName ?? 'attachment';
+      final downloadedFile = await chatService.downloadFile(widget.message.fileId!, fileName);
+      
+      if (downloadedFile != null) {
+        await OpenFile.open(downloadedFile.path);
+      } else {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Failed to download file from server.')),
+          );
+        }
+      }
+    }
   }
 }
 

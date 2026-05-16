@@ -1,9 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'theme/app_theme.dart';
 import 'screens/chat_screen.dart';
+import 'services/chat_service.dart';
 
-void main() {
-  runApp(const LegalEaseApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final chatService = ChatService();
+  await chatService.initialize();
+  
+  runApp(
+    ChangeNotifierProvider.value(
+      value: chatService,
+      child: const LegalEaseApp(),
+    ),
+  );
 }
 
 class LegalEaseApp extends StatelessWidget {

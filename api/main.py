@@ -760,10 +760,10 @@ async def add_message_with_file(chat_id: str, content: str = Form(...), file: Up
 
     user_message = {
         "id": make_id("msg"),
-        "chat_id": chat_id,
         "sender": "user",
         "content": content,
         "file_id": file_id,
+        "filename": file.filename if file else None,
         "created_at": created_at
     }
 
@@ -782,3 +782,20 @@ async def search_chats(user_id: str, query: str):
     cursor = db.chats.find({"owner_id": user_id, "messages.content": {"$regex": query, "$options": "i"}})
     chats = [chat_to_response(chat) async for chat in cursor]
     return {"items": chats}
+
+from fastapi.responses import FileResponse
+@app.get("/api/files/{file_id}")
+async def download_file(file_id: str):
+    file_doc = await db.files.find_one({"file_id": file_id})
+    if not file_doc:
+        raise HTTPException(status_code=404, detail="File record not found")
+    
+    file_path = file_doc.get("file_path")
+    if not file_path or not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="Physical file not found on server")
+        
+    return FileResponse(
+        file_path, 
+        filename=file_doc.get("filename", "download"),
+        media_type='application/octet-stream'
+    )
