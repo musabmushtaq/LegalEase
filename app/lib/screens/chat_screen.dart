@@ -492,16 +492,32 @@ class _ChatScreenState extends State<ChatScreen> {
       );
     }
 
-    return ListView.builder(
-      controller: _scrollController,
-      padding: const EdgeInsets.only(top: 80.0, bottom: 80.0),
-      itemCount: messages.length + (_isAiThinking ? 1 : 0),
-      itemBuilder: (context, index) {
-        if (index == messages.length && _isAiThinking) {
-          return const ThinkingIndicator();
-        }
-        return MessageBubble(message: messages[index]);
+    return ShaderMask(
+      shaderCallback: (Rect bounds) {
+        return LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Colors.black.withValues(alpha: 0),
+            Colors.black,
+            Colors.black,
+            Colors.black.withValues(alpha: 0),
+          ],
+          stops: const [0.0, 0.1, 0.9, 1.0], // Fade in first 10% and out last 10%
+        ).createShader(bounds);
       },
+      blendMode: BlendMode.dstIn,
+      child: ListView.builder(
+        controller: _scrollController,
+        padding: const EdgeInsets.only(top: 80.0, bottom: 80.0),
+        itemCount: messages.length + (_isAiThinking ? 1 : 0),
+        itemBuilder: (context, index) {
+          if (index == messages.length && _isAiThinking) {
+            return const ThinkingIndicator();
+          }
+          return MessageBubble(message: messages[index]);
+        },
+      ),
     );
   }
 
