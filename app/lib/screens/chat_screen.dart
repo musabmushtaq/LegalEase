@@ -24,6 +24,7 @@ class ChatScreen extends StatefulWidget {
 
 class _ChatScreenState extends State<ChatScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  final GlobalKey _triggerMessageKey = GlobalKey();
   late AttachmentTextEditingController _textController;
   late ChatService _chatService;
   late ScrollController _scrollController;
@@ -229,9 +230,18 @@ class _ChatScreenState extends State<ChatScreen> {
     super.dispose();
   }
 
-  void _scrollToBottom() {
+  void _scrollToBottom({bool toTrigger = false}) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scrollController.hasClients) {
+      if (!_scrollController.hasClients) return;
+
+      if (toTrigger && _triggerMessageKey.currentContext != null) {
+        Scrollable.ensureVisible(
+          _triggerMessageKey.currentContext!,
+          duration: const Duration(milliseconds: 600),
+          curve: Curves.easeOutCubic,
+          alignment: 0.0, // Aligns the user message to the top of the viewport
+        );
+      } else {
         _scrollController.animateTo(
           _scrollController.position.maxScrollExtent,
           duration: const Duration(milliseconds: 600),
@@ -580,7 +590,21 @@ class _ChatScreenState extends State<ChatScreen> {
           if (index == messages.length && _isAiThinking) {
             return const ThinkingIndicator();
           }
-          return MessageBubble(message: messages[index]);
+          
+          final message = messages[index];
+          // We apply the trigger key to the user message that preceded the current AI response
+          final isTrigger = !_isAiThinking && index == messages.length - 2 && messages[index].sender == 'user';
+          
+          Widget bubble = MessageBubble(message: message);
+          
+          if (isTrigger) {
+            return KeyedSubtree(
+              key: _triggerMessageKey,
+              child: bubble,
+            );
+          }
+          
+          return bubble;
         },
       ),
     );
@@ -617,7 +641,8 @@ class _ChatScreenState extends State<ChatScreen> {
     setState(() {
       _isAiThinking = false;
     });
-    _scrollToBottom();
+    // Use smart scroll to show the context (User Message at top)
+    _scrollToBottom(toTrigger: true);
   }
 
   Widget _buildFilePlaceholder() {
