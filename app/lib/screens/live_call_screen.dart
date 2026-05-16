@@ -35,6 +35,7 @@ class _LiveCallScreenState extends State<LiveCallScreen>
   bool _isMuted = false;
   bool _isAiSpeaking = false;
   bool _isThinking = false;
+  int _activeInteractionId = 0;
   String _transcription = "";
   double _aiAmplitude = 0.0;
 
@@ -83,7 +84,7 @@ class _LiveCallScreenState extends State<LiveCallScreen>
         if (!_isMuted) {
           await _vadHandler.startListening(
             baseAssetPath: 'assets/models/',
-            positiveSpeechThreshold: 0.3,
+            positiveSpeechThreshold: 0.55, // Higher threshold for interruption logic
             negativeSpeechThreshold: 0.35,
             minSpeechFrames: 2,
             redemptionFrames: 30, // Allows ~1 second of pause without cutting off
@@ -104,10 +105,18 @@ class _LiveCallScreenState extends State<LiveCallScreen>
 
     _vadHandler.onSpeechStart.listen((_) {
       if (!mounted || _isMuted) return;
-      debugPrint('LiveCallScreen: Speech started (User)');
+      debugPrint('LiveCallScreen: Speech started (User Interruption)');
+      
+      _activeInteractionId++; // Invalidate any pending AI responses
+      
       setState(() {
-        _isAiSpeaking = false; // User speaking -> Blue
+        _isAiSpeaking = false; 
+        _isThinking = false;
+        _aiAmplitude = 0.0;
       });
+
+      // Stop AI voice immediately if user starts talking
+      _audioPlayer.stop();
     });
 
     _vadHandler.onSpeechEnd.listen((samples) async {
@@ -118,6 +127,8 @@ class _LiveCallScreenState extends State<LiveCallScreen>
         _isAiSpeaking = false;
         _transcription = "";
       });
+
+      final int myInteractionId = _activeInteractionId;
 
       // Send to local API for transcription
       try {
@@ -135,15 +146,28 @@ class _LiveCallScreenState extends State<LiveCallScreen>
         if (response.statusCode == 200) {
           final data = jsonDecode(response.body);
           if (mounted) {
+            // Check if we were interrupted during the API call
+            if (myInteractionId != _activeInteractionId) {
+              debugPrint('LiveCallScreen: Ignoring transcription - user interrupted');
+              return;
+            }
+
             setState(() {
               _transcription = data['text'] ?? '';
             });
             debugPrint('LiveCallScreen: Transcribed: $_transcription');
+            
             // 1. Record the interaction and fetch the intelligent AI response
             final aiResponseText = await widget.chatService.recordLiveCallInteraction(
               userText: _transcription,
               chatId: widget.chatId,
             );
+
+            // Check interruption again after the DB/Brain sync
+            if (myInteractionId != _activeInteractionId) {
+              debugPrint('LiveCallScreen: Ignoring AI response - user interrupted');
+              return;
+            }
 
             // 2. Play the synthesized AI response
             if (aiResponseText != null && mounted) {
@@ -296,7 +320,7 @@ class _LiveCallScreenState extends State<LiveCallScreen>
     } else {
       await _vadHandler.startListening(
         baseAssetPath: 'assets/models/',
-        positiveSpeechThreshold: 0.3,
+        positiveSpeechThreshold: 0.55,
         negativeSpeechThreshold: 0.35,
         minSpeechFrames: 2,
         redemptionFrames: 30, // Allows ~1 second of pause without cutting off
