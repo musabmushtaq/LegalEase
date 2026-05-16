@@ -452,6 +452,10 @@ class ChatService extends ChangeNotifier {
   Future<void> createNewChat() async {
     if (_userId == null && !_isTemporaryChat) return;
 
+    if (_isTemporaryChat) {
+      _cleanupSessionTempChat();
+    }
+
     if (!_isTemporaryChat) {
       final isOnline = await checkInitialAndInstantNetwork();
       if (isOnline) {
