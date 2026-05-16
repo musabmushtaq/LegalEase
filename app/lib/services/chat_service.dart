@@ -610,26 +610,38 @@ class ChatService extends ChangeNotifier {
 
     // 8. Auto-generate title if this is the first interaction
     if (_chats[finalChatId]?.title == 'New Chat') {
+      debugPrint('ChatService: Triggering auto-rename for $finalChatId');
       _generateTitleInBackground(finalChatId, userText);
     }
 
+    debugPrint('ChatService: Live interaction complete. Returning AI text.');
     return finalAiText;
   }
 
   // Helper for background syncing to avoid blocking the voice flow
   void _syncMessageToServer(String chatId, String content, String sender) async {
     final isOnline = await _checkConnectivityInternal();
-    if (!isOnline) return;
+    if (!isOnline) {
+      debugPrint('ChatService: Background sync skipped - offline');
+      return;
+    }
 
     try {
+      debugPrint('ChatService: Syncing $sender message to $chatId...');
       final uri = Uri.parse('$_apiBaseUrl/chats/$chatId/messages');
-      await http.post(
+      final response = await http.post(
         uri,
         headers: _headers(),
         body: jsonEncode({'content': content, 'sender': sender, 'user_id': _userId}),
       );
+      
+      if (response.statusCode == 200) {
+        debugPrint('ChatService: Successfully synced $sender message to server');
+      } else {
+        debugPrint('ChatService: Sync failed for $sender. Status: ${response.statusCode}, Body: ${response.body}');
+      }
     } catch (e) {
-      debugPrint('ChatService: Background sync failed: $e');
+      debugPrint('ChatService: Background sync exception for $sender: $e');
     }
   }
 

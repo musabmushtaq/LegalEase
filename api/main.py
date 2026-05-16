@@ -447,7 +447,7 @@ async def generate_live(payload: GenerateLiveRequest) -> dict[str, Any]:
     Optimized for short, concise, and conversational legal guidance.
     """
     # For now, return a mock response as requested
-    mock_content = "I understand your query. As your legal assistant, I recommend reviewing the relevant statutes regarding this matter. Would you like me to explain the specific requirements for your jurisdiction?"
+    mock_content = "This is a MOCK response from the LegalEase Live Call system. I have successfully transcribed your voice and processed it through the new pipeline. How else can I assist you today?"
     
     assistant_message = {
         "id": make_id("msg"),
