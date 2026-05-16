@@ -187,10 +187,6 @@ class _ChatDrawerState extends State<ChatDrawer> {
 
   @override
   Widget build(BuildContext context) {
-    final chats = widget.chatService.displayedChats;
-    final pinnedChats = chats.where((c) => c.isPinned).toList();
-    final recentChats = chats.where((c) => !c.isPinned).toList();
-
     return Drawer(
       backgroundColor: Colors.transparent,
       elevation: 0,
@@ -338,6 +334,10 @@ class _ChatDrawerState extends State<ChatDrawer> {
                     child: ListenableBuilder(
                       listenable: widget.chatService,
                       builder: (context, _) {
+                        final chats = widget.chatService.displayedChats;
+                        final pinnedChats = chats.where((c) => c.isPinned).toList();
+                        final recentChats = chats.where((c) => !c.isPinned).toList();
+
                         if (widget.chatService.isConnecting) {
                           return const Center(
                             child: CircularProgressIndicator(
