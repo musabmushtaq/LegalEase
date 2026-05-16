@@ -89,10 +89,6 @@ class ChatService extends ChangeNotifier {
       final tempId = _currentChatId!;
       _chats.remove(tempId);
       _messages.remove(tempId);
-      try {
-        final uri = Uri.parse('$_apiBaseUrl/chats/$tempId');
-        http.delete(uri, headers: _headers());
-      } catch (_) {}
     }
   }
 
