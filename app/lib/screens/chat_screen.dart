@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:open_file/open_file.dart';
 
 import 'package:dotted_border/dotted_border.dart';
 import '../theme/app_theme.dart';
@@ -202,6 +203,7 @@ class _ChatScreenState extends State<ChatScreen> {
           _attachedFile = null;
         });
       },
+      getFile: () => _attachedFile,
     );
     _initializeService();
     _textController.addListener(() {
@@ -510,11 +512,10 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _sendMessage() async {
-    final text = _textController.text.trim();
-    if (text.isEmpty && _attachedFile == null) return;
+    final messageText = _textController.text.trim();
+    if (messageText.isEmpty && _attachedFile == null) return;
 
     final fileToSend = _attachedFile;
-    final messageText = text.isEmpty ? "Sent an attachment" : text;
 
     _textController.clear();
     
@@ -623,8 +624,12 @@ class _ChatScreenState extends State<ChatScreen> {
 
 class AttachmentTextEditingController extends TextEditingController {
   final VoidCallback onFileRemoved;
+  final File? Function() getFile;
 
-  AttachmentTextEditingController({required this.onFileRemoved});
+  AttachmentTextEditingController({
+    required this.onFileRemoved,
+    required this.getFile,
+  });
 
   @override
   TextSpan buildTextSpan({
@@ -641,36 +646,44 @@ class AttachmentTextEditingController extends TextEditingController {
         children.add(
           WidgetSpan(
             alignment: PlaceholderAlignment.middle,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 2.0),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.2),
-                        width: 1.0,
-                      ),
-                    ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.attach_file, color: Colors.white, size: 12),
-                        SizedBox(width: 4),
-                        Text(
-                          'Attachment',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w500,
-                          ),
+            child: GestureDetector(
+              onTap: () {
+                final file = getFile();
+                if (file != null) {
+                  OpenFile.open(file.path);
+                }
+              },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 2.0),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: BackdropFilter(
+                    filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.2),
+                          width: 1.0,
                         ),
-                      ],
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.attach_file, color: Colors.white, size: 12),
+                          SizedBox(width: 4),
+                          Text(
+                            'Attachment',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),

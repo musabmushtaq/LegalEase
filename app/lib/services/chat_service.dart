@@ -646,7 +646,7 @@ class ChatService extends ChangeNotifier {
     
     // ADD MESSAGE INSTANTLY - DO NOT WAIT FOR NETWORK CHECK
     addMessage(
-      content + (file != null ? " [Attachment: ${file.path.split('/').last}]" : ""),
+      content,
       'user',
       localFilePath: file?.path,
     );

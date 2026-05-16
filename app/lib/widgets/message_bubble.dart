@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:open_file/open_file.dart';
 import '../models/chat.dart';
 import '../theme/app_theme.dart';
 
@@ -91,55 +92,145 @@ class _UserMessageCardState extends State<_UserMessageCard> with SingleTickerPro
                     ),
                   ),
                   padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        widget.message.content,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          height: 1.5,
-                          fontWeight: FontWeight.w400,
-                          letterSpacing: 0.2,
-                        ),
-                        maxLines: _isExpanded ? null : 4,
-                        overflow: _isExpanded ? null : TextOverflow.ellipsis,
+                  child: SelectableText.rich(
+                    TextSpan(
+                      children: _buildMessageSpans(context),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        height: 1.5,
+                        fontWeight: FontWeight.w400,
+                        letterSpacing: 0.2,
                       ),
-                      if (widget.message.content.length > 150)
-                        GestureDetector(
-                          onTap: () => setState(() => _isExpanded = !_isExpanded),
-                          child: Padding(
-                            padding: const EdgeInsets.only(top: 10.0),
-                            child: Text(
-                              _isExpanded ? "COLLAPSE" : "READ MORE",
-                              style: TextStyle(
-                                color: AppTheme.highlight.withValues(alpha: 0.8),
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 1.2,
-                              ),
-                            ),
-                          ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  List<InlineSpan> _buildMessageSpans(BuildContext context) {
+    final List<InlineSpan> spans = [];
+    final String content = widget.message.content;
+    final bool hasAttachment = widget.message.localFilePath != null;
+    
+    if (!hasAttachment) {
+      spans.add(TextSpan(text: content));
+      return spans;
+    }
+
+    final parts = content.split('\uFFFC');
+    
+    for (int i = 0; i < parts.length; i++) {
+      if (parts[i].isNotEmpty) {
+        spans.add(TextSpan(text: parts[i]));
+      }
+      
+      if (i < parts.length - 1 || (parts.length == 1 && content.contains('\uFFFC'))) {
+        spans.add(
+          WidgetSpan(
+            alignment: PlaceholderAlignment.middle,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4.0),
+              child: GestureDetector(
+                onTap: () async {
+                  if (widget.message.localFilePath != null) {
+                    final path = widget.message.localFilePath!;
+                    final result = await OpenFile.open(path);
+                    if (result.type != ResultType.done) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Could not open file: ${result.message}')),
+                        );
+                      }
+                    }
+                  }
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.white.withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: const [
+                      Icon(Icons.attach_file, color: Colors.white, size: 12),
+                      SizedBox(width: 4),
+                      Text(
+                        'Attachment',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
                         ),
-                      if (widget.message.localFilePath != null) ...[
-                        const SizedBox(height: 12),
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(10),
-                          child: Image.file(
-                            File(widget.message.localFilePath!),
-                            height: 140,
-                            width: double.infinity,
-                            fit: BoxFit.cover,
-                          ),
-                        ),
-                      ],
+                      ),
                     ],
                   ),
                 ),
               ),
             ),
           ),
+        );
+      }
+    }
+    
+    if (!content.contains('\uFFFC') && hasAttachment) {
+      spans.add(const TextSpan(text: '\n'));
+      spans.add(
+        WidgetSpan(
+          child: Padding(
+            padding: const EdgeInsets.only(top: 8.0),
+            child: _buildAttachmentPill(context),
+          ),
+        ),
+      );
+    }
+
+    return spans;
+  }
+
+  Widget _buildAttachmentPill(BuildContext context) {
+    return GestureDetector(
+      onTap: () async {
+        if (widget.message.localFilePath != null) {
+          final path = widget.message.localFilePath!;
+          final result = await OpenFile.open(path);
+          if (result.type != ResultType.done) {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Could not open file: ${result.message}')),
+              );
+            }
+          }
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.2),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white.withOpacity(0.3)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: const [
+            Icon(Icons.attach_file, color: Colors.white, size: 12),
+            SizedBox(width: 4),
+            Text(
+              'Attachment',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 11,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
         ),
       ),
     );

@@ -7,6 +7,8 @@ import warnings
 import asyncio
 from datetime import UTC, datetime
 from typing import Any
+from google import genai
+from google.genai import types
 
 # Suppress deprecation warnings from dependencies
 warnings.filterwarnings("ignore", category=DeprecationWarning, module=".*pkg_resources.*")
@@ -136,49 +138,61 @@ def load_api_keys():
 load_api_keys()
 _current_key_index = 0
 
-def call_gemini_api_sync(prompt: str, system_prompt: str, chat_history: list) -> str:
+def call_gemini_api_sync(prompt: str, system_prompt: str, chat_history: list, file_paths: list[str] = None) -> str:
     global _current_key_index
     if not API_KEYS:
         return "Error: No API keys configured in api_keys.csv."
-
-    contents = []
-    for msg in chat_history:
-        role = "user" if msg.get("sender") == "user" else "model"
-        contents.append({"role": role, "parts": [{"text": msg.get("content", "")}]})
-        
-    contents.append({"role": "user", "parts": [{"text": prompt}]})
-
-    payload = {
-        "contents": contents
-    }
-    if system_prompt:
-        payload["systemInstruction"] = {"parts": [{"text": system_prompt}]}
-
+    
     for _ in range(len(API_KEYS)):
         key = API_KEYS[_current_key_index]
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite-preview:generateContent?key={key}"
-        
         try:
-            resp = requests.post(url, json=payload, timeout=30)
-            if resp.status_code == 200:
-                data = resp.json()
-                try:
-                    return data["candidates"][0]["content"]["parts"][0]["text"]
-                except (KeyError, IndexError):
-                    return "Error: Unexpected response format from Gemini."
-            elif resp.status_code == 429:
-                print(f"API Key {_current_key_index} rate limited. Trying next key...")
+            client = genai.Client(api_key=key)
+            
+            # Format history for the new SDK
+            history = []
+            for msg in chat_history:
+                role = "user" if msg.get("sender") == "user" else "model"
+                history.append(types.Content(
+                    role=role, 
+                    parts=[types.Part(text=msg.get("content", ""))]
+                ))
+            
+            # Start chat session with account-specific model name
+            chat_session = client.chats.create(
+                model='gemini-flash-latest',
+                config=types.GenerateContentConfig(
+                    system_instruction=types.Content(parts=[types.Part(text=system_prompt)]),
+                ),
+                history=history
+            )
+            
+            # Prepare message parts (text + files)
+            message_parts = []
+            if file_paths:
+                for path in file_paths:
+                    if os.path.exists(path):
+                        # Upload file via SDK
+                        uploaded_file = client.files.upload(file=path)
+                        message_parts.append(uploaded_file)
+            
+            message_parts.append(prompt)
+            
+            # Send message
+            response = chat_session.send_message(message=message_parts)
+            return response.text
+
+        except Exception as e:
+            err = str(e).lower()
+            if "429" in err or "quota" in err or "rate" in err:
+                print(f"Key {_current_key_index} rate limited, rotating...")
                 _current_key_index = (_current_key_index + 1) % len(API_KEYS)
                 continue
-            else:
-                return f"Error: Gemini API returned status {resp.status_code}: {resp.text}"
-        except Exception as e:
-            return f"Error: Request to Gemini failed: {e}"
+            return f"Error: Gemini SDK call failed: {e}"
             
-    return "Error: All API keys are rate limited or unavailable."
+    return "Error: All keys exhausted or failed."
 
-async def generate_ai_reply(prompt: str, system_prompt: str, chat_history: list) -> str:
-    return await asyncio.to_thread(call_gemini_api_sync, prompt, system_prompt, chat_history)
+async def generate_ai_reply(prompt: str, system_prompt: str, chat_history: list, file_paths: list[str] = None) -> str:
+    return await asyncio.to_thread(call_gemini_api_sync, prompt, system_prompt, chat_history, file_paths)
 
 
 def chat_to_response(chat: dict[str, Any]) -> dict[str, Any]:
@@ -230,7 +244,6 @@ async def on_startup() -> None:
         print("=" * 60)
         get_kpipeline()
         print("=" * 60)
-        get_bart_summarizer()
         
         print("=" * 60)
         print("All systems ready! API accepting requests...")
@@ -316,6 +329,20 @@ async def update_chat(chat_id: str, payload: UpdateChatRequest) -> dict[str, Any
 
 @app.delete("/chats/{chat_id}")
 async def delete_chat(chat_id: str) -> dict[str, bool]:
+    # 1. Find and delete files from disk
+    files_cursor = db.files.find({"chat_id": chat_id})
+    async for file_doc in files_cursor:
+        file_path = file_doc.get("file_path")
+        if file_path and os.path.exists(file_path):
+            try:
+                os.remove(file_path)
+            except Exception as e:
+                print(f"Error deleting file {file_path}: {e}")
+    
+    # 2. Delete file records from DB
+    await db.files.delete_many({"chat_id": chat_id})
+    
+    # 3. Delete the chat itself
     result = await db.chats.delete_one({"chat_id": chat_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Chat not found")
@@ -358,6 +385,9 @@ class GenerateAiRequest(BaseModel):
     system_prompt: str | None = None
 
 
+# --- Chat endpoints ---
+
+
 @app.post("/api/generate_ai")
 async def generate_ai(payload: GenerateAiRequest) -> dict[str, Any]:
     # 1. Gather Context
@@ -372,16 +402,25 @@ async def generate_ai(payload: GenerateAiRequest) -> dict[str, Any]:
     elif payload.messages is not None:
         chat_history = payload.messages
 
-    # 2. Extract prompt
+    # 2. Extract prompt and current files
     prompt = "Continue the conversation."
     context_history = chat_history
+    file_paths = []
     
     if chat_history and chat_history[-1].get("sender") == "user":
-        prompt = chat_history[-1].get("content", "")
+        last_msg = chat_history[-1]
+        prompt = last_msg.get("content", "")
         context_history = chat_history[:-1]
         
+        # Check for file associated with this specific message
+        file_id = last_msg.get("file_id")
+        if file_id:
+            file_doc = await db.files.find_one({"file_id": file_id})
+            if file_doc and file_doc.get("file_path"):
+                file_paths.append(file_doc["file_path"])
+        
     # 3. Generate Reply
-    ai_content = await generate_ai_reply(prompt, system_prompt, context_history)
+    ai_content = await generate_ai_reply(prompt, system_prompt, context_history, file_paths)
     
     assistant_message = {
         "id": make_id("msg"),
@@ -534,7 +573,6 @@ from fastapi.responses import StreamingResponse
 
 _whisper_model = None
 _kpipeline = None
-_bart_summarizer = None
 
 def get_kpipeline():
     global _kpipeline
@@ -553,16 +591,7 @@ def get_kpipeline():
     return _kpipeline
 
 
-def get_bart_summarizer():
-    global _bart_summarizer
-    if _bart_summarizer is None:
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            from transformers import pipeline
-            print("Loading BART summarizer locally...")
-            _bart_summarizer = pipeline("summarization", model="facebook/bart-large-cnn", device=0)
-            print("Successfully loaded BART summarizer on GPU.")
-    return _bart_summarizer
+
 
 @app.post("/api/tts")
 async def generate_tts(payload: dict):
@@ -646,27 +675,19 @@ async def transcribe_raw(request: Request):
 
 @app.post("/api/summarize")
 async def summarize(payload: SummarizeRequest) -> dict[str, str]:
-    """Summarize text to generate chat titles using BART (up to 12 words)."""
+    """Summarize text to generate chat titles using Gemini (up to 6 words)."""
     text = payload.text.strip()
     
-    # Skip very short messages (less than 2 words)
+    # Skip very short messages
     if len(text.split()) < 2:
-        return {"summary": text[:50]}  # Use original text as title if too short
+        return {"summary": text[:50]}
     
     try:
-        summarizer = get_bart_summarizer()
-        # BART expects input length max 1024 tokens, limit to first 512 chars
-        truncated_text = text[:512]
-        
-        # Generate chat titles (up to 12 words for more descriptive names)
-        result = summarizer(truncated_text, max_length=12, min_length=2, do_sample=False)
-        summary = result[0]["summary_text"]
-        
-        return {"summary": summary}
+        # We use a very simple prompt to get a title
+        prompt = f"Generate a short, descriptive chat title (max 5 words) for this initial message: \"{text}\". Respond ONLY with the title."
+        title = await generate_ai_reply(prompt, "You are a title generator. Return only the title text, no quotes.", [])
+        return {"summary": title.strip().strip('"').strip()}
     except Exception as e:
-        import traceback
-        traceback.print_exc()
-        # Fallback to original text if summarization fails
         return {"summary": text[:50] + "..." if len(text) > 50 else text}
 
 
@@ -719,14 +740,23 @@ async def add_message_with_file(chat_id: str, content: str = Form(...), file: Up
     file_id = None
     if file:
         file_id = make_id("file")
-        # In a real scenario, write file.file to disk / S3 here
+        
+        # Ensure uploads directory exists
+        upload_dir = os.path.join(os.path.dirname(__file__), "uploads")
+        os.makedirs(upload_dir, exist_ok=True)
+        
+        # Save file to disk
+        file_path = os.path.join(upload_dir, f"{file_id}_{file.filename}")
+        with open(file_path, "wb") as f:
+            f.write(await file.read())
+
         await db.files.insert_one({
             "file_id": file_id,
             "filename": file.filename,
+            "file_path": file_path,
             "chat_id": chat_id,
             "uploaded_at": created_at
         })
-        content += f" [Attachment: {file.filename}]"
 
     user_message = {
         "id": make_id("msg"),
