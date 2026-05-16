@@ -489,7 +489,7 @@ class _ChatScreenState extends State<ChatScreen> {
                                                 _isTyping = text.trim().isNotEmpty;
                                               });
                                             },
-                                            maxLines: 5,
+                                            maxLines: 3,
                                             minLines: 1,
                                           ),
                                         ),
@@ -533,7 +533,7 @@ class _ChatScreenState extends State<ChatScreen> {
                                               _isTyping = text.trim().isNotEmpty;
                                             });
                                           },
-                                          maxLines: 5,
+                                          maxLines: 3,
                                           minLines: 1,
                                         ),
                                       ),
