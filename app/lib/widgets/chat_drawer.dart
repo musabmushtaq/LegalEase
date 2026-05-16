@@ -464,17 +464,17 @@ class _ChatDrawerState extends State<ChatDrawer> {
       },
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 4.0),
-        padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 12.0),
+        padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 16.0),
         decoration: BoxDecoration(
           color: isCurrentChat
-              ? AppTheme.highlight.withValues(alpha: 0.2)
+              ? AppTheme.highlight.withValues(alpha: 0.15)
               : Colors.transparent,
-          borderRadius: BorderRadius.circular(12.0),
+          borderRadius: BorderRadius.circular(26.0),
           border: Border.all(
             color: isCurrentChat
-                ? AppTheme.highlight.withValues(alpha: 0.5)
+                ? AppTheme.highlight.withValues(alpha: 0.3)
                 : Colors.transparent,
-            width: isCurrentChat ? 1.5 : 1,
+            width: 1.0,
           ),
         ),
         child: Row(
