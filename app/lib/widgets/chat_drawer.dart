@@ -187,7 +187,6 @@ class _ChatDrawerState extends State<ChatDrawer> {
 
   @override
   Widget build(BuildContext context) {
-    // Only show chats that have messages
     final chats = widget.chatService.displayedChats;
     final pinnedChats = chats.where((c) => c.isPinned).toList();
     final recentChats = chats.where((c) => !c.isPinned).toList();
@@ -198,16 +197,16 @@ class _ChatDrawerState extends State<ChatDrawer> {
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 20.0, sigmaY: 20.0),
         child: Container(
-          decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.5),
-            border: Border(
-              right: BorderSide(
-                color: Colors.white.withValues(alpha: 0.1),
-                width: 1.0,
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.5),
+                border: Border(
+                  right: BorderSide(
+                    color: Colors.white.withValues(alpha: 0.1),
+                    width: 1.0,
+                  ),
+                ),
               ),
-            ),
-          ),
-          child: SafeArea(
+              child: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16.0),
           child: Column(
