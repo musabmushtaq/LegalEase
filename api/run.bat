@@ -1,4 +1,27 @@
 @echo off
+REM LegalEase API Runner Batch Script
+REM Activates venv and starts the API with graceful shutdown support
+
+cls
+echo ================================
+echo LegalEase API Runner
+echo ================================
+echo.
+
+REM Activate virtual environment
+call .\.venv\Scripts\activate.bat
+
+REM Run the API
+echo Starting API server...
+echo Press Ctrl+C or 'q' to gracefully shut down
+echo.
+
+python run.py
+
+echo.
+echo API server stopped.
+pause
+@echo off
 REM LegalEase API - Run Script
 REM Assumes init.bat has already been run
 
@@ -33,7 +56,7 @@ echo ===============================================
 echo.
 
 REM Start the server
-python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload --reload-exclude=".venv" --reload-exclude="temp_*"
 
 echo.
 echo Server stopped

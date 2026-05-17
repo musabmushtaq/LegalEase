@@ -65,3 +65,4 @@ out/
 *.rar
 *.7z
 key.txt
+api/api_keys.csv

@@ -4,13 +4,16 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:async';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import '../models/chat.dart';
 
 class ChatService extends ChangeNotifier {
-  static const String _apiBaseUrl = String.fromEnvironment(
+  static String _apiBaseUrl = const String.fromEnvironment(
     'API_BASE_URL',
     defaultValue: 'http://127.0.0.1:8000',
   );
+
+  static String get apiBaseUrl => _apiBaseUrl;
 
   String? _userId;
   String? _authToken;
@@ -18,14 +21,22 @@ class ChatService extends ChangeNotifier {
   String? _currentChatId;
   final Map<String, Chat> _chats = {};
   final Map<String, List<ChatMessage>> _messages = {};
+  final Set<String> _generatingTitles = {}; // Track chats generating titles
 
-  bool _isConnected = true;
+  bool _isConnected = false;
+  bool _isConnecting = true;
   Timer? _connectivityTimer;
   bool _isAuthenticated = false;
   bool _isTemporaryChat = false;
   int _consecutiveFailures = 0;
 
+  StreamSubscription? _connectivitySubscription;
+  bool _isRecovering = false;
+  Timer? _recoveryTimer;
+  ConnectivityResult? _lastConnectivityResult;
+
   bool get isConnected => _isConnected;
+  bool get isConnecting => _isConnecting;
   bool get isAuthenticated => _isAuthenticated;
   bool get isTemporaryChat => _isTemporaryChat;
   String? get currentChatId => _currentChatId;
@@ -37,11 +48,22 @@ class ChatService extends ChangeNotifier {
       _chats.values.toList()
         ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
 
+  bool isTitleGenerating(String chatId) => _generatingTitles.contains(chatId);
+
   List<Chat> get displayedChats {
+    // History list is strictly network-driven. 
+    // If we are offline or not authenticated, we don't show the history.
+    if (!_isConnected || !_isAuthenticated) return [];
+
     final chatsWithMessages = _chats.values
         .where((c) => (_messages[c.id]?.isNotEmpty ?? false))
         .toList();
     chatsWithMessages.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    
+    // Don't show the current temporary chat in the history list
+    if (_isTemporaryChat && _currentChatId != null) {
+      chatsWithMessages.removeWhere((c) => c.id == _currentChatId);
+    }
     return chatsWithMessages;
   }
 
@@ -50,22 +72,59 @@ class ChatService extends ChangeNotifier {
   }
 
   Future<void> initialize() async {
+    await _loadSettings();
     await _loadAuth();
     if (_isAuthenticated) {
-      await _syncFromApi();
+      // Reactive check on startup - skip restoring from cache for fresh start
+      checkInitialAndInstantNetwork();
     } else {
-      _isTemporaryChat = true;
+      _isConnecting = false;
+      notifyListeners();
     }
-    _startConnectivityMonitoring();
+    _listenToConnectivityChanges();
+  }
+
+  void _cleanupSessionTempChat() {
+    if (_isTemporaryChat && _currentChatId != null) {
+      final tempId = _currentChatId!;
+      _chats.remove(tempId);
+      _messages.remove(tempId);
+      try {
+        final uri = Uri.parse('$_apiBaseUrl/chats/$tempId');
+        http.delete(uri, headers: _headers());
+      } catch (_) {}
+    }
   }
 
   void toggleTemporaryChat() {
+    if (_isTemporaryChat) {
+      // Exiting temporary mode, clean up the temp chat
+      _cleanupSessionTempChat();
+      _currentChatId = null;
+    }
     _isTemporaryChat = !_isTemporaryChat;
     if (_isTemporaryChat) {
       // Clear out the current selected chat so we just start a "temporary" session view.
       _currentChatId = null;
     }
     notifyListeners();
+  }
+
+  Future<void> _loadSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedUrl = prefs.getString('apiBaseUrl');
+    if (savedUrl != null && savedUrl.isNotEmpty) {
+      _apiBaseUrl = savedUrl;
+    }
+  }
+
+  Future<void> updateApiBaseUrl(String newUrl) async {
+    _apiBaseUrl = newUrl;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('apiBaseUrl', newUrl);
+    notifyListeners();
+    // Re-check connectivity after updating the URL
+    _checkConnectivity();
   }
 
   Future<void> _loadAuth() async {
@@ -91,7 +150,7 @@ class ChatService extends ChangeNotifier {
             headers: {'Content-Type': 'application/json'},
             body: jsonEncode({'username': username, 'password': password}),
           )
-          .timeout(const Duration(seconds: 10));
+          .timeout(const Duration(seconds: 5));
 
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body);
@@ -129,7 +188,7 @@ class ChatService extends ChangeNotifier {
               'password': password,
             }),
           )
-          .timeout(const Duration(seconds: 10));
+          .timeout(const Duration(seconds: 5));
 
       if (response.statusCode == 200) {
         return await login(username, password);
@@ -149,35 +208,98 @@ class ChatService extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('userId');
     await prefs.remove('authToken');
-    await prefs.remove('chatCache');
+    await prefs.remove('currentChatCache');
+    await prefs.remove('currentChatIdCache');
 
     notifyListeners();
   }
 
-  void _startConnectivityMonitoring() {
-    // Check connectivity every 20 seconds instead of 5 to reduce aggressive polling
-    // This is more friendly to WiFi connections and battery life
-    _connectivityTimer = Timer.periodic(
-      const Duration(seconds: 20),
-      (_) => _checkConnectivity(),
-    );
-    // Perform an initial check immediately
-    _checkConnectivity();
+  void _listenToConnectivityChanges() {
+    try {
+      final connectivity = Connectivity();
+      _connectivitySubscription = connectivity.onConnectivityChanged.listen(
+        (List<ConnectivityResult> results) {
+          if (results.isEmpty) return;
+          final newResult = results.first;
+          final wasOffline = _lastConnectivityResult == ConnectivityResult.none;
+          final isNowOnline = newResult != ConnectivityResult.none;
+
+          _lastConnectivityResult = newResult;
+
+          // If we just came back online, sync from API
+          if (wasOffline && isNowOnline) {
+            _checkConnectivity();
+          }
+        },
+        onError: (_) {
+          // Gracefully handle missing platform implementation (e.g., in unit tests)
+        },
+      );
+    } catch (_) {
+      // Connectivity plugin not available (e.g., in unit tests) - fall back to polling only
+    }
   }
 
   void _forceOfflineState() {
-    _isConnected = false;
-    _currentChatId = null;
-    _chats.clear();
-    _messages.clear();
-    notifyListeners();
+    if (_isConnected || _isConnecting) {
+      _isConnected = false;
+      _isConnecting = false;
+      // Clear the volatile chat history when forcing offline
+      _chats.clear();
+      _messages.clear();
+      // Restore the one cached chat so the user can still see their active conversation
+      _restoreCurrentChatFromCache();
+      notifyListeners();
+      
+      // Start aggressive recovery loop to detect when server is back
+      _startRecoveryLoop();
+    }
+  }
+
+  void _startRecoveryLoop() {
+    if (_isRecovering) return;
+    _isRecovering = true;
+    
+    _recoveryTimer?.cancel();
+    _recoveryTimer = Timer.periodic(const Duration(seconds: 2), (timer) async {
+      if (_isConnected) {
+        timer.cancel();
+        _isRecovering = false;
+        return;
+      }
+      
+      final online = await _checkConnectivityInternal();
+      if (online) {
+        timer.cancel();
+        _isRecovering = false;
+        _isConnected = true;
+        _syncFromApi();
+        notifyListeners();
+      }
+    });
+  }
+
+  Future<bool> _checkConnectivityInternal() async {
+    try {
+      final uri = Uri.parse('$_apiBaseUrl/api/ping');
+      final response = await http.get(uri).timeout(const Duration(seconds: 2));
+      return response.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
   }
 
   Future<bool> checkInitialAndInstantNetwork() async {
+    _isConnecting = true;
+    notifyListeners();
+    
+    final startTime = DateTime.now();
     try {
-      final uri = Uri.parse('$_apiBaseUrl/health');
-      final response = await http.get(uri).timeout(const Duration(seconds: 3));
+      final uri = Uri.parse('$_apiBaseUrl/api/ping');
+      final response = await http.get(uri).timeout(const Duration(seconds: 5));
       final isOnline = response.statusCode == 200;
+      
+      _isConnecting = false;
       if (!isOnline) {
         _forceOfflineState();
       } else {
@@ -185,86 +307,95 @@ class ChatService extends ChangeNotifier {
           _isConnected = true;
           _consecutiveFailures = 0;
           await _syncFromApi();
-          notifyListeners();
         }
       }
+      notifyListeners();
       return isOnline;
     } catch (_) {
+      _isConnecting = false;
       _forceOfflineState();
+      notifyListeners();
       return false;
     }
   }
 
   Future<void> _checkConnectivity() async {
     try {
-      final uri = Uri.parse('$_apiBaseUrl/health');
-      // Increased timeout from 3s to 10s to handle WiFi latency gracefully
-      final response = await http.get(uri).timeout(const Duration(seconds: 10));
-
       final wasConnected = _isConnected;
+      final uri = Uri.parse('$_apiBaseUrl/api/ping');
+      final response = await http.get(uri).timeout(const Duration(seconds: 5));
       final isNowConnected = response.statusCode == 200;
 
       if (isNowConnected) {
-        // Reset failure counter on successful connection
         _consecutiveFailures = 0;
+        _isConnecting = false;
 
-        // Restore connection status if it was previously marked as disconnected
         if (!wasConnected) {
           _isConnected = true;
-          // Sync fresh data from API on reconnection
           await _syncFromApi();
+          notifyListeners();
+        }
+      } else {
+        // If server returns error, handle as disconnect
+        if (_isConnecting || !_isConnected) {
+          _isConnecting = false;
+          _forceOfflineState();
           notifyListeners();
         }
       }
     } catch (e) {
-      // WiFi hiccups shouldn't immediately trigger disconnect
-      // Require 2 consecutive failures before marking as disconnected
       _consecutiveFailures++;
-
-      if (_consecutiveFailures >= 2 && _isConnected) {
+      // On startup or if already disconnected, be immediate.
+      if (_consecutiveFailures >= 2 || !_isConnected || _isConnecting) {
+        _isConnecting = false;
         _forceOfflineState();
+        notifyListeners();
       }
     }
   }
 
+
   @override
   void dispose() {
-    _connectivityTimer?.cancel();
+    _recoveryTimer?.cancel();
+    _connectivitySubscription?.cancel();
     super.dispose();
   }
 
-  Future<void> _loadChats() async {
+  /// Restore the current chat from cache for instant UI display
+  /// This is lightweight - only loads the active conversation, not all chats
+  Future<void> _restoreCurrentChatFromCache() async {
     final prefs = await SharedPreferences.getInstance();
-    final cacheBytes = prefs.getString('chatCache');
-    if (cacheBytes != null) {
+    final chatCacheJson = prefs.getString('currentChatCache');
+    final currentChatId = prefs.getString('currentChatIdCache');
+
+    if (chatCacheJson != null && currentChatId != null) {
       try {
-        final List<dynamic> items = jsonDecode(cacheBytes);
-        _chats.clear();
-        _messages.clear();
-        for (final item in items) {
-          final chat = Chat.fromJson(item);
-          _chats[chat.id] = chat;
-          final rawMessages = (item['messages'] as List<dynamic>? ?? [])
-              .whereType<Map<String, dynamic>>()
-              .toList();
-          _messages[chat.id] = rawMessages.map(ChatMessage.fromJson).toList();
-        }
+        final chatJson = jsonDecode(chatCacheJson) as Map<String, dynamic>;
+        final chat = Chat.fromJson(chatJson);
+        _currentChatId = currentChatId;
+        _chats[chat.id] = chat;
+
+        final rawMessages = (chatJson['messages'] as List<dynamic>? ?? [])
+            .whereType<Map<String, dynamic>>()
+            .toList();
+        _messages[chat.id] = rawMessages.map(ChatMessage.fromJson).toList();
+
         notifyListeners();
       } catch (_) {}
     }
   }
 
+  /// Sync chats from backend API
+  /// Only caches the current chat to shared preferences for speed
   Future<void> _syncFromApi() async {
     if (_userId == null) return;
-
-    // Load cache first for fast UI display (only when retrieving from server)
-    await _loadChats();
 
     try {
       final uri = Uri.parse('$_apiBaseUrl/users/$_userId/chats');
       final response = await http
           .get(uri, headers: _headers())
-          .timeout(const Duration(seconds: 6));
+          .timeout(const Duration(seconds: 5));
 
       if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body) as Map<String, dynamic>;
@@ -272,6 +403,7 @@ class ChatService extends ChangeNotifier {
             .whereType<Map<String, dynamic>>()
             .toList();
 
+        // Clear everything first - history is network driven
         _chats.clear();
         _messages.clear();
 
@@ -285,22 +417,38 @@ class ChatService extends ChangeNotifier {
           _messages[chat.id] = rawMessages.map(ChatMessage.fromJson).toList();
         }
 
-        await _saveChats();
+        // Only cache the current chat to shared preferences for instant load next time
+        if (_currentChatId != null && _chats.containsKey(_currentChatId)) {
+          await _saveCurrentChatToCache();
+        }
+        _isConnected = true; // Confirm we are online
+        _isConnecting = false;
         notifyListeners();
+      } else {
+        // If server returns error, we handle it as a disconnect for the history list
+        _isConnecting = false;
+        _forceOfflineState();
       }
-    } catch (_) {}
+    } catch (_) {
+      _isConnecting = false;
+      _forceOfflineState();
+    }
   }
 
-  Future<void> _saveChats() async {
+  /// Save only the current chat to cache for fast UI restoration
+  /// Shared preferences is temporary storage layer, not a database
+  Future<void> _saveCurrentChatToCache() async {
+    if (_currentChatId == null || !_chats.containsKey(_currentChatId)) return;
+
     try {
       final prefs = await SharedPreferences.getInstance();
-      var chatList = _chats.values.map((c) {
-        var json = c.toJson();
-        json['messages'] =
-            _messages[c.id]?.map((m) => m.toJson()).toList() ?? [];
-        return json;
-      }).toList();
-      await prefs.setString('chatCache', jsonEncode(chatList));
+      final currentChat = _chats[_currentChatId]!;
+      var json = currentChat.toJson();
+      json['messages'] =
+          _messages[_currentChatId]?.map((m) => m.toJson()).toList() ?? [];
+
+      await prefs.setString('currentChatCache', jsonEncode(json));
+      await prefs.setString('currentChatIdCache', _currentChatId!);
     } catch (_) {}
   }
 
@@ -330,7 +478,7 @@ class ChatService extends ChangeNotifier {
         _currentChatId = chat.id;
         _chats[chat.id] = chat;
         _messages[chat.id] = [];
-        await _saveChats();
+        await _saveCurrentChatToCache();
         notifyListeners();
         return;
       }
@@ -346,22 +494,129 @@ class ChatService extends ChangeNotifier {
       updatedAt: DateTime.now(),
     );
     _messages[chatId] = [];
-    await _saveChats();
+    await _saveCurrentChatToCache();
     notifyListeners();
   }
 
   void selectChat(String chatId) {
+    if (_isTemporaryChat) {
+      _cleanupSessionTempChat();
+    }
     _currentChatId = chatId;
     _isTemporaryChat = false;
+    // Cache the newly selected chat for fast restoration
+    _saveCurrentChatToCache();
     notifyListeners();
   }
 
   void clearCurrentChat() {
+    if (_isTemporaryChat) {
+      _cleanupSessionTempChat();
+    }
     _currentChatId = null;
     notifyListeners();
   }
 
-  void addMessage(String content, String sender, {String? localFilePath}) {
+  /// Specialized method for Live Call to save interactions
+  /// without triggering the standard automated AI response loop.
+  Future<void> recordLiveCallInteraction({
+    required String userText,
+    required String aiText,
+    String? chatId,
+  }) async {
+    // 1. Resolve which chat we are working with
+    String? finalChatId = chatId ?? _currentChatId;
+    
+    // 2. If no chat exists, create a new one first
+    if (finalChatId == null) {
+      await createNewChat();
+      finalChatId = _currentChatId;
+    }
+    
+    if (finalChatId == null) return;
+
+    // 3. Add User message
+    final userMsgId = DateTime.now().millisecondsSinceEpoch.toString();
+    final userMsg = ChatMessage(
+      id: userMsgId,
+      chatId: finalChatId,
+      sender: 'user',
+      content: userText,
+      createdAt: DateTime.now(),
+    );
+    _messages.putIfAbsent(finalChatId, () => []);
+    _messages[finalChatId]!.add(userMsg);
+
+    // 4. Add AI message (the "LegalEase received" response)
+    final aiMsgId = (DateTime.now().millisecondsSinceEpoch + 1).toString();
+    final aiMsg = ChatMessage(
+      id: aiMsgId,
+      chatId: finalChatId,
+      sender: 'ai',
+      content: aiText,
+      createdAt: DateTime.now().add(const Duration(milliseconds: 100)),
+    );
+    _messages.putIfAbsent(finalChatId, () => []);
+    _messages[finalChatId]!.add(aiMsg);
+
+    // Update timestamp and cache
+    if (_chats.containsKey(finalChatId)) {
+      _chats[finalChatId]!.updatedAt = DateTime.now();
+    }
+    await _saveCurrentChatToCache();
+    notifyListeners();
+
+    // 5. Background sync to server if online
+    final isOnline = await _checkConnectivityInternal();
+    if (isOnline) {
+      try {
+        final uri = Uri.parse('$_apiBaseUrl/chats/$finalChatId/messages');
+        debugPrint('ChatService: Syncing call to $uri');
+        
+        // Sync User message
+        final userResponse = await http.post(
+          uri,
+          headers: _headers(),
+          body: jsonEncode({'content': userText, 'sender': 'user', 'user_id': _userId}),
+        );
+
+        // Sync AI message
+        final aiResponse = await http.post(
+          uri,
+          headers: _headers(),
+          body: jsonEncode({'content': aiText, 'sender': 'ai', 'user_id': _userId}),
+        );
+
+        if (userResponse.statusCode != 200 || aiResponse.statusCode != 200) {
+          debugPrint('ChatService: Sync failed. User: ${userResponse.statusCode} (${userResponse.body}), AI: ${aiResponse.statusCode} (${aiResponse.body})');
+        } else {
+          debugPrint('ChatService: Successfully synced call log to database');
+        }
+      } catch (e) {
+        debugPrint('ChatService: Exception during sync: $e');
+      }
+    }
+
+    // 6. Auto-generate title if this is the first interaction
+    if (_chats[finalChatId]?.title == 'New Chat') {
+      _generatingTitles.add(finalChatId);
+      _chats[finalChatId]!.title = 'Generating...';
+      notifyListeners();
+
+      final summary = await summarizeText(userText);
+      if (summary != null && summary.isNotEmpty) {
+        await renameChat(finalChatId, summary);
+      }
+      _generatingTitles.remove(finalChatId);
+      notifyListeners();
+    }
+  }
+
+  Future<void> addMessage(
+    String content,
+    String sender, {
+    String? localFilePath,
+  }) async {
     if (_currentChatId == null) return;
 
     final messageId = DateTime.now().millisecondsSinceEpoch.toString();
@@ -375,8 +630,10 @@ class ChatService extends ChangeNotifier {
     );
 
     _messages[_currentChatId]?.add(message);
-    _chats[_currentChatId]!.updatedAt = DateTime.now();
-    _saveChats();
+    if (_chats.containsKey(_currentChatId)) {
+      _chats[_currentChatId]!.updatedAt = DateTime.now();
+    }
+    await _saveCurrentChatToCache();
 
     notifyListeners();
   }
@@ -384,26 +641,30 @@ class ChatService extends ChangeNotifier {
   Future<void> sendUserMessage(String content, {File? file}) async {
     if (_userId == null && !_isTemporaryChat) return;
 
-    // Immediately check network before sending
-    final isOnline = await checkInitialAndInstantNetwork();
-    if (!isOnline && !_isTemporaryChat) {
-      // If offline, checkInitialAndInstantNetwork() already enforces offline state
-      // (clears cache, drops current chat, shows red banner). Just return.
-      return;
-    }
-
-    if (_currentChatId == null) {
+    if (_currentChatId == null || !_chats.containsKey(_currentChatId)) {
       await createNewChat();
     }
-    if (_currentChatId == null) return;
+    if (_currentChatId == null || !_chats.containsKey(_currentChatId)) return;
 
     final currentId = _currentChatId!;
+    
+    // ADD MESSAGE INSTANTLY - DO NOT WAIT FOR NETWORK CHECK
     addMessage(
-      content +
-          (file != null ? " [Attachment: ${file.path.split('/').last}]" : ""),
+      content + (file != null ? " [Attachment: ${file.path.split('/').last}]" : ""),
       'user',
       localFilePath: file?.path,
     );
+    // Mark the last message as new for entrance animation
+    _messages[currentId]?.last.isNew = true;
+
+    // Now perform network checks in the background
+    final isOnline = await checkInitialAndInstantNetwork();
+    if (!isOnline && !_isTemporaryChat) {
+      return;
+    }
+
+    final chat = _chats[currentId];
+    final isFirstMessage = chat?.title == 'New Chat';
 
     // Simple local echo for temporary offline chat, or try backend for temporary online chat
     try {
@@ -422,18 +683,47 @@ class ChatService extends ChangeNotifier {
       final streamedResponse = await request.send();
       final response = await http.Response.fromStream(streamedResponse);
 
+      if (response.statusCode == 404) {
+        // Server says chat doesn't exist - clear and retry once
+        _currentChatId = null;
+        _saveCurrentChatToCache();
+        return sendUserMessage(content, file: file);
+      }
+
       if (response.statusCode == 200) {
-        final decoded = jsonDecode(response.body) as Map<String, dynamic>;
-        final assistantMessage =
-            decoded['assistant_message'] as Map<String, dynamic>?;
-        if (assistantMessage != null) {
-          final aiMsg = ChatMessage.fromJson(assistantMessage);
-          aiMsg.isNew = true;
-          _messages[currentId]?.add(aiMsg);
-          _chats[currentId]?.updatedAt = DateTime.now();
-          await _saveChats();
-          notifyListeners();
+        // Message saved. Now explicitly ask for AI response.
+        final aiUri = Uri.parse('$_apiBaseUrl/chats/$currentId/generate_ai');
+        final aiResponse = await http.post(aiUri, headers: _headers());
+        
+        if (aiResponse.statusCode == 200) {
+          final decoded = jsonDecode(aiResponse.body) as Map<String, dynamic>;
+          final assistantMessage = decoded['assistant_message'] as Map<String, dynamic>?;
+          
+          if (assistantMessage != null) {
+            final aiMsg = ChatMessage.fromJson(assistantMessage);
+            aiMsg.isNew = true;
+            _messages[currentId]?.add(aiMsg);
+            _chats[currentId]?.updatedAt = DateTime.now();
+            await _saveCurrentChatToCache();
+            notifyListeners();
+          }
         }
+
+        // Auto-generate title from first message
+        if (isFirstMessage) {
+          // Show loading state while generating
+          _generatingTitles.add(currentId);
+          _chats[currentId]!.title = 'Generating...';
+          notifyListeners();
+
+          final summary = await summarizeText(content);
+          if (summary != null && summary.isNotEmpty) {
+            await renameChat(currentId, summary);
+          }
+
+          _generatingTitles.remove(currentId);
+        }
+
         return;
       }
     } catch (_) {}
@@ -478,8 +768,11 @@ class ChatService extends ChangeNotifier {
     _messages.remove(chatId);
     if (_currentChatId == chatId) {
       _currentChatId = null;
+      // Clear cache when current chat is deleted
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('currentChatCache');
+      await prefs.remove('currentChatIdCache');
     }
-    await _saveChats();
     notifyListeners();
 
     try {
@@ -494,7 +787,10 @@ class ChatService extends ChangeNotifier {
 
     if (_chats[chatId] != null) {
       _chats[chatId]!.isPinned = !_chats[chatId]!.isPinned;
-      await _saveChats();
+      // Update cache if this is the current chat
+      if (_currentChatId == chatId) {
+        await _saveCurrentChatToCache();
+      }
       notifyListeners();
     }
   }
@@ -505,8 +801,57 @@ class ChatService extends ChangeNotifier {
 
     if (_chats[chatId] != null) {
       _chats[chatId]!.title = newTitle;
-      await _saveChats();
+      // Update cache if this is the current chat
+      if (_currentChatId == chatId) {
+        await _saveCurrentChatToCache();
+      }
       notifyListeners();
+
+      // Save title to backend database
+      try {
+        final uri = Uri.parse('$_apiBaseUrl/chats/$chatId');
+        await http
+            .patch(
+              uri,
+              headers: _headers(),
+              body: jsonEncode({'title': newTitle}),
+            )
+            .timeout(const Duration(seconds: 10));
+      } catch (_) {}
     }
+  }
+
+  /// Trim summary to max 12 words for chat titles (more descriptive)
+  String _limitSummaryWords(String summary, {int maxWords = 12}) {
+    final words = summary.split(RegExp(r'\s+'));
+    if (words.length <= maxWords) return summary;
+    return words.take(maxWords).join(' ');
+  }
+
+  Future<String?> summarizeText(String text) async {
+    final isOnline = await checkInitialAndInstantNetwork();
+    if (!isOnline) return null;
+
+    try {
+      final uri = Uri.parse('$_apiBaseUrl/api/summarize');
+      final response = await http
+          .post(
+            uri,
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'text': text}),
+          )
+          .timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        String? summary = data['summary'] as String?;
+        if (summary != null && summary.isNotEmpty) {
+          // Ensure summary is max 12 words
+          summary = _limitSummaryWords(summary, maxWords: 12);
+        }
+        return summary;
+      }
+    } catch (_) {}
+    return null;
   }
 }

@@ -2,6 +2,7 @@ fastapi==0.115.12
 uvicorn[standard]==0.34.0
 motor==3.7.0
 pydantic-settings==2.8.1
+<<<<<<< HEAD
 PyJWT==2.12.1
 passlib==1.7.4
 python-multipart==0.0.6
@@ -10,3 +11,12 @@ pytest==7.4.3
 pytest-asyncio==0.23.2
 httpx==0.25.2
 requests==2.32.0
+=======
+faster-whisper==1.1.0
+python-multipart==0.0.9
+soundfile==0.12.1
+requests==2.32.3
+transformers==4.42.3
+nvidia-cublas-cu12
+nvidia-cudnn-cu12
+>>>>>>> 9ef9e7cfa2babf47fbaf0f1b562565d9e14d1e44

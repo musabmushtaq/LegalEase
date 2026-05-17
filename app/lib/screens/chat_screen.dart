@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
@@ -8,6 +9,7 @@ import '../theme/app_theme.dart';
 import '../widgets/chat_drawer.dart';
 import '../widgets/message_bubble.dart';
 import '../widgets/connectivity_banner.dart';
+import '../widgets/thinking_indicator.dart';
 import '../services/chat_service.dart';
 import 'live_call_screen.dart';
 
@@ -20,11 +22,13 @@ class ChatScreen extends StatefulWidget {
 
 class _ChatScreenState extends State<ChatScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-  final TextEditingController _textController = TextEditingController();
+  late AttachmentTextEditingController _textController;
   final ChatService _chatService = ChatService();
   late ScrollController _scrollController;
+  final FocusNode _focusNode = FocusNode();
   bool _isTyping = false;
   bool _isInitialized = false;
+  bool _isAiThinking = false;
   File? _attachedFile;
   final ImagePicker _imagePicker = ImagePicker();
 
@@ -34,7 +38,20 @@ class _ChatScreenState extends State<ChatScreen> {
       if (image != null) {
         setState(() {
           _attachedFile = File(image.path);
-          _isTyping = true; // allow sending immediately
+          _isTyping = true;
+          // Insert the inline token placeholder with a trailing space
+          final text = _textController.text;
+          final selection = _textController.selection;
+          final newText = text.replaceRange(
+            selection.start.clamp(0, text.length),
+            selection.end.clamp(0, text.length),
+            '\uFFFC ', // No leading space, tight hug
+          );
+          _textController.text = newText;
+          _textController.selection = TextSelection.collapsed(
+            offset: selection.start + 2,
+          );
+          _focusNode.requestFocus();
         });
       }
     } catch (e) {
@@ -55,7 +72,20 @@ class _ChatScreenState extends State<ChatScreen> {
       if (result != null && result.files.single.path != null) {
         setState(() {
           _attachedFile = File(result.files.single.path!);
-          _isTyping = true; // allow sending immediately
+          _isTyping = true;
+          // Insert the inline token placeholder with a trailing space
+          final text = _textController.text;
+          final selection = _textController.selection;
+          final newText = text.replaceRange(
+            selection.start.clamp(0, text.length),
+            selection.end.clamp(0, text.length),
+            '\uFFFC ', // No leading space, tight hug
+          );
+          _textController.text = newText;
+          _textController.selection = TextSelection.collapsed(
+            offset: selection.start + 2,
+          );
+          _focusNode.requestFocus();
         });
       }
     } catch (e) {
@@ -66,65 +96,97 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
+  bool _isAttachmentMenuOpen = false;
+
   void _showAttachmentOptions() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: AppTheme.background,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (context) => Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+    setState(() {
+      _isAttachmentMenuOpen = !_isAttachmentMenuOpen;
+    });
+  }
+
+  Widget _buildAttachmentMenu() {
+    return AnimatedOpacity(
+      duration: const Duration(milliseconds: 250),
+      opacity: _isAttachmentMenuOpen ? 1.0 : 0.0,
+      child: IgnorePointer(
+        ignoring: !_isAttachmentMenuOpen,
+        child: Stack(
           children: [
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.grey.withValues(alpha: 0.5),
-                borderRadius: BorderRadius.circular(2),
+            // Backdrop tap to close
+            GestureDetector(
+              onTap: () => setState(() => _isAttachmentMenuOpen = false),
+              child: Container(
+                color: Colors.black.withValues(alpha: 0.3),
               ),
             ),
-            const SizedBox(height: 16),
-            ListTile(
-              leading: const Icon(Icons.camera_alt, color: AppTheme.highlight),
-              title: const Text(
-                'Camera',
-                style: TextStyle(color: Colors.white),
+            Positioned(
+              left: 16,
+              bottom: 84, // Start floating above the main button
+              child: TweenAnimationBuilder<double>(
+                duration: const Duration(milliseconds: 400),
+                curve: Curves.easeOutCubic,
+                tween: Tween(
+                  begin: 0.0,
+                  end: _isAttachmentMenuOpen ? 1.0 : 0.0,
+                ),
+                builder: (context, value, child) {
+                  return Opacity(
+                    opacity: value.clamp(0.0, 1.0),
+                    child: Transform.translate(
+                      offset: Offset(0, 20 * (1 - value)), // Subtle slide-up effect
+                      child: child,
+                    ),
+                  );
+                },
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildFloatingIconButton(
+                      icon: Icons.camera_alt,
+                      onPressed: () {
+                        _showAttachmentOptions();
+                        _pickImage(ImageSource.camera);
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    _buildFloatingIconButton(
+                      icon: Icons.image,
+                      onPressed: () {
+                        _showAttachmentOptions();
+                        _pickImage(ImageSource.gallery);
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    _buildFloatingIconButton(
+                      icon: Icons.insert_drive_file,
+                      onPressed: () {
+                        _showAttachmentOptions();
+                        _pickFile();
+                      },
+                    ),
+                  ],
+                ),
               ),
-              onTap: () {
-                Navigator.pop(context);
-                _pickImage(ImageSource.camera);
-              },
             ),
-            ListTile(
-              leading: const Icon(Icons.image, color: AppTheme.highlight),
-              title: const Text(
-                'Gallery',
-                style: TextStyle(color: Colors.white),
-              ),
-              onTap: () {
-                Navigator.pop(context);
-                _pickImage(ImageSource.gallery);
-              },
-            ),
-            ListTile(
-              leading: const Icon(
-                Icons.insert_drive_file,
-                color: AppTheme.highlight,
-              ),
-              title: const Text(
-                'Document or File',
-                style: TextStyle(color: Colors.white),
-              ),
-              onTap: () {
-                Navigator.pop(context);
-                _pickFile();
-              },
-            ),
-            const SizedBox(height: 16),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAttachmentItem({
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    return Container(
+      height: 56, // Exactly one module
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          child: Center(
+            child: Icon(icon, color: Colors.white, size: 24),
+          ),
         ),
       ),
     );
@@ -134,6 +196,13 @@ class _ChatScreenState extends State<ChatScreen> {
   void initState() {
     super.initState();
     _scrollController = ScrollController();
+    _textController = AttachmentTextEditingController(
+      onFileRemoved: () {
+        setState(() {
+          _attachedFile = null;
+        });
+      },
+    );
     _initializeService();
     _textController.addListener(() {
       setState(() {
@@ -153,16 +222,17 @@ class _ChatScreenState extends State<ChatScreen> {
   void dispose() {
     _textController.dispose();
     _scrollController.dispose();
+    _focusNode.dispose();
     super.dispose();
   }
 
   void _scrollToBottom() {
-    Future.delayed(const Duration(milliseconds: 100), () {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
         _scrollController.animateTo(
           _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
+          duration: const Duration(milliseconds: 600),
+          curve: Curves.easeOutCubic,
         );
       }
     });
@@ -189,8 +259,13 @@ class _ChatScreenState extends State<ChatScreen> {
       body: SafeArea(
         child: Stack(
           children: [
-            // Main Chat Body (Scrollable)
-            _buildChatBody(),
+            // Main Chat Body (Scrollable) - Listens to ChatService changes
+            ListenableBuilder(
+              listenable: _chatService,
+              builder: (context, child) {
+                return _buildChatBody();
+              },
+            ),
 
             // Top Overlay Actions (Menu & New Chat)
             Positioned(
@@ -203,17 +278,19 @@ class _ChatScreenState extends State<ChatScreen> {
                   _buildFloatingIconButton(
                     icon: Icons.menu,
                     isDotted: _chatService.isTemporaryChat,
-                    onPressed: () async {
-                      if (!_chatService.isTemporaryChat) {
-                        await _chatService.checkInitialAndInstantNetwork();
-                      }
+                    onPressed: () {
+                      // Open drawer immediately without blocking network check
                       if (mounted) {
                         _scaffoldKey.currentState?.openDrawer();
+                      }
+                      // Non-blocking background check
+                      if (!_chatService.isTemporaryChat) {
+                        _chatService.checkInitialAndInstantNetwork();
                       }
                     },
                   ),
                   _buildFloatingIconButton(
-                    icon: Icons.edit_square,
+                    icon: Icons.edit_outlined,
                     isDotted: _chatService.isTemporaryChat,
                     onPressed: _createNewChat,
                   ),
@@ -229,6 +306,17 @@ class _ChatScreenState extends State<ChatScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  // Connectivity Banner integrated into the same column for perfect alignment
+                  ConnectivityBanner(chatService: _chatService),
+                  
+                  // Consistent spacing between banner and content below
+                  ListenableBuilder(
+                    listenable: _chatService,
+                    builder: (context, _) => !_chatService.isConnected || _chatService.isConnecting 
+                      ? const SizedBox(height: 12) 
+                      : const SizedBox.shrink(),
+                  ),
+
                   if (_chatService.isTemporaryChat)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 8.0),
@@ -245,16 +333,9 @@ class _ChatScreenState extends State<ChatScreen> {
                   Row(
                     children: [
                       _buildFloatingIconButton(
-                        icon: Icons.attach_file,
+                        icon: _isAttachmentMenuOpen ? Icons.close : Icons.attach_file,
                         isDotted: _chatService.isTemporaryChat,
-                        onPressed: () async {
-                          if (!_chatService.isTemporaryChat) {
-                            final isOnline = await _chatService
-                                .checkInitialAndInstantNetwork();
-                            if (!isOnline) return;
-                          }
-                          if (mounted) _showAttachmentOptions();
-                        },
+                        onPressed: _showAttachmentOptions,
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -262,83 +343,7 @@ class _ChatScreenState extends State<ChatScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            if (_attachedFile != null)
-                              Container(
-                                margin: const EdgeInsets.only(bottom: 8),
-                                child: Stack(
-                                  clipBehavior: Clip.none,
-                                  children: [
-                                    _chatService.isTemporaryChat
-                                        ? DottedBorder(
-                                            options:
-                                                const RoundedRectDottedBorderOptions(
-                                                  radius: Radius.circular(12),
-                                                  color: AppTheme.highlight,
-                                                  dashPattern: [6, 4],
-                                                  strokeWidth: 2.0,
-                                                ),
-                                            child: ClipRRect(
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
-                                              child: Image.file(
-                                                _attachedFile!,
-                                                height: 80,
-                                                width: 80,
-                                                fit: BoxFit.cover,
-                                                errorBuilder:
-                                                    (
-                                                      context,
-                                                      error,
-                                                      stackTrace,
-                                                    ) {
-                                                      return _buildFilePlaceholder();
-                                                    },
-                                              ),
-                                            ),
-                                          )
-                                        : ClipRRect(
-                                            borderRadius: BorderRadius.circular(
-                                              12,
-                                            ),
-                                            child: Image.file(
-                                              _attachedFile!,
-                                              height: 80,
-                                              width: 80,
-                                              fit: BoxFit.cover,
-                                              errorBuilder:
-                                                  (context, error, stackTrace) {
-                                                    return _buildFilePlaceholder();
-                                                  },
-                                            ),
-                                          ),
-                                    Positioned(
-                                      top: -8,
-                                      right: -8,
-                                      child: GestureDetector(
-                                        onTap: () {
-                                          setState(() {
-                                            _attachedFile = null;
-                                            _isTyping =
-                                                _textController.text.isNotEmpty;
-                                          });
-                                        },
-                                        child: Container(
-                                          decoration: const BoxDecoration(
-                                            color: Colors.redAccent,
-                                            shape: BoxShape.circle,
-                                          ),
-                                          padding: const EdgeInsets.all(4),
-                                          child: const Icon(
-                                            Icons.close,
-                                            size: 16,
-                                            color: Colors.white,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
+                            // Inline Tokens are handled by the TextField now
                             _chatService.isTemporaryChat
                                 ? DottedBorder(
                                     options:
@@ -348,78 +353,85 @@ class _ChatScreenState extends State<ChatScreen> {
                                           dashPattern: [6, 4],
                                           strokeWidth: 1.5,
                                         ),
-                                    child: Container(
-                                      decoration: BoxDecoration(
-                                        color: AppTheme.background,
-                                        borderRadius: BorderRadius.circular(
-                                          24.0,
-                                        ),
-                                      ),
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 16.0,
-                                      ),
-                                      child: TextField(
-                                        controller: _textController,
-                                        style: const TextStyle(
-                                          color: AppTheme.textBody,
-                                        ),
-                                        decoration: const InputDecoration(
-                                          hintText: "Ask LegalEase...",
-                                          hintStyle: TextStyle(
-                                            color: Colors.grey,
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(24.0),
+                                      child: BackdropFilter(
+                                        filter: ImageFilter.blur(sigmaX: 15.0, sigmaY: 15.0),
+                                        child: Container(
+                                          decoration: BoxDecoration(
+                                            color: AppTheme.background.withOpacity(0.7),
+                                            border: Border.all(
+                                              color: Colors.white.withOpacity(0.1),
+                                              width: 1.0,
+                                            ),
+                                            borderRadius: BorderRadius.circular(24.0),
                                           ),
-                                          border: InputBorder.none,
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 16.0,
+                                          ),
+                                          child: TextField(
+                                            controller: _textController,
+                                            focusNode: _focusNode,
+                                            style: const TextStyle(
+                                              color: AppTheme.textBody,
+                                            ),
+                                            decoration: InputDecoration(
+                                              hintText: "Ask LegalEase...",
+                                              hintStyle: TextStyle(
+                                                color: Colors.white.withOpacity(0.4),
+                                              ),
+                                              border: InputBorder.none,
+                                            ),
+                                            onChanged: (text) {
+                                              setState(() {
+                                                _isTyping = text.trim().isNotEmpty;
+                                              });
+                                            },
+                                            maxLines: 3,
+                                            minLines: 1,
+                                          ),
                                         ),
-                                        onChanged: (text) {
-                                          setState(() {
-                                            _isTyping = text.trim().isNotEmpty;
-                                          });
-                                        },
-                                        maxLines: 3,
-                                        minLines: 1,
                                       ),
                                     ),
                                   )
-                                : Container(
-                                    decoration: BoxDecoration(
-                                      color: AppTheme.background,
-                                      borderRadius: BorderRadius.circular(24.0),
-                                      border: Border.all(
-                                        color: AppTheme.highlight,
-                                        width: 1.5,
-                                      ),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.black.withValues(
-                                            alpha: 0.5,
+                                : ClipRRect(
+                                    borderRadius: BorderRadius.circular(24.0),
+                                    child: BackdropFilter(
+                                      filter: ImageFilter.blur(sigmaX: 15.0, sigmaY: 15.0),
+                                      child: Container(
+                                        decoration: BoxDecoration(
+                                          color: AppTheme.background.withValues(alpha: 0.6),
+                                          borderRadius: BorderRadius.circular(24.0),
+                                          border: Border.all(
+                                            color: Colors.white.withValues(alpha: 0.1),
+                                            width: 1.0,
                                           ),
-                                          blurRadius: 8.0,
-                                          offset: const Offset(0, 4),
                                         ),
-                                      ],
-                                    ),
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 16.0,
-                                    ),
-                                    child: TextField(
-                                      controller: _textController,
-                                      style: const TextStyle(
-                                        color: AppTheme.textBody,
-                                      ),
-                                      decoration: const InputDecoration(
-                                        hintText: "Ask LegalEase...",
-                                        hintStyle: TextStyle(
-                                          color: Colors.grey,
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 16.0,
                                         ),
-                                        border: InputBorder.none,
+                                        child: TextField(
+                                          controller: _textController,
+                                          focusNode: _focusNode,
+                                          style: const TextStyle(
+                                            color: AppTheme.textBody,
+                                          ),
+                                          decoration: InputDecoration(
+                                            hintText: "Ask LegalEase...",
+                                            hintStyle: TextStyle(
+                                              color: Colors.white.withOpacity(0.4),
+                                            ),
+                                            border: InputBorder.none,
+                                          ),
+                                          onChanged: (text) {
+                                            setState(() {
+                                              _isTyping = text.trim().isNotEmpty;
+                                            });
+                                          },
+                                          maxLines: 3,
+                                          minLines: 1,
+                                        ),
                                       ),
-                                      onChanged: (text) {
-                                        setState(() {
-                                          _isTyping = text.trim().isNotEmpty;
-                                        });
-                                      },
-                                      maxLines: 3,
-                                      minLines: 1,
                                     ),
                                   ),
                           ],
@@ -435,8 +447,10 @@ class _ChatScreenState extends State<ChatScreen> {
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (context) =>
-                                        const LiveCallScreen(),
+                                    builder: (context) => LiveCallScreen(
+                                      chatService: _chatService,
+                                      chatId: _chatService.currentChatId,
+                                    ),
                                   ),
                                 );
                               },
@@ -447,8 +461,8 @@ class _ChatScreenState extends State<ChatScreen> {
               ),
             ),
 
-            // Connection Banner Floating
-            ConnectivityBanner(chatService: _chatService),
+            // Attachment Menu Overlay
+            _buildAttachmentMenu(),
           ],
         ),
       ),
@@ -465,7 +479,11 @@ class _ChatScreenState extends State<ChatScreen> {
           Center(
             child: Text(
               "Ask me something...",
-              style: Theme.of(context).textTheme.bodyLarge,
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.4),
+                fontSize: 18,
+                letterSpacing: 1.2,
+              ),
             ),
           ),
         ],
@@ -474,9 +492,12 @@ class _ChatScreenState extends State<ChatScreen> {
 
     return ListView.builder(
       controller: _scrollController,
-      padding: const EdgeInsets.only(top: 80.0, bottom: 100.0),
-      itemCount: messages.length,
+      padding: const EdgeInsets.only(top: 80.0, bottom: 80.0),
+      itemCount: messages.length + (_isAiThinking ? 1 : 0),
       itemBuilder: (context, index) {
+        if (index == messages.length && _isAiThinking) {
+          return const ThinkingIndicator();
+        }
         return MessageBubble(message: messages[index]);
       },
     );
@@ -496,15 +517,24 @@ class _ChatScreenState extends State<ChatScreen> {
     final messageText = text.isEmpty ? "Sent an attachment" : text;
 
     _textController.clear();
+    
+    // sendUserMessage now injects the message into the list instantly
+    final sendFuture = _chatService.sendUserMessage(messageText, file: fileToSend);
+
     setState(() {
       _isTyping = false;
       _attachedFile = null;
+      _isAiThinking = true;
     });
+    
+    _scrollToBottom();
 
-    await _chatService.sendUserMessage(messageText, file: fileToSend);
+    await sendFuture;
 
     if (!mounted) return;
-    setState(() {});
+    setState(() {
+      _isAiThinking = false;
+    });
     _scrollToBottom();
   }
 
@@ -528,74 +558,143 @@ class _ChatScreenState extends State<ChatScreen> {
     required VoidCallback onPressed,
     bool isDotted = false,
   }) {
-    if (isDotted) {
-      return DottedBorder(
-        options: const CircularDottedBorderOptions(
-          color: AppTheme.highlight,
-          dashPattern: [6, 4],
-          strokeWidth: 2.0,
-          padding: EdgeInsets.zero,
-        ),
-        child: Container(
-          decoration: BoxDecoration(
-            color: AppTheme.background,
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.8),
-                blurRadius: 16.0,
-                offset: const Offset(0, 8),
+    final glassContainer = Container(
+      decoration: const BoxDecoration(
+        shape: BoxShape.circle,
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(30),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 15.0, sigmaY: 15.0),
+          child: Container(
+            decoration: BoxDecoration(
+              color: AppTheme.background.withValues(alpha: 0.7),
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: isDotted 
+                    ? Colors.white.withValues(alpha: 0.3) 
+                    : Colors.white.withValues(alpha: 0.1),
+                width: 1.0,
               ),
-            ],
-          ),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: onPressed,
-              customBorder: const CircleBorder(),
-              splashColor: AppTheme.highlight.withValues(alpha: 0.2),
-              child: Padding(
-                padding: const EdgeInsets.all(12.0),
-                child: Icon(icon, color: Colors.white, size: 24),
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: onPressed,
+                customBorder: const CircleBorder(),
+                splashColor: AppTheme.highlight.withValues(alpha: 0.2),
+                child: Padding(
+                  padding: const EdgeInsets.all(14.0),
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 200),
+                    transitionBuilder: (Widget child, Animation<double> animation) {
+                      return ScaleTransition(scale: animation, child: child);
+                    },
+                    child: Icon(
+                      icon, 
+                      key: ValueKey<IconData>(icon),
+                      color: Colors.white,
+                      size: 24,
+                    ),
+                  ),
+                ),
               ),
             ),
           ),
         ),
+      ),
+    );
+
+    if (isDotted) {
+      return DottedBorder(
+        options: const RoundedRectDottedBorderOptions(
+          radius: Radius.circular(32),
+          color: AppTheme.highlight,
+          dashPattern: [6, 4],
+          strokeWidth: 1.5,
+        ),
+        child: glassContainer,
       );
     }
 
-    return Container(
-      decoration: BoxDecoration(
-        color: AppTheme.background,
-        shape: BoxShape.circle,
-        border: Border.all(color: AppTheme.highlight, width: 2.0),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.8),
-            blurRadius: 16.0,
-            offset: const Offset(0, 8),
-            spreadRadius: 2.0,
+    return glassContainer;
+  }
+}
+
+class AttachmentTextEditingController extends TextEditingController {
+  final VoidCallback onFileRemoved;
+
+  AttachmentTextEditingController({required this.onFileRemoved});
+
+  @override
+  TextSpan buildTextSpan({
+    required BuildContext context,
+    TextStyle? style,
+    required bool withComposing,
+  }) {
+    final List<InlineSpan> children = [];
+    
+    // Split by the Object Replacement Character (\uFFFC)
+    text.splitMapJoin(
+      '\uFFFC',
+      onMatch: (Match match) {
+        children.add(
+          WidgetSpan(
+            alignment: PlaceholderAlignment.middle,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 2.0),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.2),
+                        width: 1.0,
+                      ),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.attach_file, color: Colors.white, size: 12),
+                        SizedBox(width: 4),
+                        Text(
+                          'Attachment',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
           ),
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.4),
-            blurRadius: 8.0,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onPressed,
-          customBorder: const CircleBorder(),
-          splashColor: AppTheme.highlight.withValues(alpha: 0.2),
-          highlightColor: AppTheme.highlight.withValues(alpha: 0.1),
-          child: Padding(
-            padding: const EdgeInsets.all(12.0),
-            child: Icon(icon, color: Colors.white, size: 24),
-          ),
-        ),
-      ),
+        );
+        return '';
+      },
+      onNonMatch: (String text) {
+        children.add(TextSpan(text: text, style: style));
+        return '';
+      },
     );
+
+    return TextSpan(children: children, style: style);
+  }
+
+  @override
+  set text(String newText) {
+    // Detect if the file anchor (\uFFFC) was removed or partially deleted
+    if (text.contains('\uFFFC') && !newText.contains('\uFFFC')) {
+      onFileRemoved();
+    }
+    super.text = newText;
   }
 }
