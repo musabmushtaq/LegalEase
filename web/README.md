@@ -45,7 +45,11 @@ This web interface replicates the functionality and design of the Flutter mobile
 |------|---------|
 | `index.html` | Main HTML structure (single page) |
 | `styles.css` | Styling and responsive layout |
-| `app.js` | JavaScript logic and API integration |
+| `index.html` | Main HTML structure (single page) |
+| `styles.css` | Styling and responsive layout |
+| `index.js` | Main application bootstrapping and UI integration |
+| `js/config.js` | Runtime configuration and API endpoint settings |
+| `js/api.js` | API wrapper for backend communication |
 | `test.py` | Python script to test all API endpoints |
 | `run.bat` | Windows batch script to start HTTP server |
 | `README.md` | This file |
@@ -85,15 +89,18 @@ Simply open `index.html` in a web browser (works offline for UI, but won't conne
 
 ## Configuration
 
-To change the API endpoint, edit `app.js` line 2:
+To change the API endpoint, edit `js/config.js`:
 ```javascript
-const API_BASE_URL = 'http://127.0.0.1:8000';
+const DEFAULT_API_BASE_URL = 'http://127.0.0.1:8002';
 ```
 
-To change the user ID, edit `app.js` line 3:
-```javascript
-const USER_ID = 'user1';
+You can also override the endpoint at runtime by opening the web app with a query string, for example:
+
+```text
+http://localhost:8080/?api_base_url=http://127.0.0.1:8002
 ```
+
+To change the user ID, edit `js/config.js` and update the `DEFAULT_USER_ID` constant.
 
 ## API Endpoints
 
