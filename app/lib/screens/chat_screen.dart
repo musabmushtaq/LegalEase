@@ -146,7 +146,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     const SizedBox(height: 12),
                     _buildFloatingIconButton(
                       icon: Icons.person,
-                      iconColor: _useContext ? Colors.amber : Colors.white,
+                      iconColor: _useContext ? Colors.yellowAccent : Colors.white,
                       onPressed: () {
                         _showAttachmentOptions();
                         setState(() {
@@ -184,7 +184,7 @@ class _ChatScreenState extends State<ChatScreen> {
       final path = _attachedFile!.path.toLowerCase();
       final isImage = path.endsWith('.png') || path.endsWith('.jpg') || path.endsWith('.jpeg') || path.endsWith('.gif') || path.endsWith('.webp');
       icon = isImage ? Icons.image : Icons.insert_drive_file;
-      iconColor = Colors.amber;
+      iconColor = Colors.white;
       onMainPressed = () {
         OpenFile.open(_attachedFile!.path);
       };
@@ -195,7 +195,7 @@ class _ChatScreenState extends State<ChatScreen> {
       };
     } else {
       icon = Icons.person;
-      iconColor = Colors.amber;
+      iconColor = Colors.white;
       onMainPressed = () {
         setState(() {
           _showContextActivePill = true;
@@ -409,55 +409,57 @@ class _ChatScreenState extends State<ChatScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   // Context Active Banner/Pill
-                  AnimatedSize(
+                  AnimatedContainer(
                     duration: const Duration(milliseconds: 250),
                     curve: Curves.easeInOut,
-                    child: _showContextActivePill
-                        ? Container(
-                            margin: const EdgeInsets.only(bottom: 8),
-                            child: ClipRRect(
+                    height: _showContextActivePill ? 56.0 : 0.0,
+                    margin: EdgeInsets.only(bottom: _showContextActivePill ? 8.0 : 0.0),
+                    child: AnimatedOpacity(
+                      duration: const Duration(milliseconds: 200),
+                      opacity: _showContextActivePill ? 1.0 : 0.0,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(28.0),
+                        child: BackdropFilter(
+                          filter: ImageFilter.blur(sigmaX: 15.0, sigmaY: 15.0),
+                          child: Container(
+                            height: 56.0,
+                            padding: const EdgeInsets.symmetric(horizontal: 24),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(28.0),
-                              child: BackdropFilter(
-                                filter: ImageFilter.blur(sigmaX: 15.0, sigmaY: 15.0),
-                                child: Container(
-                                  height: 48.0,
-                                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withValues(alpha: 0.12),
-                                    borderRadius: BorderRadius.circular(28.0),
-                                    border: Border.all(
-                                      color: Colors.white.withValues(alpha: 0.1),
-                                      width: 1.0,
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.1),
+                                width: 1.0,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.2),
+                                  blurRadius: 12,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: const Row(
+                              children: [
+                                Icon(Icons.person, color: Colors.yellowAccent, size: 18),
+                                SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    "Context/Persona mode active",
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                      letterSpacing: 0.5,
                                     ),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withValues(alpha: 0.2),
-                                        blurRadius: 12,
-                                        offset: const Offset(0, 4),
-                                      ),
-                                    ],
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      const Icon(Icons.person, color: Colors.amber, size: 20),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        "Context/Persona mode active",
-                                        style: TextStyle(
-                                          color: Colors.white.withValues(alpha: 0.9),
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                    ],
                                   ),
                                 ),
-                              ),
+                              ],
                             ),
-                          )
-                        : const SizedBox.shrink(),
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
                   // Connectivity Banner integrated into the same column for perfect alignment
                   ConnectivityBanner(chatService: _chatService),
