@@ -4,7 +4,7 @@
 
 # Users
 
-Stores user account information and authentication.
+Stores user account information, context, and authentication.
 
 ```json
 {
@@ -13,6 +13,7 @@ Stores user account information and authentication.
   "email": "lawyer@example.com",
   "username": "john_doe",
   "passwordHash": "bcrypt_encrypted_hash",
+  "context": "I am a real estate attorney looking for landlord-tenant templates."
 }
 ```
 
@@ -26,10 +27,6 @@ Stores individual chat conversations with messages embedded.
   "chatId": "chat_abc123",
   "ownerId": "user_123",
   "title": "Contract Review - NDA Clause",
-  "isPinned": false,
-  "isShared": true,
-  "shareToken": "abc123xyz_hardToGuess",
-  "shareLink": "https://legalease.app/share/abc123xyz_hardToGuess",
   "messages": [
     {
       "messageId": "msg_001",
@@ -51,7 +48,7 @@ Stores individual chat conversations with messages embedded.
       "content": "I've analyzed the NDA clause. Here are my findings...",
       "createdAt": ISODate("2026-03-22T10:06:00Z")
     }
-    ],
+  ],
   "createdAt": ISODate("2026-03-22T10:00:00Z"),
   "updatedAt": ISODate("2026-03-22T10:06:00Z")
 }
@@ -79,7 +76,6 @@ users (1 owner) ──────> (many) chats
 chats (1 chat, many messages)
   ├── ownerId links to user
   ├── contains messages array
-  ├── shareToken allows public guest access
   └── references files via fileId in attachments
 
 files (1 file, many chats potentially)

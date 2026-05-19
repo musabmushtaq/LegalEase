@@ -160,7 +160,8 @@ db.createCollection("users", {
         userId: { bsonType: "string" },
         email: { bsonType: "string" },
         username: { bsonType: "string" },
-        passwordHash: { bsonType: "string" }
+        passwordHash: { bsonType: "string" },
+        context: { bsonType: "string" }
       }
     }
   }
@@ -187,8 +188,6 @@ db.users.createIndex({ "email": 1 }, { unique: true })
 // Chats indexes
 db.chats.createIndex({ "chatId": 1 }, { unique: true })
 db.chats.createIndex({ "ownerId": 1, "createdAt": -1 })
-db.chats.createIndex({ "shareToken": 1 })
-db.chats.createIndex({ "isPinned": 1 })
 
 // Files indexes
 db.files.createIndex({ "fileId": 1 }, { unique: true })

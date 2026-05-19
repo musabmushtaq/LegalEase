@@ -91,7 +91,6 @@ class CreateChatRequest(BaseModel):
 
 class UpdateChatRequest(BaseModel):
     title: str | None = None
-    is_pinned: bool | None = None
 
 
 class AddMessageRequest(BaseModel):
@@ -102,10 +101,6 @@ class AddMessageRequest(BaseModel):
 
 class UpdateMessageRequest(BaseModel):
     content: str = Field(min_length=1)
-
-
-class ShareToggleRequest(BaseModel):
-    enabled: bool = True
 
 
 class SummarizeRequest(BaseModel):
@@ -202,9 +197,6 @@ def chat_to_response(chat: dict[str, Any]) -> dict[str, Any]:
         "title": chat.get("title", "New Chat"),
         "created_at": chat["created_at"],
         "updated_at": chat["updated_at"],
-        "is_pinned": chat.get("is_pinned", False),
-        "is_shared": chat.get("is_shared", False),
-        "share_link": chat.get("share_link"),
         "messages": chat.get("messages", []),
     }
 
@@ -217,7 +209,6 @@ async def ensure_indexes() -> None:
 
         await db.chats.create_index("chat_id", unique=True)
         await db.chats.create_index([("owner_id", 1), ("updated_at", -1)])
-        await db.chats.create_index("share_token", sparse=True)
 
         await db.files.create_index("file_id", unique=True)
         await db.files.create_index([("user_id", 1), ("uploaded_at", -1)])
@@ -287,11 +278,6 @@ async def create_chat(user_id: str, payload: CreateChatRequest) -> dict[str, Any
         "chat_id": chat_id,
         "owner_id": user_id,
         "title": payload.title.strip() or "New Chat",
-        "system_prompt": settings.default_system_prompt,
-        "is_pinned": False,
-        "is_shared": False,
-        "share_token": None,
-        "share_link": None,
         "messages": [],
         "created_at": created_at,
         "updated_at": created_at,
@@ -317,8 +303,6 @@ async def update_chat(chat_id: str, payload: UpdateChatRequest) -> dict[str, Any
     updates: dict[str, Any] = {"updated_at": now_iso()}
     if payload.title is not None:
         updates["title"] = payload.title.strip() or chat.get("title", "New Chat")
-    if payload.is_pinned is not None:
-        updates["is_pinned"] = payload.is_pinned
 
     await db.chats.update_one({"chat_id": chat_id}, {"$set": updates})
     updated = await db.chats.find_one({"chat_id": chat_id})
@@ -398,7 +382,12 @@ async def generate_ai(payload: GenerateAiRequest) -> dict[str, Any]:
         chat = await db.chats.find_one({"chat_id": payload.chat_id})
         if chat:
             chat_history = chat.get("messages", [])
-            system_prompt = chat.get("system_prompt", system_prompt)
+            # Retrieve user context from db.users and append it to system_prompt
+            owner_id = chat.get("owner_id")
+            if owner_id:
+                user_doc = await db.users.find_one({"user_id": owner_id})
+                if user_doc and user_doc.get("context"):
+                    system_prompt = f"{system_prompt}\nUser Context: {user_doc['context']}"
     elif payload.messages is not None:
         chat_history = payload.messages
 
@@ -459,42 +448,6 @@ async def generate_live(payload: GenerateLiveRequest) -> dict[str, Any]:
     return {
         "assistant_message": assistant_message,
     }
-
-
-@app.post("/chats/{chat_id}/share")
-async def share_chat(chat_id: str, payload: ShareToggleRequest) -> dict[str, Any]:
-    chat = await db.chats.find_one({"chat_id": chat_id})
-    if not chat:
-        raise HTTPException(status_code=404, detail="Chat not found")
-
-    if payload.enabled:
-        token = chat.get("share_token") or make_id("share")
-        link = f"{settings.api_base_url.rstrip('/')}/share/{token}"
-        await db.chats.update_one(
-            {"chat_id": chat_id},
-            {
-                "$set": {
-                    "is_shared": True,
-                    "share_token": token,
-                    "share_link": link,
-                    "updated_at": now_iso(),
-                }
-            },
-        )
-        return {"chat_id": chat_id, "is_shared": True, "share_link": link, "share_token": token}
-
-    await db.chats.update_one(
-        {"chat_id": chat_id},
-        {
-            "$set": {
-                "is_shared": False,
-                "share_token": None,
-                "share_link": None,
-                "updated_at": now_iso(),
-            }
-        },
-    )
-    return {"chat_id": chat_id, "is_shared": False}
 
 
 @app.patch("/chats/{chat_id}/messages/{message_id}")
@@ -575,20 +528,6 @@ async def delete_message(chat_id: str, message_id: str) -> dict[str, bool]:
 
     return {"deleted": True}
 
-
-@app.get("/share/{share_token}")
-async def get_shared_chat(share_token: str) -> dict[str, Any]:
-    chat = await db.chats.find_one({"share_token": share_token, "is_shared": True})
-    if not chat:
-        raise HTTPException(status_code=404, detail="Shared chat not found")
-
-    # Public response: read-only chat view for guests.
-    return {
-        "chat_id": chat["chat_id"],
-        "title": chat.get("title", "Shared Chat"),
-        "messages": chat.get("messages", []),
-        "is_shared": True,
-    }
 
 # --- NEW: Auth, Search, and File endpoints ---
 import jwt
@@ -725,10 +664,14 @@ class RegisterRequest(BaseModel):
     username: str
     email: str
     password: str
+    context: str = ""
 
 class LoginRequest(BaseModel):
     username: str
     password: str
+
+class UpdateUserContextRequest(BaseModel):
+    context: str
 
 @app.post("/auth/register")
 async def register(payload: RegisterRequest):
@@ -742,6 +685,7 @@ async def register(payload: RegisterRequest):
         "username": payload.username,
         "email": payload.email,
         "password": hashed_password,
+        "context": payload.context,
         "created_at": now_iso()
     })
     return {"user_id": user_id, "username": payload.username}
@@ -754,6 +698,30 @@ async def login(payload: LoginRequest):
     
     token = jwt.encode({"user_id": user["user_id"], "username": user["username"]}, SECRET_KEY, algorithm=ALGORITHM)
     return {"access_token": token, "token_type": "bearer", "user_id": user["user_id"]}
+
+@app.get("/users/{user_id}")
+async def get_user_profile(user_id: str):
+    user = await db.users.find_one({"user_id": user_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {
+        "user_id": user["user_id"],
+        "username": user["username"],
+        "email": user["email"],
+        "context": user.get("context", "")
+    }
+
+@app.patch("/users/{user_id}/context")
+async def update_user_context(user_id: str, payload: UpdateUserContextRequest):
+    user = await db.users.find_one({"user_id": user_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    await db.users.update_one(
+        {"user_id": user_id},
+        {"$set": {"context": payload.context}}
+    )
+    return {"status": "success", "context": payload.context}
 
 @app.post("/chats/{chat_id}/messages_with_file")
 async def add_message_with_file(chat_id: str, content: str = Form(...), file: UploadFile = File(None)):

@@ -39,7 +39,6 @@ async def main():
         # Chats collection
         await db.chats.create_index("chat_id", unique=True)
         await db.chats.create_index([("owner_id", 1), ("updated_at", -1)])
-        await db.chats.create_index("share_token", sparse=True)
         print("  ✓ chats indexes created")
 
         # Files collection
