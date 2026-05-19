@@ -71,6 +71,38 @@ class _UserMessageCardState extends State<_UserMessageCard> with SingleTickerPro
 
   @override
   Widget build(BuildContext context) {
+    final String content = widget.message.content;
+    final bool hasAttachment = widget.message.localFilePath != null || widget.message.fileId != null;
+    final String cleanContent = content.replaceAll('\uFFFC', '').trim();
+
+    // =============================================================
+    // VISUAL FINE-CONTROL VARIABLES (Feel free to adjust!)
+    // =============================================================
+    const double bubbleBorderRadius = 18.0;
+    
+    // Padding around the text inside the bubble
+    const double textTopPadding = 12.0;
+    const double textBottomPadding = 12.0;
+    const double textHorizontalPadding = 14.0;
+    
+    // Spacing between the text and the attachment card
+    const double textToCardSpacing = 8.0;
+    
+    // Padding inside the attachment card itself
+    const double cardHorizontalPadding = 12.0;
+    const double cardVerticalPadding = 10.0;
+    
+    // Nested corners for the attachment card (top-left & top-right)
+    const double cardInnerTopRadius = 12.0;
+    
+    // Card margins (set to 0.0 for completely flush left/right/bottom)
+    const double cardMarginLeft = 0.0;
+    const double cardMarginRight = 0.0;
+    const double cardMarginBottom = 0.0;
+    // =============================================================
+
+    final hasText = cleanContent.isNotEmpty;
+
     return FadeTransition(
       opacity: _opacity,
       child: SlideTransition(
@@ -78,31 +110,58 @@ class _UserMessageCardState extends State<_UserMessageCard> with SingleTickerPro
         child: Align(
           alignment: Alignment.centerRight,
           child: Container(
-            margin: const EdgeInsets.only(top: 12.0, bottom: 12.0, left: 80.0, right: 8.0),
+            margin: const EdgeInsets.only(top: 10.0, bottom: 10.0, left: 80.0, right: 8.0),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(18.0),
+              borderRadius: BorderRadius.circular(bubbleBorderRadius),
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 30.0, sigmaY: 30.0),
                 child: Container(
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(18.0),
+                    borderRadius: BorderRadius.circular(bubbleBorderRadius),
                     border: Border.all(
                       color: Colors.white.withValues(alpha: 0.1),
                       width: 1.0,
                     ),
                   ),
-                  padding: const EdgeInsets.all(16.0),
-                  child: SelectableText.rich(
-                    TextSpan(
-                      children: _buildMessageSpans(context),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        height: 1.5,
-                        fontWeight: FontWeight.w400,
-                        letterSpacing: 0.2,
-                      ),
+                  padding: EdgeInsets.zero, // Zero out parent padding so child can sit flush!
+                  child: IntrinsicWidth(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (hasText)
+                          Padding(
+                            padding: EdgeInsets.only(
+                              left: textHorizontalPadding,
+                              right: textHorizontalPadding,
+                              top: textTopPadding,
+                              bottom: hasAttachment ? textToCardSpacing : textBottomPadding,
+                            ),
+                            child: SelectableText(
+                              cleanContent,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 14,
+                                height: 1.5,
+                                fontWeight: FontWeight.w400,
+                                letterSpacing: 0.2,
+                              ),
+                            ),
+                          ),
+                        if (hasAttachment)
+                          _buildFullWidthAttachment(
+                            context,
+                            hasText: hasText,
+                            cardHorizontalPadding: cardHorizontalPadding,
+                            cardVerticalPadding: cardVerticalPadding,
+                            cardInnerTopRadius: cardInnerTopRadius,
+                            bubbleBorderRadius: bubbleBorderRadius,
+                            cardMarginLeft: cardMarginLeft,
+                            cardMarginRight: cardMarginRight,
+                            cardMarginBottom: cardMarginBottom,
+                          ),
+                      ],
                     ),
                   ),
                 ),
@@ -114,75 +173,87 @@ class _UserMessageCardState extends State<_UserMessageCard> with SingleTickerPro
     );
   }
 
-  List<InlineSpan> _buildMessageSpans(BuildContext context) {
-    final List<InlineSpan> spans = [];
-    final String content = widget.message.content;
-    final bool hasAttachment = widget.message.localFilePath != null || widget.message.fileId != null;
+  Widget _buildFullWidthAttachment(
+    BuildContext context, {
+    required bool hasText,
+    required double cardHorizontalPadding,
+    required double cardVerticalPadding,
+    required double cardInnerTopRadius,
+    required double bubbleBorderRadius,
+    required double cardMarginLeft,
+    required double cardMarginRight,
+    required double cardMarginBottom,
+  }) {
+    final fileName = widget.message.fileName ?? 'Attachment';
     
-    if (!hasAttachment) {
-      spans.add(TextSpan(text: content));
-      return spans;
-    }
-
-    final parts = content.split('\uFFFC');
+    final lowercaseName = fileName.toLowerCase();
+    final isImage = lowercaseName.endsWith('.png') ||
+                    lowercaseName.endsWith('.jpg') ||
+                    lowercaseName.endsWith('.jpeg') ||
+                    lowercaseName.endsWith('.gif') ||
+                    lowercaseName.endsWith('.webp') ||
+                    lowercaseName.endsWith('.bmp');
     
-    for (int i = 0; i < parts.length; i++) {
-      if (parts[i].isNotEmpty) {
-        spans.add(TextSpan(text: parts[i]));
-      }
-      
-      if (i < parts.length - 1 || (parts.length == 1 && content.contains('\uFFFC'))) {
-        spans.add(
-          WidgetSpan(
-            alignment: PlaceholderAlignment.middle,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4.0),
-              child: _buildPillWidget(context),
-            ),
-          ),
-        );
-      }
-    }
+    final IconData attachmentIcon = isImage 
+        ? Icons.image_outlined 
+        : Icons.insert_drive_file_outlined;
     
-    if (!content.contains('\uFFFC') && hasAttachment) {
-      spans.add(const TextSpan(text: '\n'));
-      spans.add(
-        WidgetSpan(
-          child: Padding(
-            padding: const EdgeInsets.only(top: 8.0),
-            child: _buildPillWidget(context, larger: true),
-          ),
-        ),
-      );
-    }
-
-    return spans;
-  }
-
-  Widget _buildPillWidget(BuildContext context, {bool larger = false}) {
     return GestureDetector(
       onTap: () => _handleFileTap(context),
       child: Container(
+        constraints: const BoxConstraints(minWidth: 160.0),
+        margin: EdgeInsets.only(
+          left: cardMarginLeft,
+          right: cardMarginRight,
+          bottom: cardMarginBottom,
+        ),
         padding: EdgeInsets.symmetric(
-          horizontal: larger ? 10 : 6, 
-          vertical: larger ? 6 : 2
+          horizontal: cardHorizontalPadding,
+          vertical: cardVerticalPadding,
         ),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.15),
-          borderRadius: BorderRadius.circular(larger ? 16 : 8),
-          border: Border.all(color: Colors.white.withOpacity(0.2)),
+          color: Colors.black.withValues(alpha: 0.18),
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(hasText ? cardInnerTopRadius : bubbleBorderRadius),
+            topRight: Radius.circular(hasText ? cardInnerTopRadius : bubbleBorderRadius),
+            bottomLeft: Radius.circular(bubbleBorderRadius),
+            bottomRight: Radius.circular(bubbleBorderRadius),
+          ),
+          border: Border.all(
+            color: Colors.white.withValues(alpha: 0.06),
+            width: 1.0,
+          ),
         ),
         child: Row(
-          mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.attach_file, color: Colors.white, size: larger ? 12 : 10),
-            SizedBox(width: larger ? 4 : 3),
-            Text(
-              'Attachment',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: larger ? 11 : 10,
-                fontWeight: larger ? FontWeight.w500 : FontWeight.w400,
+            Container(
+              padding: const EdgeInsets.all(8.0),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.04),
+                borderRadius: BorderRadius.circular(8.0),
+              ),
+              child: Icon(
+                attachmentIcon,
+                color: AppTheme.highlight,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 160.0),
+                child: Text(
+                  fileName,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    height: 1.3,
+                    letterSpacing: 0.15,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
             ),
           ],
