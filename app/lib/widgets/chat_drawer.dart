@@ -335,8 +335,12 @@ class _ChatDrawerState extends State<ChatDrawer> {
                       listenable: widget.chatService,
                       builder: (context, _) {
                         final chats = widget.chatService.displayedChats;
-                        final pinnedChats = chats.where((c) => c.isPinned).toList();
-                        final recentChats = chats.where((c) => !c.isPinned).toList();
+                        // Sort: Pinned chats float to the top of the single list, others sorted by updatedAt
+                        final sortedChats = List<Chat>.from(chats)..sort((a, b) {
+                          if (a.isPinned && !b.isPinned) return -1;
+                          if (!a.isPinned && b.isPinned) return 1;
+                          return b.updatedAt.compareTo(a.updatedAt);
+                        });
 
                         if (widget.chatService.isConnecting) {
                           return const Center(
@@ -376,11 +380,7 @@ class _ChatDrawerState extends State<ChatDrawer> {
                           padding: EdgeInsets.zero,
                           physics: const BouncingScrollPhysics(),
                           children: [
-                            if (pinnedChats.isNotEmpty) ...[
-                              ...pinnedChats.map((c) => _buildChatItem(c)),
-                              const SizedBox(height: 20),
-                            ],
-                            ...recentChats.map((c) => _buildChatItem(c)),
+                            ...sortedChats.map((c) => _buildChatItem(c)),
                             const SizedBox(height: 20),
                           ],
                         );
@@ -454,6 +454,7 @@ class _ChatDrawerState extends State<ChatDrawer> {
     final isGeneratingTitle = widget.chatService.isTitleGenerating(chat.id);
 
     return GestureDetector(
+      key: ValueKey(chat.id),
       onLongPress: () {
         _showChatMenu(chat);
       },
