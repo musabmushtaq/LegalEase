@@ -156,19 +156,78 @@
 
     <!-- Settings modal -->
     <div class="auth-modal hidden" id="settingsModal" role="dialog" aria-labelledby="settingsTitle" aria-modal="true">
-        <div class="auth-modal-content">
-            <div class="auth-modal-header">
-                <h2 id="settingsTitle">Settings</h2>
+        <div class="auth-modal-content settings-modal-content">
+            <div class="auth-modal-header auth-modal-top-actions">
+                <h2 id="settingsTitle" class="settings-title">Settings</h2>
                 <button type="button" class="close-drawer-btn" id="settingsCloseBtn" aria-label="Close settings dialog">✕</button>
             </div>
-            <div class="settings-content">
-                <label class="auth-label">
-                    API Base URL
-                    <input id="settingsApiUrl" class="auth-input" type="text" placeholder="http://127.0.0.1:8002">
-                </label>
-                <div class="settings-actions">
-                    <button type="button" class="new-chat-btn" id="saveSettingsBtn">Save</button>
+            
+            <div class="settings-scroll-area">
+                <!-- SECTION 1: NETWORK -->
+                <div class="settings-section">
+                    <h3 class="settings-section-title">NETWORK CONFIGURATION</h3>
+                    <div class="settings-card">
+                        <div class="settings-row input-row">
+                            <svg class="settings-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12" y2="20"></line></svg>
+                            <input id="settingsApiUrl" class="settings-inline-input" type="text" placeholder="127.0.0.1:8000">
+                        </div>
+                    </div>
                 </div>
+
+                <!-- SECTION 2: PRIVACY & DATA -->
+                <div class="settings-section auth-required-settings hidden" id="privacySection">
+                    <h3 class="settings-section-title">PRIVACY & DATA MANAGEMENT</h3>
+                    <div class="settings-card">
+                        <div class="settings-row hoverable destructive" id="deleteContextBtn">
+                            <div class="settings-icon-box destructive-box">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"></path><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
+                            </div>
+                            <div class="settings-text">
+                                <div class="settings-title-text destructive-text">Delete Personal Context</div>
+                                <div class="settings-subtitle">Clear all inferred AI data instantly. Irreversible.</div>
+                            </div>
+                        </div>
+                        <div class="settings-divider"></div>
+                        <div class="settings-row hoverable destructive" id="clearHistoryBtn">
+                            <div class="settings-icon-box destructive-box">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                            </div>
+                            <div class="settings-text">
+                                <div class="settings-title-text destructive-text">Clear All Chat History</div>
+                                <div class="settings-subtitle">Wipe every persistent conversation from this account.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SECTION 3: ACCOUNT & SESSION -->
+                <div class="settings-section auth-required-settings hidden" id="accountSection">
+                    <h3 class="settings-section-title">ACCOUNT & SESSION MANAGEMENT</h3>
+                    <div class="settings-card">
+                        <div class="settings-row hoverable destructive" id="deleteAccountBtn">
+                            <div class="settings-icon-box destructive-box">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5c-1.1 0-2 .9-2 2v2"></path><circle cx="8.5" cy="7" r="4"></circle><line x1="18" y1="8" x2="23" y2="13"></line><line x1="23" y1="8" x2="18" y2="13"></line></svg>
+                            </div>
+                            <div class="settings-text">
+                                <div class="settings-title-text destructive-text">Permanently Delete Account</div>
+                                <div class="settings-subtitle">Delete your user profile and purge all data.</div>
+                            </div>
+                        </div>
+                        <div class="settings-divider"></div>
+                        <div class="settings-row hoverable" id="logoutSettingsBtn">
+                            <div class="settings-icon-box">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                            </div>
+                            <div class="settings-text">
+                                <div class="settings-title-text">Log Out of Account</div>
+                                <div class="settings-subtitle">End this session and clear cache.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="settings-actions">
+                <button type="button" class="auth-submit-btn" id="saveSettingsBtn">Save Network</button>
             </div>
         </div>
     </div>
