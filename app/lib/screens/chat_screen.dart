@@ -75,6 +75,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
   bool _useContext = false;
   bool _isAttachmentMenuOpen = false;
+  bool _showContextActivePill = false;
 
   void _showAttachmentOptions() {
     setState(() {
@@ -150,6 +151,16 @@ class _ChatScreenState extends State<ChatScreen> {
                         _showAttachmentOptions();
                         setState(() {
                           _useContext = !_useContext;
+                          if (_useContext) {
+                            _showContextActivePill = true;
+                            Future.delayed(const Duration(seconds: 2), () {
+                              if (mounted) {
+                                setState(() {
+                                  _showContextActivePill = false;
+                                });
+                              }
+                            });
+                          }
                         });
                       },
                     ),
@@ -186,12 +197,16 @@ class _ChatScreenState extends State<ChatScreen> {
       icon = Icons.person;
       iconColor = Colors.amber;
       onMainPressed = () {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Context/Persona mode active for next message'),
-            duration: Duration(seconds: 1),
-          ),
-        );
+        setState(() {
+          _showContextActivePill = true;
+        });
+        Future.delayed(const Duration(seconds: 2), () {
+          if (mounted) {
+            setState(() {
+              _showContextActivePill = false;
+            });
+          }
+        });
       };
       onClearPressed = () {
         setState(() {
@@ -201,51 +216,59 @@ class _ChatScreenState extends State<ChatScreen> {
     }
 
     return Padding(
-      padding: const EdgeInsets.only(right: 12.0),
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          // Main button
-          _buildFloatingIconButton(
-            icon: icon,
-            iconColor: iconColor,
-            onPressed: onMainPressed,
-          ),
-          // Circular close badge on the top right
-          Positioned(
-            right: -10,
-            top: -10,
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: onClearPressed,
-              child: Container(
-                width: 36,
-                height: 36,
-                alignment: Alignment.center,
+      padding: const EdgeInsets.only(right: 4.0),
+      child: SizedBox(
+        width: 64,
+        height: 64,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            // Main button at bottom left
+            Positioned(
+              left: 0,
+              bottom: 0,
+              child: _buildFloatingIconButton(
+                icon: icon,
+                iconColor: iconColor,
+                onPressed: onMainPressed,
+              ),
+            ),
+            // Circular close badge at top right within stack boundary
+            Positioned(
+              right: 2,
+              top: 2,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: onClearPressed,
                 child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.red.shade800,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.black.withOpacity(0.5), width: 1.5),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.4),
-                        blurRadius: 6,
-                        offset: const Offset(0, 3),
-                      ),
-                    ],
-                  ),
-                  padding: const EdgeInsets.all(4),
-                  child: const Icon(
-                    Icons.close,
-                    color: Colors.white,
-                    size: 11,
+                  width: 36,
+                  height: 36,
+                  alignment: Alignment.center,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade800,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.black.withOpacity(0.5), width: 1.5),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.4),
+                          blurRadius: 6,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    padding: const EdgeInsets.all(4),
+                    child: const Icon(
+                      Icons.close,
+                      color: Colors.white,
+                      size: 11,
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -385,6 +408,57 @@ class _ChatScreenState extends State<ChatScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  // Context Active Banner/Pill
+                  AnimatedSize(
+                    duration: const Duration(milliseconds: 250),
+                    curve: Curves.easeInOut,
+                    child: _showContextActivePill
+                        ? Container(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(28.0),
+                              child: BackdropFilter(
+                                filter: ImageFilter.blur(sigmaX: 15.0, sigmaY: 15.0),
+                                child: Container(
+                                  height: 48.0,
+                                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.12),
+                                    borderRadius: BorderRadius.circular(28.0),
+                                    border: Border.all(
+                                      color: Colors.white.withValues(alpha: 0.1),
+                                      width: 1.0,
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(alpha: 0.2),
+                                        blurRadius: 12,
+                                        offset: const Offset(0, 4),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      const Icon(Icons.person, color: Colors.amber, size: 20),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        "Context/Persona mode active",
+                                        style: TextStyle(
+                                          color: Colors.white.withValues(alpha: 0.9),
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          )
+                        : const SizedBox.shrink(),
+                  ),
                   // Connectivity Banner integrated into the same column for perfect alignment
                   ConnectivityBanner(chatService: _chatService),
                   
