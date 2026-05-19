@@ -800,6 +800,7 @@ class ChatService extends ChangeNotifier {
            'content': m.content,
          }).toList() ?? [];
          body['messages'] = history;
+         body['update_context'] = false;
       }
 
       final aiResponse = await http.post(

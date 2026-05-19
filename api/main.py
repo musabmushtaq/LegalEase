@@ -367,6 +367,7 @@ class GenerateAiRequest(BaseModel):
     chat_id: str | None = None
     messages: list[dict[str, Any]] | None = None
     system_prompt: str | None = None
+    update_context: bool = True
 
 
 # --- Chat endpoints ---
@@ -464,8 +465,8 @@ async def generate_ai(payload: GenerateAiRequest, background_tasks: BackgroundTa
         "created_at": now_iso(),
     }
     
-    # 4. If we have a valid owner, queue a background task to summarize/update context
-    if owner_id and prompt:
+    # 4. If we have a valid owner and update_context is enabled, queue a background task
+    if owner_id and prompt and payload.update_context:
         background_tasks.add_task(
             update_user_context_from_interaction,
             owner_id=owner_id,
