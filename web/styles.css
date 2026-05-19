@@ -97,7 +97,7 @@ html, body {
 
 .close-btn:hover {
     color: var(--highlight);
-    background-color: var(--bg-secondary);
+    background-color: var(--bg-glass-card-hover);
 }
 
 .drawer-content {
@@ -111,8 +111,8 @@ html, body {
     margin: 6px 12px;
     border-radius: 10px;
     cursor: pointer;
-    transition: background-color 0.2s;
-    border-left: 3px solid transparent;
+    transition: background-color 0.2s, transform 0.1s;
+    border: 1px solid transparent;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -120,13 +120,15 @@ html, body {
 }
 
 .chat-item:hover {
-    background-color: var(--bg-secondary);
+    background-color: var(--bg-glass-card-hover);
+    border-color: var(--border-glass);
 }
 
 .chat-item.active {
-    background-color: var(--highlight);
-    color: var(--bg-primary);
-    border-left-color: var(--highlight);
+    background-color: var(--bg-glass-active);
+    color: var(--highlight);
+    border: 1px solid var(--border-glass-focus);
+    font-weight: 600;
 }
 
 .new-chat-btn-drawer {
@@ -291,7 +293,7 @@ html, body {
 /* Message Bubbles */
 .message-bubble {
     display: flex;
-    margin-bottom: 16px;
+    margin-bottom: 24px;
     animation: slideIn 0.3s ease-out;
     position: relative;
 }
@@ -306,23 +308,27 @@ html, body {
 
 .bubble-content {
     max-width: 75%;
-    padding: 16px 20px;
-    border-radius: 18px;
+    padding: 18px 22px;
+    border-radius: 22px;
     word-wrap: break-word;
     font-size: 16px;
-    line-height: 1.5;
-    box-shadow: 0 3px 12px rgba(0, 0, 0, 0.4);
+    line-height: 1.6;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
     position: relative;
 }
 
 .bubble-content.user {
     background-color: var(--highlight);
     color: var(--bg-primary);
+    border-bottom-right-radius: 4px;
 }
 
 .bubble-content.ai {
-    background-color: var(--bg-secondary);
+    background-color: var(--bg-glass-card);
+    border: 1px solid var(--border-glass);
     color: var(--text-primary);
+    border-bottom-left-radius: 4px;
+    backdrop-filter: blur(10px);
 }
 
 .message-text {
