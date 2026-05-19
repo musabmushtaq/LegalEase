@@ -61,7 +61,7 @@ class _LiveCallScreenState extends State<LiveCallScreen>
     _waveColor = ColorTween(begin: _userColor, end: _aiColor)
         .animate(CurvedAnimation(parent: _colorController, curve: Curves.easeInOut));
 
-    _vadHandler = VadHandler.create(isDebug: true);
+    _vadHandler = VadHandler.create(isDebug: false);
     _initMic();
   }
 
