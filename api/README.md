@@ -38,7 +38,13 @@ This folder contains the local FastAPI server for LegalEase.
 ```bash
 cd api
 .venv\Scripts\activate
-uvicorn main:app --host 0.0.0.0 --port 8000 --reload --app-dir c:\repo\LegalEase\api
+python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+Or from the repository root:
+
+```bash
+python -m uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 Server URL: `http://127.0.0.1:8000`

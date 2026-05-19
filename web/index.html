@@ -3,47 +3,120 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="LegalEase - Your AI-powered legal assistant">
+    <meta name="theme-color" content="#131313">
     <title>LegalEase - AI Legal Assistant</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+    <div class="connection-banner hidden" id="connectionBanner" role="status" aria-live="polite">
+        Offline mode active. Some features may not be available.
+    </div>
+    <input type="file" id="attachmentInput" accept=".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg" hidden aria-label="Upload file">
+
+    <div class="auth-modal hidden" id="authModal" role="dialog" aria-labelledby="authTitle" aria-modal="true">
+        <div class="auth-modal-content">
+            <div class="auth-modal-header">
+                <h2 id="authTitle">Login to LegalEase</h2>
+                <button type="button" class="close-drawer-btn" id="authCloseBtn" aria-label="Close authentication dialog">✕</button>
+            </div>
+            <form id="authForm" class="auth-form" novalidate>
+                <label class="auth-label">
+                    Username
+                    <input id="authUsername" class="auth-input" type="text" required autocomplete="username" aria-required="true">
+                </label>
+                <label class="auth-label" id="authEmailLabel">
+                    Email
+                    <input id="authEmail" class="auth-input" type="email" autocomplete="email" aria-required="true">
+                </label>
+                <label class="auth-label">
+                    Password
+                    <input id="authPassword" class="auth-input" type="password" required autocomplete="current-password" aria-required="true">
+                </label>
+                <label class="auth-label" id="authConfirmLabel">
+                    Confirm Password
+                    <input id="authConfirmPassword" class="auth-input" type="password" autocomplete="new-password" aria-required="true">
+                </label>
+                <button type="submit" class="new-chat-btn" id="authSubmitBtn">Login</button>
+                <div class="auth-toggle-row">
+                    <span id="authSwitchText">Don't have an account?</span>
+                    <button type="button" class="auth-toggle-btn" id="authSwitchBtn">Sign up</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="auth-modal hidden" id="shareModal" role="dialog" aria-labelledby="shareTitle" aria-modal="true">
+        <div class="auth-modal-content">
+            <div class="auth-modal-header">
+                <h2 id="shareTitle">Share Chat</h2>
+                <button type="button" class="close-drawer-btn" id="shareCloseBtn" aria-label="Close share dialog">✕</button>
+            </div>
+            <div class="share-content">
+                <p id="shareMessage">Enable sharing to generate a link</p>
+                <div class="share-link-container hidden" id="shareLinkContainer">
+                    <input id="shareLink" class="auth-input" type="text" readonly aria-label="Share link">
+                    <button type="button" class="new-chat-btn" id="copyShareLinkBtn" aria-label="Copy share link">Copy Link</button>
+                </div>
+                <button type="button" class="new-chat-btn" id="toggleShareBtn">Enable Sharing</button>
+            </div>
+        </div>
+    </div>
+
     <div class="container">
-        <!-- Drawer/Sidebar -->
-        <div class="drawer" id="drawer">
+        <div class="drawer" id="drawer" role="navigation" aria-label="Chat navigation">
             <div class="drawer-header">
                 <h2>Chats</h2>
-                <button class="close-btn" id="closeDrawerBtn">✕</button>
+                <button type="button" class="close-btn" id="closeDrawerBtn" aria-label="Close navigation drawer" onclick="window.closeDrawer && window.closeDrawer()">✕</button>
             </div>
-            <div class="drawer-content" id="drawerContent">
+            <div class="drawer-search">
+                <input id="drawerSearch" class="chat-input" type="search" placeholder="Search chats..." aria-label="Search conversations">
+            </div>
+            <div class="drawer-content" id="drawerContent" role="list">
                 <div class="loading-text">Loading chats...</div>
             </div>
-            <button class="new-chat-btn-drawer" id="newChatDrawerBtn">+ New Chat</button>
+            <div class="drawer-footer">
+                <button class="new-chat-btn" id="tempChatToggleBtn" aria-pressed="false">Temporary Chat: OFF</button>
+                <button class="new-chat-btn" id="authActionBtn">Login / Sign Up</button>
+            </div>
         </div>
 
-        <!-- Overlay (click to close drawer) -->
-        <div class="drawer-overlay" id="drawerOverlay"></div>
+        <div class="drawer-overlay" id="drawerOverlay" onclick="window.closeDrawer && window.closeDrawer()"></div>
 
-        <!-- Main Chat Area -->
-        <div class="chat-container">
-            <!-- Top Bar with Controls -->
+        <div class="chat-container" role="main">
             <div class="chat-top-bar">
-                <button class="icon-btn" id="menuBtn" title="Menu">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <line x1="3" y1="6" x2="21" y2="6"></line>
-                        <line x1="3" y1="12" x2="21" y2="12"></line>
-                        <line x1="3" y1="18" x2="21" y2="18"></line>
-                    </svg>
-                </button>
-                <button class="icon-btn" id="newChatBtn" title="New Chat">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-                        <circle cx="12" cy="10" r="0.5" fill="currentColor"></circle>
-                    </svg>
-                </button>
+                <div class="top-left">
+                    <button type="button" class="icon-btn" id="menuBtn" title="Open menu" aria-label="Open navigation menu" aria-expanded="false" onclick="window.toggleDrawer && window.toggleDrawer()">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                            <line x1="3" y1="6" x2="21" y2="6"></line>
+                            <line x1="3" y1="12" x2="21" y2="12"></line>
+                            <line x1="3" y1="18" x2="21" y2="18"></line>
+                        </svg>
+                    </button>
+                    <button type="button" class="icon-btn" id="newChatBtn" title="Start new chat" aria-label="Create new conversation">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                            <circle cx="12" cy="10" r="0.5" fill="currentColor"></circle>
+                        </svg>
+                    </button>
+                </div>
+                <div class="top-right">
+                    <button type="button" class="icon-btn" id="shareChatBtn" title="Share chat" aria-label="Share this conversation" hidden>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                            <path d="M22 2l-11 20-4-9-9-4 24-7z"></path>
+                        </svg>
+                    </button>
+                    <button type="button" class="icon-btn" id="settingsBtn" title="Settings" aria-label="Open settings">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                            <path d="M12 15.5A3.5 3.5 0 1 0 12 8.5a3.5 3.5 0 0 0 0 7z"></path>
+                            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06A2 2 0 1 1 2.3 16.88l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82L4.2 3.46A2 2 0 1 1 7 1.63l.06.06A1.65 1.65 0 0 0 8.88 2.02 1.65 1.65 0 0 0 10 1V1a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51c.56.2 1.1.57 1.51 1.08l.06.06A2 2 0 1 1 21.7 7.12l-.06.06a1.65 1.65 0 0 0-.33 1.82c.22.48.36.99.4 1.52l.01.3z"></path>
+                        </svg>
+                    </button>
+                    <span class="user-status" id="userStatus" aria-label="Current user">Guest</span>
+                </div>
             </div>
 
-            <!-- Messages Display -->
-            <div class="messages-container" id="messagesContainer">
+            <div class="messages-container" id="messagesContainer" role="log" aria-live="polite" aria-label="Chat messages">
                 <div class="welcome-message">
                     <h1>LegalEase</h1>
                     <p>Your AI-powered legal assistant</p>
@@ -51,18 +124,21 @@
                 </div>
             </div>
 
-            <!-- Bottom Input Area -->
             <div class="input-area">
-                <button class="icon-btn" id="attachBtn" title="Attach File">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <button class="icon-btn" id="attachBtn" title="Attach file" aria-label="Upload attachment">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
                         <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 0 19.8 4.3M22 12.5a10 10 0 0 0-19.8-4.2"></path>
                     </svg>
                 </button>
-                <div class="input-wrapper">
-                    <textarea id="messageInput" class="message-input" placeholder="Ask LegalEase..." rows="1"></textarea>
+                <div class="attachment-preview hidden" id="attachmentPreview" role="status">
+                    <span id="attachmentName"></span>
+                    <button type="button" class="message-action-btn delete" id="removeAttachmentBtn" title="Remove attachment" aria-label="Remove attached file">✕</button>
                 </div>
-                <button class="send-btn" id="sendBtn" title="Send Message">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <div class="input-wrapper">
+                    <textarea id="messageInput" class="message-input" placeholder="Ask LegalEase..." rows="1" aria-label="Message input"></textarea>
+                </div>
+                <button class="send-btn" id="sendBtn" title="Send message" aria-label="Send your message">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
                         <path d="M16.6915026,12.4744748 L3.50612381,13.2599618 C3.19218622,13.2599618 3.03521743,13.4170592 3.03521743,13.5741566 L1.15159189,20.0151496 C0.8376543,20.8006365 0.99,21.89 1.77946707,22.52 C2.41,22.99 3.50612381,23.1 4.13399899,22.8429026 L21.714504,14.0454487 C22.6563168,13.5741566 23.1272231,12.6315722 22.9702544,11.6889879 L4.13399899,1.16346272 C3.34915502,0.9 2.40734225,0.9 1.77946707,1.4289373 C0.994623095,2.0960627 0.837654326,3.0386469 1.15159189,3.98723128 L3.03521743,10.5282242 C3.03521743,10.6853216 3.19218622,10.8424191 3.50612381,10.8424191 L16.6915026,11.6279061 C16.6915026,11.6279061 17.1624089,11.6279061 17.1624089,12.052998 C17.1624089,12.4744748 16.6915026,12.4744748 16.6915026,12.4744748 Z"></path>
                     </svg>
                 </button>
@@ -70,6 +146,51 @@
         </div>
     </div>
 
-    <script src="app.js"></script>
+    <!-- Settings modal -->
+    <div class="auth-modal hidden" id="settingsModal" role="dialog" aria-labelledby="settingsTitle" aria-modal="true">
+        <div class="auth-modal-content">
+            <div class="auth-modal-header">
+                <h2 id="settingsTitle">Settings</h2>
+                <button type="button" class="close-drawer-btn" id="settingsCloseBtn" aria-label="Close settings dialog">✕</button>
+            </div>
+            <div class="settings-content">
+                <label class="auth-label">
+                    API Base URL
+                    <input id="settingsApiUrl" class="auth-input" type="text" placeholder="http://127.0.0.1:8002">
+                </label>
+                <div class="settings-actions">
+                    <button type="button" class="new-chat-btn" id="saveSettingsBtn">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="index.js"></script>
+    <script>
+        window.toggleDrawer = window.toggleDrawer || function () {
+            const drawer = document.getElementById('drawer');
+            const overlay = document.getElementById('drawerOverlay');
+            const menuBtn = document.getElementById('menuBtn');
+            if (!drawer || !overlay) return;
+            const isOpen = drawer.classList.toggle('active');
+            overlay.classList.toggle('active');
+            document.body.classList.toggle('drawer-collapsed', isOpen);
+            if (menuBtn) {
+                menuBtn.setAttribute('aria-expanded', String(isOpen));
+            }
+        };
+        window.closeDrawer = window.closeDrawer || function () {
+            const drawer = document.getElementById('drawer');
+            const overlay = document.getElementById('drawerOverlay');
+            const menuBtn = document.getElementById('menuBtn');
+            if (!drawer || !overlay) return;
+            drawer.classList.remove('active');
+            overlay.classList.remove('active');
+            document.body.classList.remove('drawer-collapsed');
+            if (menuBtn) {
+                menuBtn.setAttribute('aria-expanded', 'false');
+            }
+        };
+    </script>
 </body>
 </html>
