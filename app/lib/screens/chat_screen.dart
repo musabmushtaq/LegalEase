@@ -25,7 +25,7 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final GlobalKey _triggerMessageKey = GlobalKey();
-  late AttachmentTextEditingController _textController;
+  late TextEditingController _textController;
   late ChatService _chatService;
   late ScrollController _scrollController;
   final FocusNode _focusNode = FocusNode();
@@ -41,19 +41,6 @@ class _ChatScreenState extends State<ChatScreen> {
       if (image != null) {
         setState(() {
           _attachedFile = File(image.path);
-          _isTyping = true;
-          // Insert the inline token placeholder with a trailing space
-          final text = _textController.text;
-          final selection = _textController.selection;
-          final newText = text.replaceRange(
-            selection.start.clamp(0, text.length),
-            selection.end.clamp(0, text.length),
-            '\uFFFC ', // No leading space, tight hug
-          );
-          _textController.text = newText;
-          _textController.selection = TextSelection.collapsed(
-            offset: selection.start + 2,
-          );
           _focusNode.requestFocus();
         });
       }
@@ -75,19 +62,6 @@ class _ChatScreenState extends State<ChatScreen> {
       if (result != null && result.files.single.path != null) {
         setState(() {
           _attachedFile = File(result.files.single.path!);
-          _isTyping = true;
-          // Insert the inline token placeholder with a trailing space
-          final text = _textController.text;
-          final selection = _textController.selection;
-          final newText = text.replaceRange(
-            selection.start.clamp(0, text.length),
-            selection.end.clamp(0, text.length),
-            '\uFFFC ', // No leading space, tight hug
-          );
-          _textController.text = newText;
-          _textController.selection = TextSelection.collapsed(
-            offset: selection.start + 2,
-          );
           _focusNode.requestFocus();
         });
       }
@@ -189,6 +163,87 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
+  Widget _buildActiveAttachmentOrContextIndicator() {
+    IconData icon;
+    Color iconColor;
+    VoidCallback onMainPressed;
+    VoidCallback onClearPressed;
+
+    if (_attachedFile != null) {
+      final path = _attachedFile!.path.toLowerCase();
+      final isImage = path.endsWith('.png') || path.endsWith('.jpg') || path.endsWith('.jpeg') || path.endsWith('.gif') || path.endsWith('.webp');
+      icon = isImage ? Icons.image : Icons.insert_drive_file;
+      iconColor = isImage ? Colors.cyanAccent : Colors.lightBlueAccent;
+      onMainPressed = () {
+        OpenFile.open(_attachedFile!.path);
+      };
+      onClearPressed = () {
+        setState(() {
+          _attachedFile = null;
+        });
+      };
+    } else {
+      icon = Icons.person;
+      iconColor = Colors.amber;
+      onMainPressed = () {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Context/Persona mode active for next message'),
+            duration: Duration(seconds: 1),
+          ),
+        );
+      };
+      onClearPressed = () {
+        setState(() {
+          _useContext = false;
+        });
+      };
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(right: 12.0),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          // Main button
+          _buildFloatingIconButton(
+            icon: icon,
+            iconColor: iconColor,
+            onPressed: onMainPressed,
+          ),
+          // Circular close badge on the top right
+          Positioned(
+            right: -2,
+            top: -2,
+            child: GestureDetector(
+              onTap: onClearPressed,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.red.shade700,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white.withOpacity(0.8), width: 1),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.3),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                padding: const EdgeInsets.all(3),
+                child: const Icon(
+                  Icons.close,
+                  color: Colors.white,
+                  size: 11,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildAttachmentItem({
     required IconData icon,
     required VoidCallback onTap,
@@ -211,17 +266,10 @@ class _ChatScreenState extends State<ChatScreen> {
   void initState() {
     super.initState();
     _scrollController = ScrollController();
-    _textController = AttachmentTextEditingController(
-      onFileRemoved: () {
-        setState(() {
-          _attachedFile = null;
-        });
-      },
-      getFile: () => _attachedFile,
-    );
+    _textController = TextEditingController();
     _textController.addListener(() {
       setState(() {
-        _isTyping = _textController.text.isNotEmpty;
+        _isTyping = _textController.text.trim().isNotEmpty;
       });
     });
     // Already initialized in main()
@@ -435,19 +483,23 @@ class _ChatScreenState extends State<ChatScreen> {
                           );
                         },
                         child: !_chatService.isTemporaryChat
-                            ? Padding(
-                                padding: const EdgeInsets.only(right: 12.0),
-                                child: _buildFloatingIconButton(
-                                  icon: _isAttachmentMenuOpen 
-                                      ? Icons.close 
-                                      : (_useContext ? Icons.person : Icons.attach_file),
-                                  iconColor: _useContext && !_isAttachmentMenuOpen 
-                                      ? Colors.amber 
-                                      : Colors.white,
-                                  isDotted: _chatService.isTemporaryChat,
-                                  onPressed: _showAttachmentOptions,
-                                ),
-                              )
+                            ? (_isAttachmentMenuOpen
+                                ? Padding(
+                                    padding: const EdgeInsets.only(right: 12.0),
+                                    child: _buildFloatingIconButton(
+                                      icon: Icons.close,
+                                      onPressed: _showAttachmentOptions,
+                                    ),
+                                  )
+                                : ((_attachedFile != null || _useContext)
+                                    ? _buildActiveAttachmentOrContextIndicator()
+                                    : Padding(
+                                        padding: const EdgeInsets.only(right: 12.0),
+                                        child: _buildFloatingIconButton(
+                                          icon: Icons.attach_file,
+                                          onPressed: _showAttachmentOptions,
+                                        ),
+                                      )))
                             : const SizedBox.shrink(),
                       ),
                       
@@ -573,13 +625,13 @@ class _ChatScreenState extends State<ChatScreen> {
                             child: FadeTransition(opacity: animation, child: child),
                           );
                         },
-                        child: (!_chatService.isTemporaryChat || _isTyping)
+                        child: (!_chatService.isTemporaryChat || _isTyping || _attachedFile != null)
                             ? Padding(
                                 padding: const EdgeInsets.only(left: 12.0),
                                 child: _buildFloatingIconButton(
-                                  icon: _isTyping ? Icons.send : Icons.mic,
+                                  icon: (_isTyping || _attachedFile != null) ? Icons.send : Icons.mic,
                                   isDotted: _chatService.isTemporaryChat,
-                                  onPressed: _isTyping
+                                  onPressed: (_isTyping || _attachedFile != null)
                                       ? _sendMessage
                                       : () {
                                           Navigator.push(
@@ -698,6 +750,7 @@ class _ChatScreenState extends State<ChatScreen> {
     setState(() {
       _isTyping = false;
       _attachedFile = null;
+      _useContext = false;
       _isAiThinking = true;
     });
     
@@ -794,95 +847,5 @@ class _ChatScreenState extends State<ChatScreen> {
     }
 
     return glassContainer;
-  }
-}
-
-class AttachmentTextEditingController extends TextEditingController {
-  final VoidCallback onFileRemoved;
-  final File? Function() getFile;
-
-  AttachmentTextEditingController({
-    required this.onFileRemoved,
-    required this.getFile,
-  });
-
-  @override
-  TextSpan buildTextSpan({
-    required BuildContext context,
-    TextStyle? style,
-    required bool withComposing,
-  }) {
-    final List<InlineSpan> children = [];
-    
-    // Split by the Object Replacement Character (\uFFFC)
-    text.splitMapJoin(
-      '\uFFFC',
-      onMatch: (Match match) {
-        children.add(
-          WidgetSpan(
-            alignment: PlaceholderAlignment.middle,
-            child: GestureDetector(
-              onTap: () {
-                final file = getFile();
-                if (file != null) {
-                  OpenFile.open(file.path);
-                }
-              },
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 2.0),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.2),
-                          width: 1.0,
-                        ),
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.attach_file, color: Colors.white, size: 12),
-                          SizedBox(width: 4),
-                          Text(
-                            'Attachment',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        );
-        return '';
-      },
-      onNonMatch: (String text) {
-        children.add(TextSpan(text: text, style: style));
-        return '';
-      },
-    );
-
-    return TextSpan(children: children, style: style);
-  }
-
-  @override
-  set text(String newText) {
-    // Detect if the file anchor (\uFFFC) was removed or partially deleted
-    if (text.contains('\uFFFC') && !newText.contains('\uFFFC')) {
-      onFileRemoved();
-    }
-    super.text = newText;
   }
 }
