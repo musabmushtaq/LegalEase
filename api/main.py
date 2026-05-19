@@ -373,6 +373,7 @@ class GenerateAiRequest(BaseModel):
     messages: list[dict[str, Any]] | None = None
     system_prompt: str | None = None
     update_context: bool = True
+    use_context: bool = False
 
 
 # --- Chat endpoints ---
@@ -448,6 +449,20 @@ async def generate_ai(payload: GenerateAiRequest, background_tasks: BackgroundTa
             owner_id = chat.get("owner_id")
     elif payload.messages is not None:
         chat_history = payload.messages
+
+    # NEW: Fetch and inject user background context if requested and owner is present
+    if payload.use_context and owner_id:
+        user_doc = await db.users.find_one({"user_id": owner_id})
+        if user_doc:
+            user_context = user_doc.get("context", "").strip()
+            if user_context:
+                system_prompt = (
+                    f"{system_prompt}\n\n"
+                    "=== USER BACKGROUND DETAILS ===\n"
+                    "You must tailor your legal analysis using the following facts about the user's specific context:\n"
+                    f"{user_context}\n"
+                    "================================="
+                )
 
     # 2. Extract prompt and current files
     prompt = "Continue the conversation."

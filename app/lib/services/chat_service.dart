@@ -708,7 +708,7 @@ class ChatService extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> sendUserMessage(String content, {File? file}) async {
+  Future<void> sendUserMessage(String content, {File? file, bool useContext = false}) async {
     if (_userId == null && !_isTemporaryChat) return;
 
     if (_currentChatId == null || !_chats.containsKey(_currentChatId)) {
@@ -782,7 +782,7 @@ class ChatService extends ChangeNotifier {
           // Server says chat doesn't exist - clear and retry once
           _currentChatId = null;
           _saveCurrentChatToCache();
-          return sendUserMessage(content, file: file);
+          return sendUserMessage(content, file: file, useContext: useContext);
         }
 
         if (response.statusCode != 200) {
@@ -803,6 +803,7 @@ class ChatService extends ChangeNotifier {
       final aiUri = Uri.parse('$_apiBaseUrl/api/generate_ai');
       
       final Map<String, dynamic> body = {};
+      body['use_context'] = useContext;
       if (!_isTemporaryChat) {
          // App asks AI to read context from DB
          body['chat_id'] = currentId;

@@ -99,6 +99,7 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
+  bool _useContext = false;
   bool _isAttachmentMenuOpen = false;
 
   void _showAttachmentOptions() {
@@ -165,6 +166,17 @@ class _ChatScreenState extends State<ChatScreen> {
                       onPressed: () {
                         _showAttachmentOptions();
                         _pickFile();
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    _buildFloatingIconButton(
+                      icon: Icons.person,
+                      iconColor: _useContext ? Colors.amber : Colors.white,
+                      onPressed: () {
+                        _showAttachmentOptions();
+                        setState(() {
+                          _useContext = !_useContext;
+                        });
                       },
                     ),
                   ],
@@ -426,7 +438,12 @@ class _ChatScreenState extends State<ChatScreen> {
                             ? Padding(
                                 padding: const EdgeInsets.only(right: 12.0),
                                 child: _buildFloatingIconButton(
-                                  icon: _isAttachmentMenuOpen ? Icons.close : Icons.attach_file,
+                                  icon: _isAttachmentMenuOpen 
+                                      ? Icons.close 
+                                      : (_useContext ? Icons.person : Icons.attach_file),
+                                  iconColor: _useContext && !_isAttachmentMenuOpen 
+                                      ? Colors.amber 
+                                      : Colors.white,
                                   isDotted: _chatService.isTemporaryChat,
                                   onPressed: _showAttachmentOptions,
                                 ),
@@ -672,7 +689,11 @@ class _ChatScreenState extends State<ChatScreen> {
     _textController.clear();
     
     // sendUserMessage now injects the message into the list instantly
-    final sendFuture = _chatService.sendUserMessage(messageText, file: fileToSend);
+    final sendFuture = _chatService.sendUserMessage(
+      messageText, 
+      file: fileToSend,
+      useContext: _useContext,
+    );
 
     setState(() {
       _isTyping = false;
@@ -711,6 +732,7 @@ class _ChatScreenState extends State<ChatScreen> {
     required IconData icon,
     required VoidCallback onPressed,
     bool isDotted = false,
+    Color? iconColor,
   }) {
     final glassContainer = Container(
       decoration: const BoxDecoration(
@@ -747,7 +769,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     child: Icon(
                       icon, 
                       key: ValueKey<IconData>(icon),
-                      color: Colors.white,
+                      color: iconColor ?? Colors.white,
                       size: 24,
                     ),
                   ),
