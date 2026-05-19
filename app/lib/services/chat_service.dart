@@ -389,6 +389,19 @@ class ChatService extends ChangeNotifier {
     if (_userId == null) return;
 
     try {
+      // 1. Verify that the user profile still exists in the database
+      final userUri = Uri.parse('$_apiBaseUrl/users/$_userId');
+      final userResponse = await http
+          .get(userUri, headers: _headers())
+          .timeout(const Duration(seconds: 4));
+
+      if (userResponse.statusCode == 404 || userResponse.statusCode == 401 || userResponse.statusCode == 403) {
+        debugPrint('ChatService: Cached user profile not found or unauthorized. Forcing logout.');
+        await logout();
+        return;
+      }
+
+      // 2. Fetch user's chats
       final uri = Uri.parse('$_apiBaseUrl/users/$_userId/chats');
       final response = await http
           .get(uri, headers: _headers())
