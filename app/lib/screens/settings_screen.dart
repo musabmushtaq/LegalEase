@@ -94,80 +94,77 @@ class _SettingsScreenState extends State<SettingsScreen> {
       context: context,
       barrierColor: Colors.black.withValues(alpha: 0.6),
       builder: (BuildContext context) {
-        return BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0),
-          child: AlertDialog(
-            backgroundColor: Colors.black.withValues(alpha: 0.85),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20.0),
-              side: BorderSide(
-                color: Colors.white.withValues(alpha: 0.08),
-                width: 1.0,
-              ),
+        return AlertDialog(
+          backgroundColor: Colors.black.withValues(alpha: 0.85),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20.0),
+            side: BorderSide(
+              color: Colors.white.withValues(alpha: 0.08),
+              width: 1.0,
             ),
-            title: Row(
-              children: [
-                Icon(
-                  isDestructive ? Icons.warning_amber_rounded : Icons.info_outline,
-                  color: isDestructive ? Colors.redAccent : AppTheme.highlight,
-                  size: 24,
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    title,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            content: Text(
-              message,
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.7),
-                fontSize: 14,
-                height: 1.4,
+          ),
+          title: Row(
+            children: [
+              Icon(
+                isDestructive ? Icons.warning_amber_rounded : Icons.info_outline,
+                color: isDestructive ? Colors.redAccent : AppTheme.highlight,
+                size: 24,
               ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text(
-                  'Cancel',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: isDestructive 
-                      ? Colors.redAccent.withValues(alpha: 0.85) 
-                      : AppTheme.highlight.withValues(alpha: 0.95),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12.0),
-                  ),
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                ),
-                onPressed: () {
-                  Navigator.pop(context);
-                  onConfirm();
-                },
+              const SizedBox(width: 12),
+              Expanded(
                 child: Text(
-                  isDestructive ? 'Delete' : 'Confirm',
-                  style: TextStyle(
-                    color: isDestructive ? Colors.white : AppTheme.background,
+                  title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
               ),
             ],
           ),
+          content: Text(
+            message,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.7),
+              fontSize: 14,
+              height: 1.4,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text(
+                'Cancel',
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: isDestructive 
+                    ? Colors.redAccent.withValues(alpha: 0.85) 
+                    : AppTheme.highlight.withValues(alpha: 0.95),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12.0),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+              ),
+              onPressed: () {
+                Navigator.pop(context);
+                onConfirm();
+              },
+              child: Text(
+                isDestructive ? 'Delete' : 'Confirm',
+                style: TextStyle(
+                  color: isDestructive ? Colors.white : AppTheme.background,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
         );
       },
     );
@@ -324,7 +321,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Set the backend API host IP address.',
+                              'Set the backend IP address.',
                               style: TextStyle(
                                 color: Colors.white.withValues(alpha: 0.5),
                                 fontSize: 13,
