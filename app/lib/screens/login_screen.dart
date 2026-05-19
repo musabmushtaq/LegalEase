@@ -83,11 +83,48 @@ class _LoginScreenState extends State<LoginScreen> {
                     
                     const Spacer(flex: 1),
                     
-                    // Logo and Welcome Text
-                    const Icon(
-                      Icons.balance,
-                      size: 64,
-                      color: AppTheme.highlight,
+                    // Premium Glowing Balance Emblem
+                    Center(
+                      child: Container(
+                        width: 96,
+                        height: 96,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: AppTheme.highlight.withOpacity(0.03),
+                          border: Border.all(
+                            color: AppTheme.highlight.withOpacity(0.12),
+                            width: 1.5,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppTheme.highlight.withOpacity(0.06),
+                              blurRadius: 32,
+                              spreadRadius: 8,
+                            ),
+                          ],
+                        ),
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            Container(
+                              width: 76,
+                              height: 76,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: AppTheme.highlight.withOpacity(0.08),
+                                  width: 1.0,
+                                ),
+                              ),
+                            ),
+                            const Icon(
+                              Icons.balance_rounded,
+                              size: 42,
+                              color: AppTheme.highlight,
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 24),
                     const Text(

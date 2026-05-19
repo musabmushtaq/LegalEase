@@ -376,126 +376,128 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ],
                   ),
 
-                  // SECTION 2: PRIVACY & DATA MANAGEMENT
-                  _buildSection(
-                    title: 'Privacy & Data Management',
-                    children: [
-                      _buildSettingsRow(
-                        icon: Icons.delete_sweep_outlined,
-                        iconColor: Colors.redAccent,
-                        textColor: Colors.redAccent,
-                        title: 'Delete Personal Context',
-                        subtitle: 'Clear all inferred AI data instantly. This action is irreversible.',
-                        onTap: () {
-                          _showConfirmationDialog(
-                            title: 'Delete Personal Context?',
-                            message: 'This will completely wipe your personal context history from the server. The AI will no longer know your background details.',
-                            isDestructive: true,
-                            onConfirm: () async {
-                              final success = await widget.chatService.clearPersonalContext();
-                              if (mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      success 
-                                          ? '✓ Personal context wiped successfully.' 
-                                          : '✗ Failed to clear personal context. Please check your network connection.',
-                                    ),
-                                    backgroundColor: success ? Colors.teal : Colors.redAccent,
-                                  ),
-                                );
-                              }
-                            },
-                          );
-                        },
-                      ),
-                      const Divider(color: Colors.white10, height: 1.0, indent: 56.0),
-                      _buildSettingsRow(
-                        icon: Icons.history_rounded,
-                        iconColor: Colors.redAccent,
-                        textColor: Colors.redAccent,
-                        title: 'Clear All Chat History',
-                        subtitle: 'Wipe every active persistent conversation from this account.',
-                        onTap: () {
-                          _showConfirmationDialog(
-                            title: 'Clear Chat History?',
-                            message: 'This will delete ALL active chats permanently from the server and local database. You cannot restore them.',
-                            isDestructive: true,
-                            onConfirm: () async {
-                              final success = await widget.chatService.clearAllChatHistory();
-                              if (mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      success 
-                                          ? '✓ Chat history completely deleted.' 
-                                          : '✗ Error resetting chat history.',
-                                    ),
-                                    backgroundColor: success ? Colors.teal : Colors.redAccent,
-                                  ),
-                                );
-                              }
-                            },
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-
-                  // SECTION 3: ACCOUNT & SESSION MANAGEMENT
-                  _buildSection(
-                    title: 'Account & Session Management',
-                    children: [
-                      _buildSettingsRow(
-                        icon: Icons.no_accounts_outlined,
-                        iconColor: Colors.redAccent,
-                        textColor: Colors.redAccent,
-                        title: 'Permanently Delete Account',
-                        subtitle: 'Delete your user profile, purge all chat history, clear personal context, and close your account permanently.',
-                        onTap: () {
-                          _showConfirmationDialog(
-                            title: 'Permanently Delete Account?',
-                            message: 'WARNING: This will permanently wipe all your chats, user profile context, local tokens, and logs. This action is irreversible.',
-                            isDestructive: true,
-                            onConfirm: () async {
-                              final success = await widget.chatService.deleteAccount();
-                              if (mounted) {
-                                if (success) {
-                                  Navigator.popUntil(context, (route) => route.isFirst);
-                                } else {
+                  if (widget.chatService.isAuthenticated) ...[
+                    // SECTION 2: PRIVACY & DATA MANAGEMENT
+                    _buildSection(
+                      title: 'Privacy & Data Management',
+                      children: [
+                        _buildSettingsRow(
+                          icon: Icons.delete_sweep_outlined,
+                          iconColor: Colors.redAccent,
+                          textColor: Colors.redAccent,
+                          title: 'Delete Personal Context',
+                          subtitle: 'Clear all inferred AI data instantly. This action is irreversible.',
+                          onTap: () {
+                            _showConfirmationDialog(
+                              title: 'Delete Personal Context?',
+                              message: 'This will completely wipe your personal context history from the server. The AI will no longer know your background details.',
+                              isDestructive: true,
+                              onConfirm: () async {
+                                final success = await widget.chatService.clearPersonalContext();
+                                if (mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('✗ Failed to delete account. Connection issues.'),
-                                      backgroundColor: Colors.redAccent,
+                                    SnackBar(
+                                      content: Text(
+                                        success 
+                                            ? '✓ Personal context wiped successfully.' 
+                                            : '✗ Failed to clear personal context. Please check your network connection.',
+                                      ),
+                                      backgroundColor: success ? Colors.teal : Colors.redAccent,
                                     ),
                                   );
                                 }
-                              }
-                            },
-                          );
-                        },
-                      ),
-                      const Divider(color: Colors.white10, height: 1.0, indent: 56.0),
-                      _buildSettingsRow(
-                        icon: Icons.logout_rounded,
-                        iconColor: Colors.white70,
-                        title: 'Log Out of Account',
-                        subtitle: 'End this session. Cached data will be cleared from this device.',
-                        onTap: () {
-                          _showConfirmationDialog(
-                            title: 'Log Out?',
-                            message: 'Are you sure you want to end your current session?',
-                            onConfirm: () async {
-                              await widget.chatService.logout();
-                              if (mounted) {
-                                Navigator.popUntil(context, (route) => route.isFirst);
-                              }
-                            },
-                          );
-                        },
-                      ),
-                    ],
-                  ),
+                              },
+                            );
+                          },
+                        ),
+                        const Divider(color: Colors.white10, height: 1.0, indent: 56.0),
+                        _buildSettingsRow(
+                          icon: Icons.history_rounded,
+                          iconColor: Colors.redAccent,
+                          textColor: Colors.redAccent,
+                          title: 'Clear All Chat History',
+                          subtitle: 'Wipe every active persistent conversation from this account.',
+                          onTap: () {
+                            _showConfirmationDialog(
+                              title: 'Clear Chat History?',
+                              message: 'This will delete ALL active chats permanently from the server and local database. You cannot restore them.',
+                              isDestructive: true,
+                              onConfirm: () async {
+                                final success = await widget.chatService.clearAllChatHistory();
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        success 
+                                            ? '✓ Chat history completely deleted.' 
+                                            : '✗ Error resetting chat history.',
+                                      ),
+                                      backgroundColor: success ? Colors.teal : Colors.redAccent,
+                                    ),
+                                  );
+                                }
+                              },
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+
+                    // SECTION 3: ACCOUNT & SESSION MANAGEMENT
+                    _buildSection(
+                      title: 'Account & Session Management',
+                      children: [
+                        _buildSettingsRow(
+                          icon: Icons.no_accounts_outlined,
+                          iconColor: Colors.redAccent,
+                          textColor: Colors.redAccent,
+                          title: 'Permanently Delete Account',
+                          subtitle: 'Delete your user profile, purge all chat history, clear personal context, and close your account permanently.',
+                          onTap: () {
+                            _showConfirmationDialog(
+                              title: 'Permanently Delete Account?',
+                              message: 'WARNING: This will permanently wipe all your chats, user profile context, local tokens, and logs. This action is irreversible.',
+                              isDestructive: true,
+                              onConfirm: () async {
+                                final success = await widget.chatService.deleteAccount();
+                                if (mounted) {
+                                  if (success) {
+                                    Navigator.popUntil(context, (route) => route.isFirst);
+                                  } else {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('✗ Failed to delete account. Connection issues.'),
+                                        backgroundColor: Colors.redAccent,
+                                      ),
+                                    );
+                                  }
+                                }
+                              },
+                            );
+                          },
+                        ),
+                        const Divider(color: Colors.white10, height: 1.0, indent: 56.0),
+                        _buildSettingsRow(
+                          icon: Icons.logout_rounded,
+                          iconColor: Colors.white70,
+                          title: 'Log Out of Account',
+                          subtitle: 'End this session. Cached data will be cleared from this device.',
+                          onTap: () {
+                            _showConfirmationDialog(
+                              title: 'Log Out?',
+                              message: 'Are you sure you want to end your current session?',
+                              onConfirm: () async {
+                                await widget.chatService.logout();
+                                if (mounted) {
+                                  Navigator.popUntil(context, (route) => route.isFirst);
+                                }
+                              },
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
                   
                   const SizedBox(height: 36.0),
                 ],
