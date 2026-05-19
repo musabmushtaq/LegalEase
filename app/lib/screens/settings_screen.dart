@@ -399,17 +399,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ],
                   ),
 
-                  // SECTION 2: PRIVACY & PERSONAL CONTEXT
+                  // SECTION 2: PRIVACY & DATA MANAGEMENT
                   _buildSection(
-                    title: 'Privacy & Artificial Intelligence',
+                    title: 'Privacy & Data Management',
                     children: [
-                      _buildSettingsRow(
-                        icon: Icons.psychology_outlined,
-                        iconColor: Colors.yellowAccent,
-                        title: 'Personal Context Details',
-                        subtitle: 'AI automatically aggregates details from chats to optimize, target, and tailor legal responses to your background. Delete context to clear all inferred facts.',
-                      ),
-                      const Divider(color: Colors.white10, height: 1.0, indent: 56.0),
                       _buildSettingsRow(
                         icon: Icons.delete_sweep_outlined,
                         iconColor: Colors.redAccent,
@@ -439,16 +432,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           );
                         },
                       ),
-                    ],
-                  ),
-
-                  // SECTION 3: ACCOUNT & SESSION MANAGEMENT
-                  _buildSection(
-                    title: 'Account & Session Management',
-                    children: [
+                      const Divider(color: Colors.white10, height: 1.0, indent: 56.0),
                       _buildSettingsRow(
                         icon: Icons.history_rounded,
-                        iconColor: Colors.amberAccent,
+                        iconColor: Colors.redAccent,
+                        textColor: Colors.redAccent,
                         title: 'Clear All Chat History',
                         subtitle: 'Wipe every active persistent conversation from this account. Highly recommended if sharing access.',
                         onTap: () {
@@ -474,7 +462,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           );
                         },
                       ),
-                      const Divider(color: Colors.white10, height: 1.0, indent: 56.0),
+                    ],
+                  ),
+
+                  // SECTION 3: ACCOUNT & SESSION MANAGEMENT
+                  _buildSection(
+                    title: 'Account & Session Management',
+                    children: [
                       _buildSettingsRow(
                         icon: Icons.logout_rounded,
                         iconColor: Colors.white70,
@@ -526,16 +520,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ],
                   ),
                   
-                  const SizedBox(height: 24.0),
-                  Text(
-                    'LegalEase v1.2.0 • Secured Offline',
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.2),
-                      fontSize: 12,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                  const SizedBox(height: 24.0),
+                  const SizedBox(height: 36.0),
                 ],
               ),
             ),
