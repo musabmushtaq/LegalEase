@@ -14,6 +14,7 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   final TextEditingController _ipController = TextEditingController();
   bool _isSaved = false;
+  String _initialIp = '';
 
   @override
   void initState() {
@@ -31,6 +32,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
       currentIp = currentUrl.replaceAll('http://', '').replaceAll(':8000', '');
     }
     _ipController.text = currentIp;
+    _initialIp = currentIp;
+  }
+
+  bool get _isIpModified {
+    return _ipController.text.trim() != _initialIp;
   }
 
   @override
@@ -39,24 +45,41 @@ class _SettingsScreenState extends State<SettingsScreen> {
     super.dispose();
   }
 
-  void _saveSettings() {
-    final newIp = _ipController.text.trim();
-    if (newIp.isNotEmpty) {
-      final newUrl = 'http://$newIp:8000';
+  void _submitIp(String value) {
+    final cleanIp = value.trim();
+    
+    // IP Validation check (support IPv4 or 'localhost')
+    final ipRegex = RegExp(
+      r'^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$'
+    );
+    
+    final isValid = ipRegex.hasMatch(cleanIp) || cleanIp == 'localhost';
+    
+    if (isValid) {
+      final newUrl = 'http://$cleanIp:8000';
       widget.chatService.updateApiBaseUrl(newUrl);
-      
       setState(() {
-        _isSaved = true;
+        _initialIp = cleanIp;
       });
-      
-      // Reset the saved state after a few seconds
-      Future.delayed(const Duration(seconds: 3), () {
-        if (mounted) {
-          setState(() {
-            _isSaved = false;
-          });
-        }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('✓ Connection updated to: $cleanIp'),
+          backgroundColor: Colors.teal,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    } else {
+      // Revert the text back to the initial valid IP
+      setState(() {
+        _ipController.text = _initialIp;
       });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('✗ Invalid IP address. Reverted to previous host.'),
+          backgroundColor: Colors.redAccent,
+          duration: const Duration(seconds: 2),
+        ),
+      );
     }
   }
 
@@ -258,7 +281,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.transparent,
-      extendBodyBehindAppBar: true,
+      extendBodyBehindAppBar: false,
       appBar: AppBar(
         title: const Text(
           'Settings', 
@@ -301,7 +324,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Set the backend API host IP address. LegalEase connects via port 8000 by default.',
+                              'Set the backend API host IP address.',
                               style: TextStyle(
                                 color: Colors.white.withValues(alpha: 0.5),
                                 fontSize: 13,
@@ -327,9 +350,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                   Expanded(
                                     child: TextField(
                                       controller: _ipController,
-                                      onChanged: (_) {
-                                        if (_isSaved) setState(() => _isSaved = false);
-                                      },
+                                      textInputAction: TextInputAction.done,
+                                      onSubmitted: _submitIp,
                                       style: const TextStyle(color: Colors.white, fontSize: 15),
                                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
                                       decoration: const InputDecoration(
@@ -349,48 +371,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                     ),
                                   ),
                                 ],
-                              ),
-                            ),
-                            const SizedBox(height: 16.0),
-                            
-                            // Elegant mini save button
-                            InkWell(
-                              onTap: _saveSettings,
-                              borderRadius: BorderRadius.circular(12.0),
-                              child: AnimatedContainer(
-                                duration: const Duration(milliseconds: 250),
-                                padding: const EdgeInsets.symmetric(vertical: 12.0),
-                                width: double.infinity,
-                                decoration: BoxDecoration(
-                                  color: _isSaved 
-                                      ? Colors.white.withValues(alpha: 0.05)
-                                      : AppTheme.highlight.withValues(alpha: 0.9),
-                                  borderRadius: BorderRadius.circular(12.0),
-                                  border: _isSaved 
-                                      ? Border.all(color: AppTheme.highlight.withValues(alpha: 0.3))
-                                      : null,
-                                ),
-                                child: Center(
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(
-                                        _isSaved ? Icons.check_circle : Icons.save_alt_rounded, 
-                                        color: _isSaved ? AppTheme.highlight : AppTheme.background, 
-                                        size: 18,
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        _isSaved ? 'Settings Saved' : 'Save Host Connection',
-                                        style: TextStyle(
-                                          color: _isSaved ? AppTheme.highlight : AppTheme.background,
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
                               ),
                             ),
                           ],
