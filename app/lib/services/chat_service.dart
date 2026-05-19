@@ -863,12 +863,21 @@ class ChatService extends ChangeNotifier {
         _chats[currentId]!.title = 'Generating...';
         notifyListeners();
 
+        debugPrint('ChatService: First message in persistent chat. Summarizing content for title...');
         final summary = await summarizeText(content);
+        debugPrint('ChatService: Summary result: $summary');
+        
         if (summary != null && summary.isNotEmpty) {
           await renameChat(currentId, summary);
+        } else {
+          // Fallback if summarizer failed
+          debugPrint('ChatService: Summary was empty or failed. Setting fallback title.');
+          _chats[currentId]!.title = 'New Chat';
         }
 
         _generatingTitles.remove(currentId);
+        notifyListeners();
+        debugPrint('ChatService: Title generation complete for $currentId. UI notified.');
       }
     } catch (_) {
       if (_isTemporaryChat) {
@@ -920,23 +929,34 @@ class ChatService extends ChangeNotifier {
   }
 
   Future<void> togglePinChat(String chatId) async {
-    final isOnline = await checkInitialAndInstantNetwork();
-    if (!isOnline) return;
-
+    debugPrint('ChatService: togglePinChat called for $chatId');
     if (_chats[chatId] != null) {
-      _chats[chatId]!.isPinned = !_chats[chatId]!.isPinned;
+      final newPin = !_chats[chatId]!.isPinned;
+      _chats[chatId]!.isPinned = newPin;
       // Update cache if this is the current chat
       if (_currentChatId == chatId) {
         await _saveCurrentChatToCache();
       }
       notifyListeners();
+
+      // Sync pin state to backend database
+      try {
+        final uri = Uri.parse('$_apiBaseUrl/chats/$chatId');
+        await http
+            .patch(
+              uri,
+              headers: _headers(),
+              body: jsonEncode({'is_pinned': newPin}),
+            )
+            .timeout(const Duration(seconds: 10));
+      } catch (e) {
+        debugPrint('ChatService: Error syncing pin state: $e');
+      }
     }
   }
 
   Future<void> renameChat(String chatId, String newTitle) async {
-    final isOnline = await checkInitialAndInstantNetwork();
-    if (!isOnline) return;
-
+    debugPrint('ChatService: renameChat called for $chatId with title: "$newTitle"');
     if (_chats[chatId] != null) {
       _chats[chatId]!.title = newTitle;
       // Update cache if this is the current chat
@@ -945,17 +965,23 @@ class ChatService extends ChangeNotifier {
       }
       notifyListeners();
 
-      // Save title to backend database
+      // Save title to backend database (network request happens in background)
       try {
         final uri = Uri.parse('$_apiBaseUrl/chats/$chatId');
-        await http
+        debugPrint('ChatService: PATCHing title change to $uri');
+        final response = await http
             .patch(
               uri,
               headers: _headers(),
               body: jsonEncode({'title': newTitle}),
             )
             .timeout(const Duration(seconds: 10));
-      } catch (_) {}
+        debugPrint('ChatService: PATCH title response code: ${response.statusCode}');
+      } catch (e) {
+        debugPrint('ChatService: Error PATCHing title to server: $e');
+      }
+    } else {
+      debugPrint('ChatService: renameChat failed because _chats[$chatId] was null');
     }
   }
 
