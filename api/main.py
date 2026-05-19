@@ -33,7 +33,7 @@ if os.name == "nt":
             os.add_dll_directory(cudnn)
             os.environ["PATH"] += os.pathsep + cudnn
 
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 from pydantic import BaseModel, Field
@@ -372,22 +372,68 @@ class GenerateAiRequest(BaseModel):
 # --- Chat endpoints ---
 
 
+async def update_user_context_from_interaction(owner_id: str, user_message: str, ai_reply: str):
+    """
+    Calls Gemini in the background to summarize and extract relevant user context details
+    from a single message-reply turn, and appends it to the user's context in MongoDB.
+    """
+    try:
+        # 1. Build a specialized prompt to extract context from this specific interaction
+        summarizer_prompt = (
+            "Analyze the following conversation turn between a user and their AI legal assistant. "
+            "Extract any new, important details about the user's specific context, background, goals, "
+            "occupation, jurisdiction, or legal issues. Return only a very short, concise, single-sentence summary "
+            "of these details (under 25 words). Do not repeat general introductory remarks or conversational text. "
+            "If no new relevant user-specific context is revealed, return 'None'.\n\n"
+            f"User Message: {user_message}\n"
+            f"AI Reply: {ai_reply}"
+        )
+        
+        # 2. Call the Gemini API to get the summary
+        extracted_info = await generate_ai_reply(
+            prompt=summarizer_prompt,
+            system_prompt="You are a precise information extractor. Extract only specific user background facts.",
+            chat_history=[]
+        )
+        
+        extracted_info = extracted_info.strip().strip('"').strip("'")
+        if not extracted_info or extracted_info.lower() == "none" or "none." in extracted_info.lower():
+            return
+            
+        # 3. Fetch existing user context
+        user_doc = await db.users.find_one({"user_id": owner_id})
+        if not user_doc:
+            return
+            
+        existing_context = user_doc.get("context", "").strip()
+        
+        # 4. Append to user context
+        if existing_context:
+            new_context = f"{existing_context}\n- {extracted_info}"
+        else:
+            new_context = f"- {extracted_info}"
+            
+        await db.users.update_one(
+            {"user_id": owner_id},
+            {"$set": {"context": new_context}}
+        )
+        print(f"✓ Updated context for user {owner_id}: appended '{extracted_info}'")
+    except Exception as e:
+        print(f"⚠️ Error updating user context: {e}")
+
+
 @app.post("/api/generate_ai")
-async def generate_ai(payload: GenerateAiRequest) -> dict[str, Any]:
+async def generate_ai(payload: GenerateAiRequest, background_tasks: BackgroundTasks) -> dict[str, Any]:
     # 1. Gather Context
     chat_history = []
     system_prompt = payload.system_prompt or settings.default_system_prompt
+    owner_id = None
     
     if payload.chat_id:
         chat = await db.chats.find_one({"chat_id": payload.chat_id})
         if chat:
             chat_history = chat.get("messages", [])
-            # Retrieve user context from db.users and append it to system_prompt
             owner_id = chat.get("owner_id")
-            if owner_id:
-                user_doc = await db.users.find_one({"user_id": owner_id})
-                if user_doc and user_doc.get("context"):
-                    system_prompt = f"{system_prompt}\nUser Context: {user_doc['context']}"
     elif payload.messages is not None:
         chat_history = payload.messages
 
@@ -418,7 +464,16 @@ async def generate_ai(payload: GenerateAiRequest) -> dict[str, Any]:
         "created_at": now_iso(),
     }
     
-    # 4. Return without saving (App is responsible for persistence)
+    # 4. If we have a valid owner, queue a background task to summarize/update context
+    if owner_id and prompt:
+        background_tasks.add_task(
+            update_user_context_from_interaction,
+            owner_id=owner_id,
+            user_message=prompt,
+            ai_reply=ai_content
+        )
+    
+    # 5. Return without saving (App is responsible for persistence)
     return {
         "assistant_message": assistant_message,
     }
