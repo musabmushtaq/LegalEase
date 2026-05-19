@@ -382,20 +382,33 @@ async def update_user_context_from_interaction(owner_id: str, user_message: str,
     """
     Calls Gemini in the background to summarize and extract relevant user context details
     from a single message-reply turn, and appends it to the user's context in MongoDB.
+    Checks existing context first to avoid duplicating known details.
     """
     try:
-        # 1. Build a specialized prompt to extract context from this specific interaction
+        # 1. Fetch existing user context first to check for duplicates
+        user_doc = await db.users.find_one({"user_id": owner_id})
+        if not user_doc:
+            print(f"⚠️ Warning: User '{owner_id}' not found in the users collection. Context update skipped.")
+            return
+            
+        existing_context = user_doc.get("context", "").strip()
+
+        # 2. Build a specialized prompt that feeds in existing context
         summarizer_prompt = (
             "Analyze the following conversation turn between a user and their AI legal assistant. "
             "Extract any new, important details about the user's specific context, background, goals, "
-            "occupation, jurisdiction, or legal issues. Return only a very short, concise, single-sentence summary "
-            "of these details (under 25 words). Do not repeat general introductory remarks or conversational text. "
-            "If no new relevant user-specific context is revealed, return 'None'.\n\n"
+            "occupation, jurisdiction, or legal issues.\n\n"
+            f"Here is the user's EXISTING KNOWN CONTEXT:\n{existing_context or 'None'}\n\n"
+            "Only extract details that are NEW and NOT already stated or implied in the existing known context. "
+            "If no new facts or details are revealed, or if the facts are already recorded above, return 'None'.\n\n"
+            "Current Conversation Turn:\n"
             f"User Message: {user_message}\n"
-            f"AI Reply: {ai_reply}"
+            f"AI Reply: {ai_reply}\n\n"
+            "Return only a very short, concise, single-sentence summary of the NEW details (under 25 words). "
+            "Do not include general introductory remarks. If there is nothing new, return 'None'."
         )
         
-        # 2. Call the Gemini API to get the summary
+        # 3. Call the Gemini API to get the unique summary
         extracted_info = await generate_ai_reply(
             prompt=summarizer_prompt,
             system_prompt="You are a precise information extractor. Extract only specific user background facts.",
@@ -406,14 +419,6 @@ async def update_user_context_from_interaction(owner_id: str, user_message: str,
         if not extracted_info or extracted_info.lower() == "none" or "none." in extracted_info.lower():
             return
             
-        # 3. Fetch existing user context
-        user_doc = await db.users.find_one({"user_id": owner_id})
-        if not user_doc:
-            print(f"⚠️ Warning: User '{owner_id}' not found in the users collection. Context update skipped.")
-            return
-            
-        existing_context = user_doc.get("context", "").strip()
-        
         # 4. Append to user context
         if existing_context:
             new_context = f"{existing_context}\n- {extracted_info}"
