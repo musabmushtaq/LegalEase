@@ -410,80 +410,25 @@ class _ChatScreenState extends State<ChatScreen> {
                 children: [
                   // Context Active Banner/Pill
                   AnimatedContainer(
-                    duration: const Duration(milliseconds: 250),
+                    duration: Duration(milliseconds: _showContextActivePill ? 180 : 350),
                     curve: Curves.easeInOut,
                     height: _showContextActivePill ? 56.0 : 0.0,
                     margin: EdgeInsets.only(bottom: _showContextActivePill ? 8.0 : 0.0),
-                    child: AnimatedOpacity(
-                      duration: const Duration(milliseconds: 200),
-                      opacity: _showContextActivePill ? 1.0 : 0.0,
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(28.0),
-                        child: BackdropFilter(
-                          filter: ImageFilter.blur(sigmaX: 15.0, sigmaY: 15.0),
-                          child: Container(
-                            height: 56.0,
-                            padding: const EdgeInsets.symmetric(horizontal: 24),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(28.0),
-                              border: Border.all(
-                                color: Colors.white.withValues(alpha: 0.1),
-                                width: 1.0,
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.2),
-                                  blurRadius: 12,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
-                            ),
-                            child: const Row(
-                              children: [
-                                Icon(Icons.person, color: Colors.yellowAccent, size: 18),
-                                SizedBox(width: 12),
-                                Expanded(
-                                  child: Text(
-                                    "Context/Persona mode active",
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w500,
-                                      letterSpacing: 0.5,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  // Connectivity Banner integrated into the same column for perfect alignment
-                  ConnectivityBanner(chatService: _chatService),
-                  
-                  // Download Status Banner (Standardized Style)
-                  ListenableBuilder(
-                    listenable: _chatService,
-                    builder: (context, _) {
-                      if (!_chatService.isDownloading) return const SizedBox.shrink();
-                      
-                      // Custom color variable for you Musab:
-                      final Color pillColor = Colors.white.withValues(alpha: 0.12);
-                      
-                      return Container(
-                        margin: const EdgeInsets.only(bottom: 4),
+                    child: AnimatedScale(
+                      duration: Duration(milliseconds: _showContextActivePill ? 180 : 350),
+                      curve: Curves.easeOutCubic,
+                      scale: _showContextActivePill ? 1.0 : 0.0,
+                      child: AnimatedOpacity(
+                        duration: Duration(milliseconds: _showContextActivePill ? 150 : 300),
+                        opacity: _showContextActivePill ? 1.0 : 0.0,
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(28.0),
                           child: BackdropFilter(
                             filter: ImageFilter.blur(sigmaX: 15.0, sigmaY: 15.0),
                             child: Container(
-                              height: 56.0,
                               padding: const EdgeInsets.symmetric(horizontal: 24),
                               decoration: BoxDecoration(
-                                color: pillColor,
+                                color: Colors.white.withValues(alpha: 0.12),
                                 borderRadius: BorderRadius.circular(28.0),
                                 border: Border.all(
                                   color: Colors.white.withValues(alpha: 0.1),
@@ -497,21 +442,14 @@ class _ChatScreenState extends State<ChatScreen> {
                                   ),
                                 ],
                               ),
-                              child: Row(
+                              child: const Row(
                                 children: [
-                                  const SizedBox(
-                                    width: 18,
-                                    height: 18,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
+                                  Icon(Icons.person, color: Colors.yellowAccent, size: 18),
+                                  SizedBox(width: 12),
                                   Expanded(
                                     child: Text(
-                                      'Downloading ${_chatService.downloadingFileName ?? "file"}...',
-                                      style: const TextStyle(
+                                      "Context/Persona mode active",
+                                      style: TextStyle(
                                         color: Colors.white,
                                         fontSize: 13,
                                         fontWeight: FontWeight.w500,
@@ -520,6 +458,81 @@ class _ChatScreenState extends State<ChatScreen> {
                                     ),
                                   ),
                                 ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  // Connectivity Banner integrated into the same column for perfect alignment
+                  ConnectivityBanner(chatService: _chatService),
+                  
+                  // Download Status Banner (Standardized Style)
+                  ListenableBuilder(
+                    listenable: _chatService,
+                    builder: (context, _) {
+                      final isDownloading = _chatService.isDownloading;
+                      final Color pillColor = Colors.white.withValues(alpha: 0.12);
+                      
+                      return AnimatedContainer(
+                        duration: Duration(milliseconds: isDownloading ? 180 : 350),
+                        curve: Curves.easeInOut,
+                        height: isDownloading ? 56.0 : 0.0,
+                        margin: EdgeInsets.only(bottom: isDownloading ? 8.0 : 0.0),
+                        child: AnimatedScale(
+                          duration: Duration(milliseconds: isDownloading ? 180 : 350),
+                          curve: Curves.easeOutCubic,
+                          scale: isDownloading ? 1.0 : 0.0,
+                          child: AnimatedOpacity(
+                            duration: Duration(milliseconds: isDownloading ? 150 : 300),
+                            opacity: isDownloading ? 1.0 : 0.0,
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(28.0),
+                              child: BackdropFilter(
+                                filter: ImageFilter.blur(sigmaX: 15.0, sigmaY: 15.0),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                                  decoration: BoxDecoration(
+                                    color: pillColor,
+                                    borderRadius: BorderRadius.circular(28.0),
+                                    border: Border.all(
+                                      color: Colors.white.withValues(alpha: 0.1),
+                                      width: 1.0,
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(alpha: 0.2),
+                                        blurRadius: 12,
+                                        offset: const Offset(0, 4),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      const SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Text(
+                                          'Downloading ${_chatService.downloadingFileName ?? "file"}...',
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w500,
+                                            letterSpacing: 0.5,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
                               ),
                             ),
                           ),
