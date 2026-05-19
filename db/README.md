@@ -188,6 +188,7 @@ db.users.createIndex({ "email": 1 }, { unique: true })
 // Chats indexes
 db.chats.createIndex({ "chatId": 1 }, { unique: true })
 db.chats.createIndex({ "ownerId": 1, "createdAt": -1 })
+db.chats.createIndex({ "isPinned": 1 })
 
 // Files indexes
 db.files.createIndex({ "fileId": 1 }, { unique: true })

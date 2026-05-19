@@ -91,6 +91,7 @@ class CreateChatRequest(BaseModel):
 
 class UpdateChatRequest(BaseModel):
     title: str | None = None
+    is_pinned: bool | None = None
 
 
 class AddMessageRequest(BaseModel):
@@ -197,6 +198,7 @@ def chat_to_response(chat: dict[str, Any]) -> dict[str, Any]:
         "title": chat.get("title", "New Chat"),
         "created_at": chat["created_at"],
         "updated_at": chat["updated_at"],
+        "is_pinned": chat.get("is_pinned", False),
         "messages": chat.get("messages", []),
     }
 
@@ -278,6 +280,7 @@ async def create_chat(user_id: str, payload: CreateChatRequest) -> dict[str, Any
         "chat_id": chat_id,
         "owner_id": user_id,
         "title": payload.title.strip() or "New Chat",
+        "is_pinned": False,
         "messages": [],
         "created_at": created_at,
         "updated_at": created_at,
@@ -303,6 +306,8 @@ async def update_chat(chat_id: str, payload: UpdateChatRequest) -> dict[str, Any
     updates: dict[str, Any] = {"updated_at": now_iso()}
     if payload.title is not None:
         updates["title"] = payload.title.strip() or chat.get("title", "New Chat")
+    if payload.is_pinned is not None:
+        updates["is_pinned"] = payload.is_pinned
 
     await db.chats.update_one({"chat_id": chat_id}, {"$set": updates})
     updated = await db.chats.find_one({"chat_id": chat_id})
@@ -404,6 +409,7 @@ async def update_user_context_from_interaction(owner_id: str, user_message: str,
         # 3. Fetch existing user context
         user_doc = await db.users.find_one({"user_id": owner_id})
         if not user_doc:
+            print(f"⚠️ Warning: User '{owner_id}' not found in the users collection. Context update skipped.")
             return
             
         existing_context = user_doc.get("context", "").strip()

@@ -27,6 +27,7 @@ Stores individual chat conversations with messages embedded.
   "chatId": "chat_abc123",
   "ownerId": "user_123",
   "title": "Contract Review - NDA Clause",
+  "isPinned": false,
   "messages": [
     {
       "messageId": "msg_001",
