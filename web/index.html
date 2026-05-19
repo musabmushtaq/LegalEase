@@ -16,31 +16,39 @@
 
     <div class="auth-modal hidden" id="authModal" role="dialog" aria-labelledby="authTitle" aria-modal="true">
         <div class="auth-modal-content">
-            <div class="auth-modal-header">
-                <h2 id="authTitle">Login to LegalEase</h2>
+            <div class="auth-modal-header auth-modal-top-actions">
                 <button type="button" class="close-drawer-btn" id="authCloseBtn" aria-label="Close authentication dialog">✕</button>
             </div>
+            <div class="auth-emblem">
+                <div class="emblem-inner">
+                    <svg class="balance-icon" width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M12 3v18m0-18l-8 5v5m8-10l8 5v5M4 13h16M2 21h20"></path>
+                    </svg>
+                </div>
+            </div>
+            <h2 id="authTitle" class="auth-hero-title">Welcome to<br>LegalEase</h2>
+            <p class="auth-subtitle">Your AI-powered legal assistant.</p>
             <form id="authForm" class="auth-form" novalidate>
-                <label class="auth-label">
-                    Username
-                    <input id="authUsername" class="auth-input" type="text" required autocomplete="username" aria-required="true">
-                </label>
-                <label class="auth-label" id="authEmailLabel">
-                    Email
-                    <input id="authEmail" class="auth-input" type="email" autocomplete="email" aria-required="true">
-                </label>
-                <label class="auth-label">
-                    Password
-                    <input id="authPassword" class="auth-input" type="password" required autocomplete="current-password" aria-required="true">
-                </label>
-                <label class="auth-label" id="authConfirmLabel">
-                    Confirm Password
-                    <input id="authConfirmPassword" class="auth-input" type="password" autocomplete="new-password" aria-required="true">
-                </label>
-                <button type="submit" class="new-chat-btn" id="authSubmitBtn">Login</button>
+                <div class="input-group">
+                    <svg class="input-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                    <input id="authUsername" class="auth-input" type="text" placeholder="Username" required autocomplete="username" aria-required="true" aria-label="Username">
+                </div>
+                <div class="input-group hidden" id="authEmailLabel">
+                    <svg class="input-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+                    <input id="authEmail" class="auth-input" type="email" placeholder="Email" autocomplete="email" aria-required="true" aria-label="Email">
+                </div>
+                <div class="input-group">
+                    <svg class="input-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                    <input id="authPassword" class="auth-input" type="password" placeholder="Password" required autocomplete="current-password" aria-required="true" aria-label="Password">
+                </div>
+                <div class="input-group hidden" id="authConfirmLabel">
+                    <svg class="input-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                    <input id="authConfirmPassword" class="auth-input" type="password" placeholder="Confirm Password" autocomplete="new-password" aria-required="true" aria-label="Confirm Password">
+                </div>
+                <button type="submit" class="auth-submit-btn" id="authSubmitBtn">Sign In</button>
                 <div class="auth-toggle-row">
-                    <span id="authSwitchText">Don't have an account?</span>
-                    <button type="button" class="auth-toggle-btn" id="authSwitchBtn">Sign up</button>
+                    <span id="authSwitchText">Don't have an account? </span>
+                    <button type="button" class="auth-toggle-btn" id="authSwitchBtn">Create one</button>
                 </div>
             </form>
         </div>

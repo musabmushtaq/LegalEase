@@ -132,17 +132,17 @@ export function openAuthModal(mode) {
     state.authMode = mode;
     authModal.classList.remove('hidden');
     if (mode === 'login') {
-        authTitle.textContent = 'Login to LegalEase';
-        authSubmitBtn.textContent = 'Login';
-        authSwitchText.textContent = "Don't have an account?";
-        authSwitchBtn.textContent = 'Sign up';
+        authTitle.innerHTML = 'Welcome to<br>LegalEase';
+        authSubmitBtn.textContent = 'Sign In';
+        authSwitchText.textContent = "Don't have an account? ";
+        authSwitchBtn.textContent = 'Create one';
         authEmailLabel.classList.add('hidden');
         authConfirmLabel.classList.add('hidden');
     } else {
-        authTitle.textContent = 'Sign up for LegalEase';
+        authTitle.innerHTML = 'Sign up for<br>LegalEase';
         authSubmitBtn.textContent = 'Sign Up';
-        authSwitchText.textContent = 'Already have an account?';
-        authSwitchBtn.textContent = 'Login';
+        authSwitchText.textContent = 'Already have an account? ';
+        authSwitchBtn.textContent = 'Sign in';
         authEmailLabel.classList.remove('hidden');
         authConfirmLabel.classList.remove('hidden');
     }
