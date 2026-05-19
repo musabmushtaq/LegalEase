@@ -173,7 +173,7 @@ class _ChatScreenState extends State<ChatScreen> {
       final path = _attachedFile!.path.toLowerCase();
       final isImage = path.endsWith('.png') || path.endsWith('.jpg') || path.endsWith('.jpeg') || path.endsWith('.gif') || path.endsWith('.webp');
       icon = isImage ? Icons.image : Icons.insert_drive_file;
-      iconColor = isImage ? Colors.cyanAccent : Colors.lightBlueAccent;
+      iconColor = Colors.amber;
       onMainPressed = () {
         OpenFile.open(_attachedFile!.path);
       };
@@ -213,28 +213,34 @@ class _ChatScreenState extends State<ChatScreen> {
           ),
           // Circular close badge on the top right
           Positioned(
-            right: -2,
-            top: -2,
+            right: -10,
+            top: -10,
             child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
               onTap: onClearPressed,
               child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.red.shade700,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white.withOpacity(0.8), width: 1),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.3),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                padding: const EdgeInsets.all(3),
-                child: const Icon(
-                  Icons.close,
-                  color: Colors.white,
-                  size: 11,
+                width: 36,
+                height: 36,
+                alignment: Alignment.center,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade800,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.black.withOpacity(0.5), width: 1.5),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.4),
+                        blurRadius: 6,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  padding: const EdgeInsets.all(4),
+                  child: const Icon(
+                    Icons.close,
+                    color: Colors.white,
+                    size: 11,
+                  ),
                 ),
               ),
             ),
