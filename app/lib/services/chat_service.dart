@@ -211,6 +211,78 @@ class ChatService extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<bool> clearPersonalContext() async {
+    if (_userId == null) return false;
+    final isOnline = await checkInitialAndInstantNetwork();
+    if (!isOnline) return false;
+
+    try {
+      final uri = Uri.parse('$_apiBaseUrl/users/$_userId/context');
+      final response = await http.patch(
+        uri,
+        headers: _headers(),
+        body: jsonEncode({'context': ''}),
+      ).timeout(const Duration(seconds: 5));
+      if (response.statusCode == 200) {
+        notifyListeners();
+        return true;
+      }
+    } catch (e) {
+      debugPrint('ChatService: Error clearing personal context: $e');
+    }
+    return false;
+  }
+
+  Future<bool> clearAllChatHistory() async {
+    if (_userId == null) return false;
+    final isOnline = await checkInitialAndInstantNetwork();
+    if (!isOnline) return false;
+
+    // 1. Optimistic Local Clear
+    _chats.clear();
+    _messages.clear();
+    _currentChatId = null;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('currentChatCache');
+      await prefs.remove('currentChatIdCache');
+    } catch (_) {}
+    notifyListeners();
+
+    // 2. Direct server call to clear all chats natively in MongoDB!
+    try {
+      final uri = Uri.parse('$_apiBaseUrl/users/$_userId/chats');
+      final response = await http.delete(uri, headers: _headers()).timeout(const Duration(seconds: 8));
+      if (response.statusCode == 200) {
+        return true;
+      }
+    } catch (e) {
+      debugPrint('ChatService: Error clearing chats natively on backend: $e');
+    }
+    return false;
+  }
+
+  Future<bool> deleteAccount() async {
+    if (_userId == null) return false;
+    final isOnline = await checkInitialAndInstantNetwork();
+    if (!isOnline) return false;
+
+    try {
+      // Direct server call to delete the entire user profile & all their chats!
+      final uri = Uri.parse('$_apiBaseUrl/users/$_userId');
+      final response = await http.delete(uri, headers: _headers()).timeout(const Duration(seconds: 10));
+      
+      if (response.statusCode == 200) {
+        // Clear local auth session and memory
+        await logout();
+        return true;
+      }
+    } catch (e) {
+      debugPrint('ChatService: Error deleting account natively on backend: $e');
+    }
+    return false;
+  }
+
   void _listenToConnectivityChanges() {
     try {
       final connectivity = Connectivity();

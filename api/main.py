@@ -805,6 +805,30 @@ async def update_user_context(user_id: str, payload: UpdateUserContextRequest):
     )
     return {"status": "success", "context": payload.context}
 
+@app.delete("/users/{user_id}")
+async def delete_user_account(user_id: str):
+    user = await db.users.find_one({"user_id": user_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # 1. Delete all user chats
+    await db.chats.delete_many({"owner_id": user_id})
+    
+    # 2. Delete user account document
+    await db.users.delete_one({"user_id": user_id})
+    
+    return {"status": "success", "message": "User account and all related chats deleted permanently."}
+
+@app.delete("/users/{user_id}/chats")
+async def clear_user_chats(user_id: str):
+    user = await db.users.find_one({"user_id": user_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Delete all chats belonging to this user
+    await db.chats.delete_many({"owner_id": user_id})
+    return {"status": "success", "message": "All chat history cleared successfully."}
+
 @app.post("/chats/{chat_id}/messages_with_file")
 async def add_message_with_file(chat_id: str, content: str = Form(...), file: UploadFile = File(None)):
     # Replaces normal messages endpoint to also handle files
