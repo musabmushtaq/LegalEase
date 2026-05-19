@@ -438,7 +438,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         iconColor: Colors.redAccent,
                         textColor: Colors.redAccent,
                         title: 'Clear All Chat History',
-                        subtitle: 'Wipe every active persistent conversation from this account. Highly recommended if sharing access.',
+                        subtitle: 'Wipe every active persistent conversation from this account.',
                         onTap: () {
                           _showConfirmationDialog(
                             title: 'Clear Chat History?',
@@ -470,25 +470,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     title: 'Account & Session Management',
                     children: [
                       _buildSettingsRow(
-                        icon: Icons.logout_rounded,
-                        iconColor: Colors.white70,
-                        title: 'Log Out of Account',
-                        subtitle: 'End this session. Cached data will be cleared from this device.',
-                        onTap: () {
-                          _showConfirmationDialog(
-                            title: 'Log Out?',
-                            message: 'Are you sure you want to end your current session?',
-                            onConfirm: () async {
-                              await widget.chatService.logout();
-                              if (mounted) {
-                                Navigator.popUntil(context, (route) => route.isFirst);
-                              }
-                            },
-                          );
-                        },
-                      ),
-                      const Divider(color: Colors.white10, height: 1.0, indent: 56.0),
-                      _buildSettingsRow(
                         icon: Icons.no_accounts_outlined,
                         iconColor: Colors.redAccent,
                         textColor: Colors.redAccent,
@@ -512,6 +493,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                     ),
                                   );
                                 }
+                              }
+                            },
+                          );
+                        },
+                      ),
+                      const Divider(color: Colors.white10, height: 1.0, indent: 56.0),
+                      _buildSettingsRow(
+                        icon: Icons.logout_rounded,
+                        iconColor: Colors.white70,
+                        title: 'Log Out of Account',
+                        subtitle: 'End this session. Cached data will be cleared from this device.',
+                        onTap: () {
+                          _showConfirmationDialog(
+                            title: 'Log Out?',
+                            message: 'Are you sure you want to end your current session?',
+                            onConfirm: () async {
+                              await widget.chatService.logout();
+                              if (mounted) {
+                                Navigator.popUntil(context, (route) => route.isFirst);
                               }
                             },
                           );
