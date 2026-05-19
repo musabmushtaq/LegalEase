@@ -1,10 +1,26 @@
+@import url('https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&display=swap');
+
 :root {
+    /* Brand Colors */
     --bg-primary: #131313;
-    --bg-secondary: #222222;
     --highlight: #FCE566;
     --text-primary: #F7F1FF;
     --text-secondary: #999999;
-    --border-color: #333333;
+    --border-color: rgba(255, 255, 255, 0.08);
+    
+    /* Premium Glassmorphism Tokens */
+    --bg-glass-card: rgba(255, 255, 255, 0.04);
+    --bg-glass-card-hover: rgba(255, 255, 255, 0.07);
+    --bg-glass-active: rgba(252, 229, 102, 0.08);
+    --border-glass: rgba(255, 255, 255, 0.06);
+    --border-glass-focus: rgba(252, 229, 102, 0.35);
+    --shadow-glow: 0 0 32px 8px rgba(252, 229, 102, 0.04);
+    
+    /* Functional Colors */
+    --color-destructive: #ff4444;
+    --bg-destructive-glass: rgba(255, 68, 68, 0.08);
+    --color-success: #00cc88;
+    --bg-success-glass: rgba(0, 204, 136, 0.08);
 }
 
 * {
