@@ -716,9 +716,10 @@ class ChatService extends ChangeNotifier {
 
   // Helper for background syncing to avoid blocking the voice flow
   void _syncMessageToServer(String chatId, String content, String sender) async {
-    final isOnline = await _checkConnectivityInternal();
-    if (!isOnline) {
-      debugPrint('ChatService: Background sync skipped - offline');
+    // Rely on the service's current connection status instead of doing a redundant, slow API ping,
+    // which can easily time out and drop messages under high server loads (e.g. concurrent TTS/STT generation).
+    if (!_isConnected) {
+      debugPrint('ChatService: Background sync skipped - currently offline state');
       return;
     }
 
@@ -729,7 +730,7 @@ class ChatService extends ChangeNotifier {
         uri,
         headers: _headers(),
         body: jsonEncode({'content': content, 'sender': sender, 'user_id': _userId}),
-      );
+      ).timeout(const Duration(seconds: 10));
       
       if (response.statusCode == 200) {
         debugPrint('ChatService: Successfully synced $sender message to server');
@@ -738,6 +739,8 @@ class ChatService extends ChangeNotifier {
       }
     } catch (e) {
       debugPrint('ChatService: Background sync exception for $sender: $e');
+      // If we got a connection error, trigger standard offline fallback
+      _forceOfflineState();
     }
   }
 
