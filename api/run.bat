@@ -13,7 +13,7 @@ call .\.venv\Scripts\activate.bat
 
 REM Run the API
 echo Starting API server...
-echo Press Ctrl+C or 'q' to gracefully shut down
+echo Press Ctrl+C to gracefully shut down
 echo.
 
 python run.py

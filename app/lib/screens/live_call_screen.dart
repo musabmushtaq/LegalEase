@@ -61,6 +61,29 @@ class _LiveCallScreenState extends State<LiveCallScreen>
     _waveColor = ColorTween(begin: _userColor, end: _aiColor)
         .animate(CurvedAnimation(parent: _colorController, curve: Curves.easeInOut));
 
+    // Configure AudioPlayer to voice communication mode so Android & iOS
+    // allow concurrent recording (VAD mic) and playback (AI speaker) without preemption,
+    // enabling seamless user interruption during active AI playback.
+    _audioPlayer.setAudioContext(
+      AudioContext(
+        android: const AudioContextAndroid(
+          isSpeakerphoneOn: true,
+          stayAwake: true,
+          contentType: AndroidContentType.speech,
+          usageType: AndroidUsageType.voiceCommunication,
+          audioMode: AndroidAudioMode.inCommunication,
+          audioFocus: AndroidAudioFocus.none,
+        ),
+        iOS: AudioContextIOS(
+          category: AVAudioSessionCategory.playAndRecord,
+          options: const {
+            AVAudioSessionOptions.defaultToSpeaker,
+            AVAudioSessionOptions.allowBluetooth,
+          },
+        ),
+      ),
+    );
+
     _vadHandler = VadHandler.create(isDebug: false);
     _initMic();
   }
