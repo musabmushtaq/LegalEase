@@ -38,6 +38,8 @@ class _LiveCallScreenState extends State<LiveCallScreen>
   int _activeInteractionId = 0;
   String _transcription = "";
   double _aiAmplitude = 0.0;
+  bool _isUserSpeaking = false;
+  bool _forceSubmitSpeech = false;
 
   // Color animation: blue (user) <-> gold (AI)
   late AnimationController _colorController;
@@ -111,6 +113,7 @@ class _LiveCallScreenState extends State<LiveCallScreen>
             negativeSpeechThreshold: 0.35,
             minSpeechFrames: 2,
             redemptionFrames: 30, // Allows ~1 second of pause without cutting off
+            submitUserSpeechOnPause: true,
           );
           debugPrint('LiveCallScreen: VAD started listening');
         }
@@ -130,6 +133,7 @@ class _LiveCallScreenState extends State<LiveCallScreen>
       if (!mounted || _isMuted) return;
       debugPrint('LiveCallScreen: Speech started (User Interruption)');
       
+      _isUserSpeaking = true;
       _activeInteractionId++; // Invalidate any pending AI responses
       
       setState(() {
@@ -143,7 +147,11 @@ class _LiveCallScreenState extends State<LiveCallScreen>
     });
 
     _vadHandler.onSpeechEnd.listen((samples) async {
-      if (!mounted || _isMuted) return;
+      final bool isForced = _forceSubmitSpeech;
+      _forceSubmitSpeech = false;
+      _isUserSpeaking = false;
+
+      if (!mounted || (_isMuted && !isForced)) return;
       debugPrint('LiveCallScreen: Speech ended (User stopped)');
       setState(() {
         _isThinking = true; // Waiting for server response
@@ -213,6 +221,7 @@ class _LiveCallScreenState extends State<LiveCallScreen>
     });
 
     _vadHandler.onVADMisfire.listen((_) {
+      _isUserSpeaking = false;
       if (!mounted || _isMuted) return;
       debugPrint('LiveCallScreen: VAD misfire');
       setState(() {
@@ -322,9 +331,39 @@ class _LiveCallScreenState extends State<LiveCallScreen>
   }
 
   Future<void> _toggleMute() async {
+    final bool wasMuted = _isMuted;
+    final bool wasSpeaking = _isUserSpeaking;
+
     setState(() {
-      _isMuted = !_isMuted;
+      _isMuted = !wasMuted;
     });
+
+    if (_isMuted) {
+      // If we are muting and the user was actively speaking,
+      // forcefully stop recording, trigger onSpeechEnd immediately,
+      // and transition to thinking state to process what was said!
+      if (wasSpeaking) {
+        debugPrint('LiveCallScreen: Muted while speaking. Forcing submission of current audio.');
+        _forceSubmitSpeech = true;
+      }
+      await _vadHandler.pauseListening();
+      if (mounted) {
+        setState(() {
+          _micLevel = 0.0;
+          _smoothedLevel = 0.0;
+        });
+      }
+    } else {
+      // Resume VAD listening smoothly when unmuted
+      await _vadHandler.startListening(
+        baseAssetPath: 'assets/models/',
+        positiveSpeechThreshold: 0.55,
+        negativeSpeechThreshold: 0.35,
+        minSpeechFrames: 2,
+        redemptionFrames: 30,
+        submitUserSpeechOnPause: true,
+      );
+    }
   }
 
   @override
