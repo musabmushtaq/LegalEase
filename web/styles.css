@@ -788,3 +788,65 @@ a { color:inherit; text-decoration:none; }
   opacity: 1;
   transform: translateX(-50%) translateY(0);
 }
+
+/* ─── No-Messages Centered Layout ───────────────────────── */
+/* When chat is empty, center welcome + input in the viewport */
+.chat-container.no-messages {
+  justify-content: center;
+}
+.chat-container.no-messages .messages-container {
+  display: none;
+}
+.chat-container.no-messages .welcome-banner {
+  display: flex;
+}
+.chat-container.no-messages .input-console {
+  max-width: 700px;
+  margin: 0 auto;
+  width: 100%;
+  padding-bottom: 28px;
+}
+
+/* Welcome Banner — hidden by default, shown in no-messages mode */
+.welcome-banner {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 0 24px 32px;
+  gap: 10px;
+}
+.welcome-banner h1 {
+  font-size: 32px; font-weight: 700; letter-spacing: -0.5px;
+  background: linear-gradient(135deg, var(--highlight), rgba(255,255,255,0.9));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+}
+.welcome-banner p { font-size: 15px; color: var(--text-2); }
+.welcome-banner .welcome-subtitle { font-size: 13px; color: var(--text-3); }
+
+/* When messages exist, hide the welcome banner */
+.messages-container:not(:empty) ~ .welcome-banner { display: none !important; }
+
+/* ─── Polish: Input console max-width when messages exist ── */
+.chat-container:not(.no-messages) .input-console {
+  padding-left: max(16px, calc(50% - 420px));
+  padding-right: max(16px, calc(50% - 420px));
+}
+.chat-container:not(.no-messages) .messages-container {
+  padding-left: max(20px, calc(50% - 440px));
+  padding-right: max(20px, calc(50% - 440px));
+}
+
+/* ─── Polished Auth Modal ────────────────────────────────── */
+/* Larger, more centered emblem glow */
+.auth-emblem {
+  margin-bottom: 20px;
+}
+
+/* ─── Drawer footer — single button only ────────────────── */
+.drawer-footer { gap: 8px; }
+
+/* ─── Refined connection banner position ────────────────── */
+.connection-banner {
+  top: 68px; /* Below topbar */
+}

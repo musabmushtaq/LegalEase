@@ -225,30 +225,22 @@ function chatItemHtml(chat) {
 export function renderMessages() {
     if (!messagesContainer) return;
 
+    const chatContainer = document.querySelector('.chat-container');
     const msgList = state.currentChatId
         ? (state.messages[state.currentChatId] || [])
         : [];
 
-    if (msgList.length === 0) {
-        messagesContainer.innerHTML = `
-            <div class="welcome-message">
-                <div class="welcome-emblem">
-                    <div class="welcome-emblem-inner">
-                        <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                            <path d="M12 3v18m0-18l-8 5v5m8-10l8 5v5M4 13h16M2 21h20"/>
-                        </svg>
-                    </div>
-                </div>
-                <h1>LegalEase</h1>
-                <p>Your AI-powered legal assistant</p>
-                <p class="welcome-subtitle">Ask me anything about legal matters</p>
-            </div>
-        `;
+    const isEmpty = msgList.length === 0;
+    chatContainer?.classList.toggle('no-messages', isEmpty);
+
+    if (isEmpty) {
+        messagesContainer.innerHTML = '';
         return;
     }
 
     messagesContainer.innerHTML = msgList.map(msg => messageBubbleHtml(msg)).join('');
     scrollToBottom();
+
 }
 
 function messageBubbleHtml(msg) {

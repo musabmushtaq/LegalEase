@@ -56,6 +56,11 @@ async function initializeApp() {
         renderMessages();
         renderUserState();
         showPrivacySections(!!state.authToken);
+
+        // If not logged in, prompt login immediately
+        if (!state.authToken) {
+            openAuthModal('login');
+        }
     } catch (error) {
         logError('initializeApp', error);
         showMessage('Error initializing app. Please refresh the page.');
@@ -106,7 +111,7 @@ function setupEventListeners() {
     ui.attachmentInput.addEventListener('change', handleAttachmentSelection);
     document.getElementById('removeAttachmentBtn').addEventListener('click', clearAttachment);
     ui.drawerSearch.addEventListener('input', debounce(handleSearchInput, 300));
-    document.getElementById('tempChatToggleBtn').addEventListener('click', toggleTemporaryChatMode);
+    document.getElementById('tempChatToggleBtn')?.addEventListener('click', toggleTemporaryChatMode);
     document.getElementById('authActionBtn').addEventListener('click', handleAuthAction);
     ui.authForm.addEventListener('submit', handleAuthSubmit);
     document.getElementById('authSwitchBtn').addEventListener('click', () => {
@@ -185,8 +190,12 @@ function togglePersonaMode() {
 
 // ─── New Chat ──────────────────────────────────────────────────────────────────
 async function createNewChatUI() {
+    if (!state.authToken) {
+        openAuthModal('login');
+        return;
+    }
     try {
-        if (!state.isConnected || state.isTemporaryChat || !state.userId) {
+        if (!state.isConnected || !state.userId) {
             createLocalChat();
         } else {
             await createNewChat(state.userId);
@@ -252,6 +261,12 @@ async function deleteChatUI(chatId) {
 // ─── Send Message (Full AI Pipeline) ──────────────────────────────────────────
 async function sendMessageUI() {
     if (state.sharedView || state.isAiThinking) return;
+
+    // Require authentication — no anonymous chats saved to DB
+    if (!state.authToken) {
+        openAuthModal('login');
+        return;
+    }
 
     const ui = getUIElements();
     const content = ui.messageInput.value.trim();

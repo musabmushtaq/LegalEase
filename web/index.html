@@ -154,7 +154,6 @@
                 <div class="loading-text">Loading chats…</div>
             </div>
             <div class="drawer-footer">
-                <button class="drawer-footer-btn" id="tempChatToggleBtn" aria-pressed="false">Temporary Chat: OFF</button>
                 <button class="drawer-footer-btn primary" id="authActionBtn">Login / Sign Up</button>
             </div>
         </nav>
@@ -192,6 +191,20 @@
 
             <!-- Messages -->
             <div class="messages-container" id="messagesContainer" role="log" aria-live="polite" aria-label="Chat messages"></div>
+
+            <!-- Welcome (shown when no messages via CSS) -->
+            <div class="welcome-banner" id="welcomeBanner" aria-hidden="true">
+                <div class="welcome-emblem">
+                    <div class="welcome-emblem-inner">
+                        <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path d="M12 3v18m0-18l-8 5v5m8-10l8 5v5M4 13h16M2 21h20"/>
+                        </svg>
+                    </div>
+                </div>
+                <h1>LegalEase</h1>
+                <p>Your AI-powered legal assistant</p>
+                <p class="welcome-subtitle">Ask me anything about legal matters</p>
+            </div>
 
             <!-- Floating Input Console -->
             <div class="input-console">

@@ -1,5 +1,5 @@
 // Configuration and constants
-const DEFAULT_API_BASE_URL = 'http://127.0.0.1:8002';
+const DEFAULT_API_BASE_URL = 'http://127.0.0.1:8000';
 const queryParams = new URLSearchParams(window.location.search);
 // Precedence: localStorage override -> query param -> default
 const storedApiBase = (() => {
