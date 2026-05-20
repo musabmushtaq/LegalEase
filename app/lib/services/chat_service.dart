@@ -647,19 +647,20 @@ class ChatService extends ChangeNotifier {
       return null;
     }
 
-    // 6. Generate AI Response via specialized Live endpoint
+    // 6. Generate AI Response via specialized Live endpoint.
+    // IMPORTANT: Always send the full in-memory message list directly, never just the chat_id.
+    // Sending only chat_id causes a race condition: the user's latest message is still being
+    // background-synced to the DB, so the server fetches stale history and Gemini never sees
+    // what the user just said. The in-memory list is always up-to-date and correct.
     String? aiResponseText;
     try {
       final liveUri = Uri.parse('$_apiBaseUrl/api/generate_live');
-      final Map<String, dynamic> body = {};
-      if (!_isTemporaryChat) {
-        body['chat_id'] = finalChatId;
-      } else {
-        body['messages'] = _messages[finalChatId]?.map((m) => {
+      final body = {
+        'messages': _messages[finalChatId]?.map((m) => {
           'sender': m.sender,
           'content': m.content,
-        }).toList() ?? [];
-      }
+        }).toList() ?? [],
+      };
 
       final response = await http.post(
         liveUri,
