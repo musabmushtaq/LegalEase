@@ -517,16 +517,46 @@ async def generate_live(payload: GenerateLiveRequest) -> dict[str, Any]:
     Specialized AI generation for Live Calls.
     Optimized for short, concise, and conversational legal guidance.
     """
-    # For now, return a mock response as requested
-    mock_content = "This is a MOCK response from the LegalEase Live Call system. I have successfully transcribed your voice and processed it through the new pipeline. How else can I assist you today?"
-    
+    # Live call system prompt: keeps Gemini brief and natural, like a voice conversation
+    live_system_prompt = (
+        "You are LegalEase, an intelligent AI legal assistant currently in a LIVE VOICE CALL with the user. "
+        "You must respond in a natural, conversational tone — like a knowledgeable friend speaking aloud, NOT a formal written document. "
+        "Rules you MUST follow:\n"
+        "- Keep your response SHORT. Ideally 1-3 sentences. Never more than 4.\n"
+        "- Do NOT use bullet points, numbered lists, headers, or markdown formatting of any kind.\n"
+        "- Do NOT start with filler phrases like 'Of course!', 'Great question!', 'Certainly!', etc.\n"
+        "- Speak directly and clearly. Get to the point immediately.\n"
+        "- You may provide brief legal guidance, but always mention consulting a qualified lawyer for jurisdiction-specific advice if relevant.\n"
+        "- If asked something unrelated to law, just answer naturally and briefly as a helpful assistant would.\n"
+        "The user is speaking to you with their voice, so your reply will be read aloud via text-to-speech. Write accordingly."
+    )
+
+    # Resolve chat history from DB or from the payload directly
+    chat_history = []
+    if payload.chat_id:
+        chat = await db.chats.find_one({"chat_id": payload.chat_id})
+        if chat:
+            chat_history = chat.get("messages", [])
+    elif payload.messages is not None:
+        chat_history = payload.messages
+
+    # Extract the latest user message as the prompt, use the rest as history
+    prompt = "Continue the conversation."
+    context_history = chat_history
+    if chat_history and chat_history[-1].get("sender") == "user":
+        prompt = chat_history[-1].get("content", "")
+        context_history = chat_history[:-1]
+
+    # Call Gemini with the live conversation system prompt
+    ai_content = await generate_ai_reply(prompt, live_system_prompt, context_history)
+
     assistant_message = {
         "id": make_id("msg"),
         "sender": "ai",
-        "content": mock_content,
+        "content": ai_content,
         "created_at": now_iso(),
     }
-    
+
     return {
         "assistant_message": assistant_message,
     }
