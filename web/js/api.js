@@ -40,7 +40,7 @@ export async function apiCall(endpoint, options = {}) {
                     ...options,
                     headers: {
                         ...getAuthorizedHeaders(),
-                        ...(options.headers || {})
+                        ...(options.headers || {}),
                     },
                     signal: controller.signal,
                 });
@@ -76,7 +76,7 @@ export async function apiCall(endpoint, options = {}) {
 
 export async function checkHealth() {
     try {
-        const res = await apiCall('/health', { method: 'GET', _retries: 1, _timeout: 3000 });
+        const res = await apiCall('/api/ping', { method: 'GET', _retries: 1, _timeout: 3000 });
         return !!res && (res.status === 'ok' || res.status === undefined);
     } catch {
         return false;
@@ -99,7 +99,7 @@ export async function registerUser(username, email, password) {
 
 export async function loadChats(userId) {
     return apiCall(`/users/${userId}/chats`, {
-        method: 'GET'
+        method: 'GET',
     });
 }
 
@@ -127,7 +127,11 @@ export async function deleteChat(chatId) {
     });
 }
 
-export async function sendMessage(chatId, content, file = null) {
+/**
+ * Save a user message (with optional file) to a persistent chat.
+ * Returns the saved message document from the server.
+ */
+export async function saveUserMessage(chatId, content, file = null) {
     const messageContent = (content || '').trim() || (file ? 'Sent an attachment' : '');
     if (!messageContent) {
         throw new Error('Message cannot be empty');
@@ -161,6 +165,68 @@ export async function sendMessage(chatId, content, file = null) {
     });
 }
 
+/**
+ * Legacy alias kept for compatibility.
+ */
+export async function sendMessage(chatId, content, file = null) {
+    return saveUserMessage(chatId, content, file);
+}
+
+/**
+ * Call /api/generate_ai to get an AI response.
+ * For persistent chats passes chat_id so the server reads history from DB.
+ * For temporary chats passes the full messages array inline.
+ */
+export async function generateAiReply(chatId, messages = null, useContext = false) {
+    const body = { use_context: useContext };
+
+    const isLocal = String(chatId).startsWith('local_');
+    if (!isLocal && chatId) {
+        body.chat_id = chatId;
+    } else if (messages) {
+        body.messages = messages.map(m => ({ sender: m.sender, content: m.content }));
+        body.update_context = false;
+    }
+
+    return apiCall('/api/generate_ai', {
+        method: 'POST',
+        body: JSON.stringify(body),
+        _timeout: 60000, // AI can take a while
+        _retries: 0,
+    });
+}
+
+/**
+ * Save an AI message to the persistent chat.
+ */
+export async function saveAiMessage(chatId, content) {
+    return apiCall(`/chats/${chatId}/messages`, {
+        method: 'POST',
+        body: JSON.stringify({
+            sender: 'ai',
+            content,
+            user_id: state.userId || DEFAULT_USER_ID,
+        }),
+    });
+}
+
+/**
+ * Summarize text to generate a short chat title (max ~5 words).
+ */
+export async function summarizeText(text) {
+    try {
+        const res = await apiCall('/api/summarize', {
+            method: 'POST',
+            body: JSON.stringify({ text }),
+            _timeout: 15000,
+            _retries: 0,
+        });
+        return res.summary || null;
+    } catch {
+        return null;
+    }
+}
+
 export async function updateMessage(chatId, messageId, content) {
     return apiCall(`/chats/${chatId}/messages/${messageId}`, {
         method: 'PATCH',
@@ -187,4 +253,51 @@ export async function searchChats(userId, query) {
 
 export async function getSharedChat(shareToken) {
     return apiCall(`/share/${shareToken}`);
+}
+
+/**
+ * Download a file by fileId from the server.
+ * Returns a Blob on success, null on failure.
+ */
+export async function downloadFile(fileId) {
+    try {
+        const base = (window.API_BASE_URL) ? window.API_BASE_URL : API_BASE_URL;
+        const url = `${base}/api/files/${fileId}`;
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: buildAuthHeaders(),
+        });
+        if (!response.ok) return null;
+        return await response.blob();
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * Delete a user's personal context.
+ */
+export async function clearPersonalContext(userId) {
+    return apiCall(`/users/${userId}/context`, {
+        method: 'PATCH',
+        body: JSON.stringify({ context: '' }),
+    });
+}
+
+/**
+ * Clear all chat history for a user.
+ */
+export async function clearAllHistory(userId) {
+    return apiCall(`/users/${userId}/chats`, {
+        method: 'DELETE',
+    });
+}
+
+/**
+ * Permanently delete a user account.
+ */
+export async function deleteUserAccount(userId) {
+    return apiCall(`/users/${userId}`, {
+        method: 'DELETE',
+    });
 }

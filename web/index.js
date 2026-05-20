@@ -1,27 +1,27 @@
 // Main application entry point
 import { API_BASE_URL, state, CONNECTIVITY_CHECK_INTERVAL, DEFAULT_USER_ID } from './js/config.js';
 import { loadAuthState, saveAuthState, clearAuthState, handleLogin, handleRegister, handleLogout, toggleTemporaryMode, ensureUserId } from './js/auth.js';
-import { loadChatCache, saveChatCache, loadChatsFromServer, createNewChat, createLocalChat, selectChat, renameChat, togglePinChat, removeChat, searchChatsServer, searchChatsLocal, getCurrentChat, getCurrentMessages } from './js/chat.js';
-import { initializeDOM, toggleDrawer, closeDrawer, renderUserState, renderTemporaryToggle, renderConnectionBanner, openAuthModal, closeAuthModal, openShareModal, closeShareModal, renderDrawer, renderMessages, getUIElements, updateAttachmentPreview, openSettingsModal, closeSettingsModal } from './js/ui.js';
-import { checkHealth, sendMessage as apiSendMessage, updateMessage as apiUpdateMessage, deleteMessage as apiDeleteMessage, shareChat as apiShareChat, getSharedChat } from './js/api.js';
+import { loadChatCache, saveChatCache, loadChatsFromServer, createNewChat, createLocalChat, selectChat, renameChat, togglePinChat, removeChat, searchChatsServer, searchChatsLocal } from './js/chat.js';
+import { initializeDOM, toggleDrawer, closeDrawer, renderUserState, renderTemporaryToggle, renderConnectionBanner, openAuthModal, closeAuthModal, renderDrawer, renderMessages, getUIElements, updateAttachmentPreview, openSettingsModal, closeSettingsModal, renderThinkingIndicator, removeThinkingIndicator, renderContextPill, updatePersonaBtn, showPrivacySections } from './js/ui.js';
+import { checkHealth, saveUserMessage, generateAiReply, saveAiMessage, summarizeText, updateMessage as apiUpdateMessage, deleteMessage as apiDeleteMessage, downloadFile as apiDownloadFile, clearPersonalContext, clearAllHistory, deleteUserAccount } from './js/api.js';
 import { debounce, showMessage, logError } from './js/utils.js';
 
-// Global state for UI interactions
-let editingMessageId = null;
 let connectivityInterval = null;
-let currentChatShareInfo = null;
 
-// UI interaction handlers - exposed globally for HTML onclick handlers
+// Expose globals for HTML onclick handlers
 window.selectChatUI = selectChatUI;
 window.togglePinChatUI = togglePinChatUI;
 window.renameChatUI = renameChatUI;
 window.deleteChatUI = deleteChatUI;
 window.editMessageUI = editMessageUI;
 window.deleteMessageUI = deleteMessageUI;
-window.openShareModalUI = openShareModalUI;
-window.toggleChatShareUI = toggleChatShareUI;
 window.toggleDrawer = toggleDrawer;
 window.closeDrawer = closeDrawer;
+window.downloadFileUI = downloadFileUI;
+window.copyMessageUI = copyMessageUI;
+window.thumbsUpUI = thumbsUpUI;
+window.thumbsDownUI = thumbsDownUI;
+window.tryReconnect = ensureConnectivity;
 
 async function initializeApp() {
     try {
@@ -31,28 +31,16 @@ async function initializeApp() {
         renderUserState();
         renderTemporaryToggle();
         renderConnectionBanner();
-        
+
         window.toggleDrawer = toggleDrawer;
         window.closeDrawer = closeDrawer;
 
         await checkConnectivity();
         setupEventListeners();
 
-        const shareToken = new URLSearchParams(window.location.search).get('share');
-        if (shareToken) {
-            state.sharedView = true;
-            await loadSharedChat(shareToken);
-            renderUserState();
-            renderDrawer();
-            renderMessages();
-            updateInputState(true);
-            return;
-        }
-
-        if (state.isConnected && !state.isTemporaryChat) {
+        if (state.isConnected && !state.isTemporaryChat && state.userId) {
             try {
-                const userId = ensureUserId();
-                await loadChatsFromServer(userId);
+                await loadChatsFromServer(state.userId);
             } catch (error) {
                 logError('initializeApp - loadChatsFromServer', error);
             }
@@ -60,23 +48,14 @@ async function initializeApp() {
 
         if (!state.currentChatId) {
             const firstChatId = Object.keys(state.chats)[0];
-            if (firstChatId) {
-                state.currentChatId = firstChatId;
-            }
+            if (firstChatId) state.currentChatId = firstChatId;
         }
-
-        if (!state.currentChatId) {
-            createLocalChat();
-        }
+        if (!state.currentChatId) createLocalChat();
 
         renderDrawer();
         renderMessages();
         renderUserState();
-        updateInputState(false);
-
-        if (!state.isConnected) {
-            showMessage('Offline mode is active. Some features are limited.');
-        }
+        showPrivacySections(!!state.authToken);
     } catch (error) {
         logError('initializeApp', error);
         showMessage('Error initializing app. Please refresh the page.');
@@ -85,113 +64,89 @@ async function initializeApp() {
 
 async function checkConnectivity() {
     try {
-        const isHealthy = await checkHealth();
-        state.isConnected = isHealthy;
+        state.isConnected = await checkHealth();
     } catch {
         state.isConnected = false;
     }
     renderConnectionBanner();
 
-    if (connectivityInterval) {
-        clearTimeout(connectivityInterval);
-    }
-    
-    if (state.isConnected && !state.isTemporaryChat) {
+    if (connectivityInterval) clearTimeout(connectivityInterval);
+
+    if (state.isConnected && !state.isTemporaryChat && state.userId) {
         try {
-            const userId = ensureUserId();
-            await loadChatsFromServer(userId);
+            await loadChatsFromServer(state.userId);
+            renderDrawer();
             renderUserState();
         } catch (error) {
             logError('checkConnectivity - loadChatsFromServer', error);
         }
     }
-
     connectivityInterval = setTimeout(checkConnectivity, CONNECTIVITY_CHECK_INTERVAL);
 }
 
 async function ensureConnectivity() {
-    if (state.isConnected) return true;
     try {
-        const isHealthy = await checkHealth();
-        state.isConnected = isHealthy;
-        renderConnectionBanner();
+        state.isConnected = await checkHealth();
     } catch {
         state.isConnected = false;
     }
+    renderConnectionBanner();
     return state.isConnected;
 }
 
-export async function saveSettings() {
-    const ui = getUIElements();
-    const newUrl = (ui.settingsApiUrl && ui.settingsApiUrl.value) ? ui.settingsApiUrl.value.trim() : '';
-    if (!newUrl) {
-        showMessage('API URL cannot be empty');
-        return;
-    }
-    try {
-        localStorage.setItem('legalease_api_base', newUrl);
-    } catch (e) {
-        logError('saveSettings', e);
-        showMessage('Could not save settings');
-        return;
-    }
-    window.API_BASE_URL = newUrl;
-    closeSettingsModal();
-    showMessage('Settings saved. Rechecking connectivity...');
-    await ensureConnectivity();
-}
-
-// Expose a simple reconnect helper for the UI
-window.tryReconnect = ensureConnectivity;
-
 function setupEventListeners() {
     const ui = getUIElements();
-    
+
     document.getElementById('menuBtn').addEventListener('click', toggleDrawer);
     document.getElementById('newChatBtn').addEventListener('click', createNewChatUI);
     document.getElementById('closeDrawerBtn').addEventListener('click', closeDrawer);
     document.getElementById('drawerOverlay').addEventListener('click', closeDrawer);
     document.getElementById('sendBtn').addEventListener('click', sendMessageUI);
-    document.getElementById('attachBtn').addEventListener('click', () => ui.attachmentInput.click());
+    document.getElementById('attachBtn').addEventListener('click', () => toggleAttachmentMenu());
     ui.attachmentInput.addEventListener('change', handleAttachmentSelection);
-    document.getElementById('removeAttachmentBtn').addEventListener('click', () => {
-        state.attachment = null;
-        ui.attachmentInput.value = '';
-        updateAttachmentPreview(null);
-    });
+    document.getElementById('removeAttachmentBtn').addEventListener('click', clearAttachment);
     ui.drawerSearch.addEventListener('input', debounce(handleSearchInput, 300));
     document.getElementById('tempChatToggleBtn').addEventListener('click', toggleTemporaryChatMode);
     document.getElementById('authActionBtn').addEventListener('click', handleAuthAction);
     ui.authForm.addEventListener('submit', handleAuthSubmit);
     document.getElementById('authSwitchBtn').addEventListener('click', () => {
-        const newMode = state.authMode === 'login' ? 'signup' : 'login';
-        openAuthModal(newMode);
+        openAuthModal(state.authMode === 'login' ? 'signup' : 'login');
     });
     ui.authCloseBtn.addEventListener('click', closeAuthModal);
-    document.getElementById('shareChatBtn').addEventListener('click', openShareModalUI);
-    document.getElementById('shareCloseBtn').addEventListener('click', closeShareModal);
-    document.getElementById('copyShareLinkBtn').addEventListener('click', copyShareLink);
-    document.getElementById('toggleShareBtn').addEventListener('click', toggleChatShareUI);
 
-    // Settings UI handlers
+    // Settings
     const settingsBtn = document.getElementById('settingsBtn');
     if (settingsBtn) settingsBtn.addEventListener('click', () => {
         const uiEls = getUIElements();
         if (uiEls.settingsApiUrl) uiEls.settingsApiUrl.value = window.API_BASE_URL || '';
         openSettingsModal();
     });
-
-    const saveSettingsBtn = document.getElementById('saveSettingsBtn');
-    if (saveSettingsBtn) saveSettingsBtn.addEventListener('click', saveSettings);
-
-    const settingsCloseBtn = document.getElementById('settingsCloseBtn');
-    if (settingsCloseBtn) settingsCloseBtn.addEventListener('click', closeSettingsModal);
-
-    ui.messageInput.addEventListener('input', () => {
-        ui.messageInput.style.height = 'auto';
-        ui.messageInput.style.height = Math.min(ui.messageInput.scrollHeight, 120) + 'px';
+    document.getElementById('saveSettingsBtn')?.addEventListener('click', saveSettings);
+    document.getElementById('settingsCloseBtn')?.addEventListener('click', closeSettingsModal);
+    document.getElementById('deleteContextBtn')?.addEventListener('click', handleDeleteContext);
+    document.getElementById('clearHistoryBtn')?.addEventListener('click', handleClearHistory);
+    document.getElementById('deleteAccountBtn')?.addEventListener('click', handleDeleteAccount);
+    document.getElementById('logoutSettingsBtn')?.addEventListener('click', () => {
+        closeSettingsModal();
+        handleAuthAction();
     });
 
+    // Attachment menu buttons
+    document.getElementById('attachFileBtn')?.addEventListener('click', () => {
+        closeAttachmentMenu();
+        ui.attachmentInput.click();
+    });
+    document.getElementById('attachPersonaBtn')?.addEventListener('click', () => {
+        closeAttachmentMenu();
+        togglePersonaMode();
+    });
+    document.getElementById('attachMenuOverlay')?.addEventListener('click', closeAttachmentMenu);
+
+    // Input
+    ui.messageInput.addEventListener('input', () => {
+        ui.messageInput.style.height = 'auto';
+        ui.messageInput.style.height = Math.min(ui.messageInput.scrollHeight, 160) + 'px';
+    });
     ui.messageInput.addEventListener('keydown', (event) => {
         if (event.key === 'Enter' && !event.shiftKey) {
             event.preventDefault();
@@ -200,36 +155,61 @@ function setupEventListeners() {
     });
 }
 
+// ─── Attachment Menu ───────────────────────────────────────────────────────────
+function toggleAttachmentMenu() {
+    const menu = document.getElementById('attachmentMenu');
+    const overlay = document.getElementById('attachMenuOverlay');
+    if (!menu) return;
+    const isOpen = menu.classList.toggle('open');
+    if (overlay) overlay.classList.toggle('active', isOpen);
+}
+
+function closeAttachmentMenu() {
+    const menu = document.getElementById('attachmentMenu');
+    const overlay = document.getElementById('attachMenuOverlay');
+    menu?.classList.remove('open');
+    overlay?.classList.remove('active');
+}
+
+// ─── Persona / Context Mode ────────────────────────────────────────────────────
+function togglePersonaMode() {
+    state.useContext = !state.useContext;
+    updatePersonaBtn(state.useContext);
+    if (state.useContext) {
+        renderContextPill(true);
+        setTimeout(() => renderContextPill(false), 3000);
+    } else {
+        renderContextPill(false);
+    }
+}
+
+// ─── New Chat ──────────────────────────────────────────────────────────────────
 async function createNewChatUI() {
     try {
-        if (!state.isConnected || state.isTemporaryChat) {
+        if (!state.isConnected || state.isTemporaryChat || !state.userId) {
             createLocalChat();
-            renderDrawer();
-            renderMessages();
-            return;
+        } else {
+            await createNewChat(state.userId);
         }
-        
-        const userId = ensureUserId();
-        await createNewChat(userId);
         renderDrawer();
         renderMessages();
         renderUserState();
-        document.getElementById('messageInput').focus();
+        document.getElementById('messageInput')?.focus();
     } catch (error) {
         logError('createNewChatUI', error);
-        showMessage('Could not create chat. Please try again.');
         createLocalChat();
         renderDrawer();
         renderMessages();
     }
 }
 
+// ─── Select / Pin / Rename / Delete chat ──────────────────────────────────────
 function selectChatUI(chatId) {
     selectChat(chatId);
     renderMessages();
     renderDrawer();
     closeDrawer();
-    document.getElementById('messageInput').focus();
+    document.getElementById('messageInput')?.focus();
     renderUserState();
 }
 
@@ -244,16 +224,10 @@ async function togglePinChatUI(chatId) {
 }
 
 async function renameChatUI(chatId) {
-    const currentChat = state.chats[chatId];
-    if (!currentChat) return;
-    
-    const newTitle = prompt('Enter new chat name:', currentChat.title);
-    if (newTitle === null) return;
-    if (!newTitle.trim()) {
-        showMessage('Chat name cannot be empty.');
-        return;
-    }
-    
+    const chat = state.chats[chatId];
+    if (!chat) return;
+    const newTitle = prompt('Enter new chat name:', chat.title);
+    if (!newTitle?.trim()) return;
     try {
         await renameChat(chatId, newTitle);
         renderDrawer();
@@ -265,7 +239,6 @@ async function renameChatUI(chatId) {
 
 async function deleteChatUI(chatId) {
     if (!confirm('Are you sure you want to delete this chat?')) return;
-    
     try {
         await removeChat(chatId);
         renderDrawer();
@@ -276,127 +249,210 @@ async function deleteChatUI(chatId) {
     }
 }
 
+// ─── Send Message (Full AI Pipeline) ──────────────────────────────────────────
 async function sendMessageUI() {
-    if (state.sharedView) return;
+    if (state.sharedView || state.isAiThinking) return;
+
     const ui = getUIElements();
     const content = ui.messageInput.value.trim();
     const file = state.attachment;
-    
+
     if (!content && !file) return;
-    if (!state.currentChatId) {
-        await createNewChatUI();
-    }
+    if (!state.currentChatId) await createNewChatUI();
     if (!state.currentChatId) return;
-    
-    if (!state.isConnected && !state.isTemporaryChat) {
-        await ensureConnectivity();
-    }
+
+    if (!state.isConnected) await ensureConnectivity();
 
     const chatId = state.currentChatId;
-    const userMessage = {
-        id: `local_${Date.now()}`,
+    const isLocal = String(chatId).startsWith('local_');
+    const isPersistent = state.isConnected && !state.isTemporaryChat && !isLocal && !!state.userId;
+
+    // 1. Optimistically add user message to local state
+    const userMsgId = `local_${Date.now()}`;
+    if (!state.messages[chatId]) state.messages[chatId] = [];
+    const userMsg = {
+        id: userMsgId,
         sender: 'user',
-        content: content,
+        content: content || (file ? file.name : ''),
         createdAt: new Date().toISOString(),
         isNew: true,
+        fileName: file?.name || null,
+        localFileUrl: file ? URL.createObjectURL(file) : null,
     };
+    state.messages[chatId].push(userMsg);
 
-    // Add to local state immediately
-    if (!state.messages[chatId]) {
-        state.messages[chatId] = [];
-    }
-    state.messages[chatId].push(userMessage);
-    
     ui.messageInput.value = '';
     ui.messageInput.style.height = 'auto';
+    clearAttachment();
     renderMessages();
     saveChatCache();
 
-    if (state.isConnected && !state.isTemporaryChat) {
-        try {
-            const response = await apiSendMessage(chatId, content, file);
-            // Remove local message and add server responses
-            const msgIdx = state.messages[chatId].findIndex(m => m.id === userMessage.id);
-            if (msgIdx !== -1) {
-                state.messages[chatId][msgIdx] = {
-                    ...response.user_message,
-                    createdAt: response.user_message.created_at,
-                    isNew: false,
-                };
+    // 2. Show thinking indicator
+    state.isAiThinking = true;
+    renderThinkingIndicator();
+
+    try {
+        // 3. Save user message to DB (persistent chats only)
+        if (isPersistent) {
+            try {
+                const saved = await saveUserMessage(chatId, content, file);
+                // Update local message with server ID / file info
+                const idx = state.messages[chatId].findIndex(m => m.id === userMsgId);
+                if (idx !== -1 && saved?.message) {
+                    state.messages[chatId][idx] = {
+                        ...state.messages[chatId][idx],
+                        id: saved.message.id || userMsgId,
+                        fileId: saved.message.file_id || null,
+                        fileName: saved.message.filename || file?.name || null,
+                        isNew: false,
+                    };
+                }
+            } catch (e) {
+                logError('saveUserMessage', e);
+                // Non-fatal — still try to get AI response
             }
-            
-            const aiMessage = {
-                ...response.assistant_message,
-                createdAt: response.assistant_message.created_at,
-                isNew: true,
-            };
-            state.messages[chatId].push(aiMessage);
-            
-            // Update chat timestamp
-            if (state.chats[chatId]) {
-                state.chats[chatId].updatedAt = new Date().toISOString();
-            }
-            
-            state.attachment = null;
-            ui.attachmentInput.value = '';
-            updateAttachmentPreview(null);
-            saveChatCache();
-            renderMessages();
-        } catch (error) {
-            logError('sendMessageUI', error);
-            showMessage(`Error sending message: ${error.message}`);
         }
-    } else {
-        const offlineReply = {
-            id: `local_ai_${Date.now()}`,
+
+        // 4. Generate AI response
+        if (!state.isConnected) {
+            throw new Error('Offline');
+        }
+
+        const messagesForContext = state.isTemporaryChat
+            ? state.messages[chatId]
+            : null;
+
+        const aiResp = await generateAiReply(
+            isPersistent ? chatId : null,
+            messagesForContext,
+            state.useContext
+        );
+
+        const aiContent = aiResp?.assistant_message?.content || "I'm sorry, I encountered an error. Please try again.";
+
+        // 5. Add AI message locally
+        const aiMsgId = `local_ai_${Date.now()}`;
+        const aiMsg = {
+            id: aiMsgId,
             sender: 'ai',
-            content: state.isTemporaryChat
-                ? 'Temporary chat mode is on. Messages stay in this browser only.'
-                : `Backend unavailable. Check that the API is running at ${API_BASE_URL}.`,
+            content: aiContent,
+            createdAt: new Date().toISOString(),
+            isNew: true,
+        };
+        state.messages[chatId].push(aiMsg);
+
+        // Update chat timestamp
+        if (state.chats[chatId]) state.chats[chatId].updatedAt = new Date().toISOString();
+
+        // 6. Save AI message to DB (persistent chats only)
+        if (isPersistent) {
+            try {
+                await saveAiMessage(chatId, aiContent);
+            } catch (e) {
+                logError('saveAiMessage', e);
+            }
+        }
+
+        // 7. Auto-rename "New Chat" from first message
+        const isFirstMessage = state.chats[chatId]?.title === 'New Chat';
+        if (isFirstMessage && isPersistent && content) {
+            autoRenameChat(chatId, content);
+        }
+
+    } catch (error) {
+        logError('sendMessageUI - AI generation', error);
+        const errContent = state.isConnected
+            ? 'Error generating response. Please try again.'
+            : `Backend unavailable. Check that the API is running at ${window.API_BASE_URL}.`;
+        state.messages[chatId].push({
+            id: `local_err_${Date.now()}`,
+            sender: 'ai',
+            content: errContent,
             createdAt: new Date().toISOString(),
             isNew: false,
-        };
-        state.messages[chatId].push(offlineReply);
-        state.attachment = null;
-        ui.attachmentInput.value = '';
-        updateAttachmentPreview(null);
+        });
+    } finally {
+        state.isAiThinking = false;
+        removeThinkingIndicator();
         saveChatCache();
         renderMessages();
     }
 }
 
-function editMessageUI(messageId) {
-    editingMessageId = messageId;
+async function autoRenameChat(chatId, firstMessage) {
+    try {
+        const summary = await summarizeText(firstMessage);
+        if (summary && summary.trim() && state.chats[chatId]) {
+            await renameChat(chatId, summary.trim());
+            renderDrawer();
+        }
+    } catch (e) {
+        logError('autoRenameChat', e);
+    }
+}
+
+// ─── Message Actions ───────────────────────────────────────────────────────────
+function copyMessageUI(messageId) {
     const msg = state.messages[state.currentChatId]?.find(m => m.id === messageId);
     if (!msg) return;
-    
-    const newContent = prompt('Edit message:', msg.content);
-    if (newContent === null) return;
-    if (!newContent.trim()) {
-        showMessage('Message cannot be empty.');
-        return;
+    navigator.clipboard.writeText(msg.content).then(() => {
+        showMessage('Copied to clipboard');
+    }).catch(() => showMessage('Could not copy'));
+}
+
+function thumbsUpUI(messageId) {
+    const btn = document.querySelector(`[data-thumb-up="${messageId}"]`);
+    const downBtn = document.querySelector(`[data-thumb-down="${messageId}"]`);
+    if (!btn) return;
+    const isActive = btn.classList.toggle('active');
+    downBtn?.classList.remove('active');
+    btn.setAttribute('aria-pressed', String(isActive));
+}
+
+function thumbsDownUI(messageId) {
+    const btn = document.querySelector(`[data-thumb-down="${messageId}"]`);
+    const upBtn = document.querySelector(`[data-thumb-up="${messageId}"]`);
+    if (!btn) return;
+    const isActive = btn.classList.toggle('active');
+    upBtn?.classList.remove('active');
+    btn.setAttribute('aria-pressed', String(isActive));
+}
+
+async function downloadFileUI(fileId, fileName) {
+    showMessage(`Downloading ${fileName}...`);
+    try {
+        const blob = await apiDownloadFile(fileId);
+        if (!blob) { showMessage('Download failed.'); return; }
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        a.click();
+        URL.revokeObjectURL(url);
+        showMessage('Download complete.');
+    } catch {
+        showMessage('Download failed.');
     }
-    
+}
+
+function editMessageUI(messageId) {
+    const msg = state.messages[state.currentChatId]?.find(m => m.id === messageId);
+    if (!msg) return;
+    const newContent = prompt('Edit message:', msg.content);
+    if (newContent === null || !newContent.trim()) return;
     updateMessageUI(messageId, newContent);
 }
 
 async function updateMessageUI(messageId, newContent) {
     if (!state.currentChatId) return;
     const chatId = state.currentChatId;
-    const isLocalMessage = String(messageId).startsWith('local_');
-    
+    const isLocal = String(messageId).startsWith('local_') || String(chatId).startsWith('local_');
     try {
-        if (state.isConnected && !state.isTemporaryChat && !isLocalMessage && !String(chatId).startsWith('local_')) {
+        if (state.isConnected && !state.isTemporaryChat && !isLocal) {
             await apiUpdateMessage(chatId, messageId, newContent);
         }
-        
-        const msg = state.messages[state.currentChatId]?.find(m => m.id === messageId);
-        if (msg) {
-            msg.content = newContent;
-            msg.edited_at = new Date().toISOString();
-        }
-        
-        editingMessageId = null;
+        const msg = state.messages[chatId]?.find(m => m.id === messageId);
+        if (msg) { msg.content = newContent; msg.edited_at = new Date().toISOString(); }
         saveChatCache();
         renderMessages();
     } catch (error) {
@@ -408,20 +464,13 @@ async function updateMessageUI(messageId, newContent) {
 async function deleteMessageUI(messageId) {
     if (!confirm('Delete this message?')) return;
     const chatId = state.currentChatId;
-    const isLocalMessage = String(messageId).startsWith('local_');
-    
+    const isLocal = String(messageId).startsWith('local_') || String(chatId).startsWith('local_');
     try {
-        if (state.isConnected && !state.isTemporaryChat && !isLocalMessage && !String(chatId).startsWith('local_')) {
+        if (state.isConnected && !state.isTemporaryChat && !isLocal) {
             await apiDeleteMessage(chatId, messageId);
         }
-        
-        if (state.messages[state.currentChatId]) {
-            const idx = state.messages[state.currentChatId].findIndex(m => m.id === messageId);
-            if (idx !== -1) {
-                state.messages[state.currentChatId].splice(idx, 1);
-            }
-        }
-        
+        const idx = state.messages[chatId]?.findIndex(m => m.id === messageId);
+        if (idx !== -1) state.messages[chatId].splice(idx, 1);
         saveChatCache();
         renderMessages();
     } catch (error) {
@@ -430,53 +479,76 @@ async function deleteMessageUI(messageId) {
     }
 }
 
+// ─── Attachment helpers ────────────────────────────────────────────────────────
+function handleAttachmentSelection(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+        showMessage('File size exceeds 10MB limit.');
+        event.target.value = '';
+        return;
+    }
+    state.attachment = file;
+    updateAttachmentPreview(file);
+}
+
+function clearAttachment() {
+    state.attachment = null;
+    const input = document.getElementById('attachmentInput');
+    if (input) input.value = '';
+    updateAttachmentPreview(null);
+}
+
+// ─── Auth ──────────────────────────────────────────────────────────────────────
 async function handleAuthAction() {
     if (state.authToken) {
         handleLogout();
+        state.chats = {};
+        state.messages = {};
+        state.currentChatId = null;
+        createLocalChat();
         renderUserState();
         renderTemporaryToggle();
+        renderDrawer();
+        renderMessages();
+        showPrivacySections(false);
         saveChatCache();
     } else {
         openAuthModal('login');
     }
 }
 
-function handleAttachmentSelection(event) {
-    const file = event.target.files?.[0];
-    if (file) {
-        const maxSize = 10 * 1024 * 1024; // 10MB
-        if (file.size > maxSize) {
-            showMessage('File size exceeds 10MB limit.');
-            event.target.value = '';
-            return;
-        }
-        state.attachment = file;
-        updateAttachmentPreview(file);
-    }
-}
+async function handleAuthSubmit(event) {
+    event.preventDefault();
+    if (state.sharedView) return;
+    const ui = getUIElements();
+    const username = ui.authUsername.value.trim();
+    const password = ui.authPassword.value.trim();
+    const email = ui.authEmail?.value.trim();
+    const confirmPassword = ui.authConfirmPassword?.value.trim();
 
-async function handleSearchInput(event) {
-    state.searchQuery = event.target.value.trim();
-    
-    if (!state.searchQuery) {
-        state.searchResults = null;
-        renderDrawer();
-        return;
-    }
-    
-    if (state.isConnected && state.userId) {
-        try {
-            const results = await searchChatsServer(state.userId, state.searchQuery);
-            state.searchResults = results;
-        } catch (error) {
-            logError('handleSearchInput - server search', error);
-            state.searchResults = await searchChatsLocal(state.searchQuery);
+    if (!username || !password) { showMessage('Please fill in username and password.'); return; }
+
+    try {
+        if (state.authMode === 'signup') {
+            if (!email) { showMessage('Please enter your email address.'); return; }
+            if (password !== confirmPassword) { showMessage('Passwords do not match.'); return; }
+            await handleRegister(username, email, password);
+        } else {
+            await handleLogin(username, password);
         }
-    } else {
-        state.searchResults = searchChatsLocal(state.searchQuery);
+        closeAuthModal();
+        renderUserState();
+        showPrivacySections(true);
+        if (state.userId) {
+            await loadChatsFromServer(state.userId);
+        }
+        renderDrawer();
+        renderMessages();
+    } catch (error) {
+        logError('handleAuthSubmit', error);
+        showMessage(error.message || 'Authentication failed.');
     }
-    
-    renderDrawer();
 }
 
 function toggleTemporaryChatMode() {
@@ -486,168 +558,85 @@ function toggleTemporaryChatMode() {
     saveChatCache();
 }
 
-async function handleAuthSubmit(event) {
-    event.preventDefault();
-    if (state.sharedView) return;
-    const ui = getUIElements();
-    
-    const username = ui.authUsername.value.trim();
-    const password = ui.authPassword.value.trim();
-    const email = ui.authEmail.value.trim();
-    const confirmPassword = ui.authConfirmPassword.value.trim();
-
-    if (!username || !password) {
-        showMessage('Please fill in username and password.');
+// ─── Search ────────────────────────────────────────────────────────────────────
+async function handleSearchInput(event) {
+    state.searchQuery = event.target.value.trim();
+    if (!state.searchQuery) {
+        state.searchResults = null;
+        renderDrawer();
         return;
     }
-
-    try {
-        if (state.authMode === 'signup') {
-            if (!email) {
-                showMessage('Please enter your email address.');
-                return;
-            }
-            if (password !== confirmPassword) {
-                showMessage('Passwords do not match.');
-                return;
-            }
-            await handleRegister(username, email, password);
-        } else {
-            await handleLogin(username, password);
+    if (state.isConnected && state.userId) {
+        try {
+            state.searchResults = await searchChatsServer(state.userId, state.searchQuery);
+        } catch {
+            state.searchResults = searchChatsLocal(state.searchQuery);
         }
-        
-        closeAuthModal();
-        renderUserState();
-        const userId = ensureUserId();
-        await loadChatsFromServer(userId);
-        renderDrawer();
-        renderMessages();
-    } catch (error) {
-        logError('handleAuthSubmit', error);
-        showMessage(error.message || 'Authentication failed.');
+    } else {
+        state.searchResults = searchChatsLocal(state.searchQuery);
+    }
+    renderDrawer();
+}
+
+// ─── Settings ─────────────────────────────────────────────────────────────────
+async function saveSettings() {
+    const ui = getUIElements();
+    const newUrl = ui.settingsApiUrl?.value.trim();
+    if (!newUrl) { showMessage('API URL cannot be empty'); return; }
+    try { localStorage.setItem('legalease_api_base', newUrl); } catch {}
+    window.API_BASE_URL = newUrl;
+    closeSettingsModal();
+    showMessage('Settings saved. Rechecking connectivity...');
+    await ensureConnectivity();
+}
+
+async function handleDeleteContext() {
+    if (!state.userId) return;
+    if (!confirm('This will permanently delete your personal AI context. Continue?')) return;
+    try {
+        await clearPersonalContext(state.userId);
+        showMessage('Personal context deleted.');
+    } catch {
+        showMessage('Failed to delete context. Check connection.');
     }
 }
 
-// Initialize app when DOM is ready
-window.addEventListener('DOMContentLoaded', initializeApp);
+async function handleClearHistory() {
+    if (!state.userId) return;
+    if (!confirm('This will permanently delete ALL your chat history. This cannot be undone. Continue?')) return;
+    try {
+        await clearAllHistory(state.userId);
+        state.chats = {};
+        state.messages = {};
+        state.currentChatId = null;
+        createLocalChat();
+        saveChatCache();
+        renderDrawer();
+        renderMessages();
+        showMessage('All chat history cleared.');
+    } catch {
+        showMessage('Failed to clear history. Check connection.');
+    }
+}
 
-// Cleanup on page unload
+async function handleDeleteAccount() {
+    if (!state.userId) return;
+    if (!confirm('WARNING: This will permanently delete your account and all data. This cannot be undone. Continue?')) return;
+    try {
+        await deleteUserAccount(state.userId);
+        handleLogout();
+        renderUserState();
+        renderDrawer();
+        renderMessages();
+        closeSettingsModal();
+        showMessage('Account deleted.');
+    } catch {
+        showMessage('Failed to delete account. Check connection.');
+    }
+}
+
+// ─── Bootstrap ────────────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', initializeApp);
 window.addEventListener('beforeunload', () => {
     if (connectivityInterval) clearTimeout(connectivityInterval);
 });
-
-async function openShareModalUI() {
-    const chatId = state.currentChatId || Object.keys(state.chats)[0];
-    if (!chatId) {
-        showMessage('Select a chat before sharing.');
-        return;
-    }
-    
-    const chat = state.chats[chatId];
-    if (!chat) {
-        showMessage('Select a chat before sharing.');
-        return;
-    }
-
-    if (!state.authToken) {
-        showMessage('Login to share chats.');
-        openAuthModal('login');
-        return;
-    }
-    
-    openShareModal(chat.isShared || false, chat.shareLink || null);
-}
-
-async function toggleChatShareUI() {
-    if (!state.currentChatId) return;
-    
-    const chatId = state.currentChatId;
-    const chat = state.chats[chatId];
-    const isCurrentlyShared = chat?.isShared || false;
-    
-    try {
-        const response = await apiShareChat(chatId, !isCurrentlyShared);
-        const browserShareLink = response.share_token
-            ? `${window.location.origin}${window.location.pathname}?share=${encodeURIComponent(response.share_token)}`
-            : response.share_link;
-
-        if (state.chats[chatId]) {
-            state.chats[chatId].isShared = response.is_shared;
-            state.chats[chatId].shareLink = browserShareLink;
-        }
-        
-        saveChatCache();
-        openShareModal(response.is_shared, browserShareLink);
-        showMessage(response.is_shared ? 'Chat shared successfully' : 'Chat sharing disabled');
-    } catch (error) {
-        logError('toggleChatShareUI', error);
-        showMessage('Could not update share settings.');
-    }
-}
-
-async function loadSharedChat(shareToken) {
-    try {
-        const response = await getSharedChat(shareToken);
-        const sharedId = `shared_${shareToken}`;
-        state.chats = {
-            [sharedId]: {
-                id: sharedId,
-                title: response.title || 'Shared Chat',
-                updatedAt: new Date().toISOString(),
-                isPinned: false,
-                isShared: true,
-            }
-        };
-        state.messages = {
-            [sharedId]: (response.messages || []).map(msg => ({
-                id: msg.id || `shared_msg_${Math.random().toString(36).substr(2, 9)}`,
-                sender: msg.sender,
-                content: msg.content,
-                createdAt: msg.created_at || new Date().toISOString(),
-                edited_at: msg.edited_at,
-                isNew: false,
-            }))
-        };
-        state.currentChatId = sharedId;
-        state.searchQuery = '';
-        state.searchResults = null;
-        document.title = `Shared Chat · LegalEase`;
-    } catch (error) {
-        logError('loadSharedChat', error);
-        showMessage('Unable to load shared chat.');
-        state.sharedView = false;
-    }
-}
-
-function updateInputState(disabled) {
-    const ui = getUIElements();
-    if (!ui) return;
-    ui.messageInput.disabled = disabled;
-    ui.attachBtn.disabled = disabled;
-    ui.sendBtn.disabled = disabled;
-    if (disabled) {
-        ui.messageInput.placeholder = 'Shared chats are read-only.';
-    } else {
-        ui.messageInput.placeholder = 'Ask LegalEase...';
-    }
-}
-
-function copyShareLink() {
-    const shareLinkInput = document.getElementById('shareLink');
-    if (!shareLinkInput || !shareLinkInput.value) return;
-
-    navigator.clipboard.writeText(shareLinkInput.value).then(() => {
-        showMessage('Link copied to clipboard!');
-    }).catch(() => {
-        try {
-            shareLinkInput.select();
-            document.execCommand('copy');
-            showMessage('Link copied to clipboard!');
-        } catch (err) {
-            logError('copyShareLink', err);
-            showMessage('Failed to copy link. Please copy it manually.');
-        }
-    });
-}
-
-export { initializeApp, checkConnectivity };

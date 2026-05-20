@@ -36,6 +36,8 @@ const state = {
     attachment: null,
     authMode: 'login',
     sharedView: false,
+    useContext: false,       // persona/context mode toggle
+    isAiThinking: false,     // true while waiting for AI response
 };
 
 export {
