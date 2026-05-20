@@ -322,28 +322,9 @@ class _LiveCallScreenState extends State<LiveCallScreen>
   }
 
   Future<void> _toggleMute() async {
-    final bool willMute = !_isMuted;
     setState(() {
-      _isMuted = willMute;
+      _isMuted = !_isMuted;
     });
-
-    if (willMute) {
-      await _vadHandler.stopListening();
-      if (mounted) {
-        setState(() {
-          _micLevel = 0.0;
-          _smoothedLevel = 0.0;
-        });
-      }
-    } else {
-      await _vadHandler.startListening(
-        baseAssetPath: 'assets/models/',
-        positiveSpeechThreshold: 0.55,
-        negativeSpeechThreshold: 0.35,
-        minSpeechFrames: 2,
-        redemptionFrames: 30, // Allows ~1 second of pause without cutting off
-      );
-    }
   }
 
   @override
