@@ -705,10 +705,11 @@ a { color:inherit; text-decoration:none; }
   text-align: center;
   line-height: 1.25;
   margin-bottom: 8px;
-  background: linear-gradient(135deg, var(--highlight), rgba(255,255,255,0.95));
+  background: linear-gradient(to bottom, var(--highlight) 0%, #ffffff 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+  display: block;
 }
 
 .auth-subtitle {
@@ -820,6 +821,9 @@ a { color:inherit; text-decoration:none; }
 }
 
 /* ─── Settings Modal ─────────────────────────────────────── */
+#settingsModal.modal-overlay {
+  z-index: 600 !important;
+}
 .settings-modal-card {
   max-width: 480px;
   max-height: 88vh;

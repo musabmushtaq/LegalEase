@@ -58,7 +58,7 @@ export async function handleRegister(username, email, password) {
         return true;
     } catch (error) {
         logError('handleRegister', error);
-        throw new Error('Signup failed. Username or email may already be taken.');
+        throw error;
     }
 }
 

@@ -117,7 +117,7 @@ function setupEventListeners() {
     document.getElementById('authSwitchBtn').addEventListener('click', () => {
         openAuthModal(state.authMode === 'login' ? 'signup' : 'login');
     });
-    ui.authCloseBtn.addEventListener('click', closeAuthModal);
+    ui.authCloseBtn?.addEventListener('click', closeAuthModal);
 
     // Settings
     const openSettingsAction = () => {
