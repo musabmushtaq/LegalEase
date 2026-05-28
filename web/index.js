@@ -120,12 +120,17 @@ function setupEventListeners() {
     ui.authCloseBtn.addEventListener('click', closeAuthModal);
 
     // Settings
-    const settingsBtn = document.getElementById('settingsBtn');
-    if (settingsBtn) settingsBtn.addEventListener('click', () => {
+    const openSettingsAction = () => {
         const uiEls = getUIElements();
         if (uiEls.settingsApiUrl) uiEls.settingsApiUrl.value = window.API_BASE_URL || '';
         openSettingsModal();
-    });
+    };
+
+    const settingsBtn = document.getElementById('settingsBtn');
+    if (settingsBtn) settingsBtn.addEventListener('click', openSettingsAction);
+
+    const authSettingsBtn = document.getElementById('authSettingsBtn');
+    if (authSettingsBtn) authSettingsBtn.addEventListener('click', openSettingsAction);
     document.getElementById('saveSettingsBtn')?.addEventListener('click', saveSettings);
     document.getElementById('settingsCloseBtn')?.addEventListener('click', closeSettingsModal);
     document.getElementById('deleteContextBtn')?.addEventListener('click', handleDeleteContext);
