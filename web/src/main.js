@@ -22,6 +22,12 @@ window.copyMessageUI = copyMessageUI;
 window.thumbsUpUI = thumbsUpUI;
 window.thumbsDownUI = thumbsDownUI;
 window.tryReconnect = ensureConnectivity;
+window.openSettingsModalUI = () => {
+    console.log("Global openSettingsModalUI called");
+    const uiEls = getUIElements();
+    if (uiEls?.settingsApiUrl) uiEls.settingsApiUrl.value = window.API_BASE_URL || '';
+    openSettingsModal();
+};
 
 async function initializeApp() {
     try {
@@ -120,7 +126,8 @@ function setupEventListeners() {
     ui.authCloseBtn?.addEventListener('click', closeAuthModal);
 
     // Settings
-    const openSettingsAction = () => {
+    const openSettingsAction = (event) => {
+        console.log("openSettingsAction triggered by:", event?.currentTarget?.id || "unknown");
         const uiEls = getUIElements();
         if (uiEls.settingsApiUrl) uiEls.settingsApiUrl.value = window.API_BASE_URL || '';
         openSettingsModal();
@@ -130,7 +137,12 @@ function setupEventListeners() {
     if (settingsBtn) settingsBtn.addEventListener('click', openSettingsAction);
 
     const authSettingsBtn = document.getElementById('authSettingsBtn');
-    if (authSettingsBtn) authSettingsBtn.addEventListener('click', openSettingsAction);
+    if (authSettingsBtn) {
+        console.log("Found authSettingsBtn, attaching click listener");
+        authSettingsBtn.addEventListener('click', openSettingsAction);
+    } else {
+        console.warn("authSettingsBtn NOT found in the DOM!");
+    }
     document.getElementById('saveSettingsBtn')?.addEventListener('click', saveSettings);
     document.getElementById('settingsCloseBtn')?.addEventListener('click', closeSettingsModal);
     document.getElementById('deleteContextBtn')?.addEventListener('click', handleDeleteContext);

@@ -44,14 +44,14 @@ This web interface replicates the functionality and design of the Flutter mobile
 | File | Purpose |
 |------|---------|
 | `index.html` | Main HTML structure (single page) |
-| `styles.css` | Styling and responsive layout |
-| `index.html` | Main HTML structure (single page) |
-| `styles.css` | Styling and responsive layout |
-| `index.js` | Main application bootstrapping and UI integration |
-| `js/config.js` | Runtime configuration and API endpoint settings |
-| `js/api.js` | API wrapper for backend communication |
+| `package.json` | Node dependencies and Vite scripts |
+| `vite.config.js` | Vite configuration |
+| `src/main.js` | Main application entry point |
+| `src/styles.css` | Styling and responsive layout |
+| `src/js/config.js` | Runtime configuration and API endpoint settings |
+| `src/js/api.js` | API wrapper for backend communication |
 | `test.py` | Python script to test all API endpoints |
-| `run.bat` | Windows batch script to start HTTP server |
+| `run.bat` | Windows batch script to install dependencies and start Vite |
 | `README.md` | This file |
 
 ## How to Start
@@ -60,24 +60,13 @@ This web interface replicates the functionality and design of the Flutter mobile
 - Backend API running on `http://127.0.0.1:8000`
 - MongoDB running with initialized database
 
-### Option 1: Simple HTTP Server (Recommended)
+### Option 1: Vite Development Server (Recommended)
 
-**Using Python 3:**
+**Using npm:**
 ```bash
 cd web
-python -m http.server 8080
-```
-
-**Using Python 2:**
-```bash
-cd web
-python -m SimpleHTTPServer 8080
-```
-
-**Using Node.js (if installed):**
-```bash
-cd web
-npx http-server -p 8080
+npm install
+npm run dev
 ```
 
 Then open browser to: `http://localhost:8080`

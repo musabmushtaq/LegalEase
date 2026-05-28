@@ -132,10 +132,12 @@ export function closeAuthModal() {
 }
 
 export function openSettingsModal() {
+    console.log("openSettingsModal called, settingsModal:", settingsModal);
     settingsModal?.classList.remove('hidden');
 }
 
 export function closeSettingsModal() {
+    console.log("closeSettingsModal called, settingsModal:", settingsModal);
     settingsModal?.classList.add('hidden');
 }
 
