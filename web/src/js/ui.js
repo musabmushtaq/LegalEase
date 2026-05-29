@@ -382,13 +382,23 @@ export function removeThinkingIndicator() {
     document.getElementById('thinkingIndicator')?.remove();
 }
 
-// ─── Helpers ───────────────────────────────────────────────────────────────────
 function scrollToBottom() {
-    requestAnimationFrame(() => {
-        if (messagesContainer) {
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    const performScroll = () => {
+        if (!messagesContainer) return;
+        
+        // Scroll the container scrollTop
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        
+        // Also scroll the last element into view as a backup for mobile devices
+        if (messagesContainer.lastElementChild) {
+            messagesContainer.lastElementChild.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }
-    });
+    };
+
+    requestAnimationFrame(performScroll);
+    // Double timeout backups to handle mobile keyboard state, browser rendering lag, and dynamic layout reflows
+    setTimeout(performScroll, 80);
+    setTimeout(performScroll, 220);
 }
 
 export function getUIElements() {

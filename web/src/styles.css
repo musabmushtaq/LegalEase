@@ -2223,13 +2223,13 @@ html.is-unauthenticated #authModal.modal-overlay {
     display: none !important;
   }
 
-  /* Menu button as a rounded card */
+  /* Card menu button - beautifully scaled up for thumb taps */
   #menuBtn {
     background: var(--glass-bg);
     border: 1px solid var(--glass-border);
     border-radius: var(--radius-sm);
-    width: 48px !important;
-    height: 48px !important;
+    width: 52px !important;
+    height: 52px !important;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -2237,11 +2237,11 @@ html.is-unauthenticated #authModal.modal-overlay {
   }
   
   #menuBtn svg {
-    width: 22px;
-    height: 22px;
+    width: 24px;
+    height: 24px;
   }
 
-  /* Increase scale of sidebar for touch */
+  /* Sidebar styling at clean standard mobile scale */
   .drawer {
     width: 85vw;
     max-width: 360px;
@@ -2297,118 +2297,120 @@ html.is-unauthenticated #authModal.modal-overlay {
     letter-spacing: -1px !important;
   }
 
-  /* Increase message font sizes, spacing, and user-friendliness */
+  /* Ultra-readable message text sizes & spacious layouts */
   .user-bubble-text,
   .ai-message-text {
-    font-size: 16.5px !important;
+    font-size: 18px !important;
     line-height: 1.6 !important;
   }
   
   .ai-message-text p {
-    margin-bottom: 12px;
+    margin-bottom: 14px;
   }
   
   .ai-message-text h1 {
-    font-size: 20px !important;
-    margin: 18px 0 10px;
+    font-size: 23px !important;
+    margin: 20px 0 12px;
   }
   .ai-message-text h2 {
-    font-size: 18px !important;
-    margin: 16px 0 8px;
+    font-size: 21px !important;
+    margin: 18px 0 10px;
   }
   .ai-message-text h3 {
-    font-size: 16.5px !important;
-    margin: 14px 0 6px;
+    font-size: 19px !important;
+    margin: 16px 0 8px;
   }
   
   .user-bubble-glass {
     max-width: 88% !important;
-    padding: 14px 18px !important;
+    padding: 16px 20px !important;
+    border-radius: var(--radius-lg) var(--radius-lg) 8px var(--radius-lg) !important;
   }
   
   .ai-bubble-content {
     max-width: 95% !important;
-    padding: 8px 0 !important;
+    padding: 10px 0 !important;
   }
   
   .message-bubble {
-    padding: 8px 16px !important;
+    padding: 10px 16px !important;
   }
 
-  /* Larger attachment items inside bubbles */
+  /* High touch-target attachment cards inside chat bubbles */
   .user-attachment-card {
-    padding: 12px 14px !important;
+    padding: 14px 16px !important;
+    margin-top: 10px !important;
   }
   
   .attachment-file-name {
-    font-size: 14px !important;
+    font-size: 15.5px !important;
     max-width: 250px !important;
   }
 
-  /* Touch-friendly attachments preview above input */
+  /* Touch-optimized active attachment preview */
   .attachment-preview {
-    font-size: 14px !important;
-    padding: 8px 16px !important;
+    font-size: 15.5px !important;
+    padding: 10px 18px !important;
     border-radius: var(--radius-lg) !important;
   }
   
   .attachment-pill-icon {
-    font-size: 15px !important;
+    font-size: 16.5px !important;
   }
   
   #attachmentName {
     max-width: 280px !important;
   }
 
-  /* Touch-friendly attachment menu */
+  /* Expanded mobile attachment drawer menu */
   .attachment-menu {
-    min-width: 200px !important;
-    padding: 8px !important;
-    bottom: calc(100% + 12px) !important;
+    min-width: 210px !important;
+    padding: 10px !important;
+    bottom: calc(100% + 14px) !important;
   }
   
   .attach-menu-btn {
-    padding: 12px 14px !important;
-    font-size: 15px !important;
+    padding: 14px 16px !important;
+    font-size: 16.5px !important;
   }
 
-  /* Overall scale of the input area */
+  /* Padded & scaled message compose panel */
   .input-console {
-    padding: 12px 16px 24px !important;
-    gap: 10px !important;
+    padding: 12px 16px 28px !important;
+    gap: 12px !important;
   }
 
   .input-capsule {
-    min-height: 56px !important;
-    padding: 12px 20px !important;
-    border-radius: 28px !important;
+    min-height: 60px !important;
+    padding: 14px 22px !important;
+    border-radius: 30px !important;
   }
 
   .message-input {
-    font-size: 16.5px !important;
-    line-height: 22px !important;
-    height: 22px !important;
+    font-size: 18px !important;
+    line-height: 24px !important;
+    height: 24px !important;
   }
 
   .send-btn,
   .attach-trigger {
-    width: 56px !important;
-    height: 56px !important;
+    width: 60px !important;
+    height: 60px !important;
   }
   
   .send-btn svg {
-    width: 18px !important;
-    height: 18px !important;
+    width: 20px !important;
+    height: 20px !important;
   }
   
   .attach-trigger svg {
-    width: 22px !important;
-    height: 22px !important;
+    width: 24px !important;
+    height: 24px !important;
   }
 
   .chat-container.no-messages .input-console {
     margin: auto auto 0 auto;
-    padding-bottom: 32px !important;
+    padding-bottom: 36px !important;
     width: 100%;
   }
 
