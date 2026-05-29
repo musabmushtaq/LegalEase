@@ -789,7 +789,71 @@ html.is-unauthenticated #authModal.modal-overlay {
 .ai-message-text hr {
   border: none;
   border-top: 1px solid var(--glass-border);
-  margin: 14px 0;
+  margin: 20px 0;
+}
+
+/* AI markdown nested list spacing */
+.ai-message-text ul ul,
+.ai-message-text ol ol,
+.ai-message-text ul ol,
+.ai-message-text ol ul {
+  margin-bottom: 0;
+}
+
+/* AI markdown tables styling */
+.ai-message-text table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0;
+  font-size: 13px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: 1px solid var(--glass-border);
+  background: rgba(255, 255, 255, 0.01);
+}
+.ai-message-text th,
+.ai-message-text td {
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--glass-border);
+  color: var(--text-2);
+}
+.ai-message-text th {
+  background: rgba(255, 255, 255, 0.04);
+  font-weight: 600;
+  color: var(--text-1);
+  border-bottom: 2px solid var(--glass-border);
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: 0.8px;
+}
+.ai-message-text tr:last-child td {
+  border-bottom: none;
+}
+.ai-message-text tr:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+/* GFM Task Lists */
+.ai-message-text li.task-list-item {
+  list-style-type: none;
+}
+.ai-message-text li.task-list-item input[type="checkbox"] {
+  margin-right: 8px;
+  accent-color: var(--highlight);
+  vertical-align: middle;
+}
+
+/* Scrollbar for code blocks */
+.ai-message-text pre::-webkit-scrollbar {
+  height: 6px;
+}
+.ai-message-text pre::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+}
+.ai-message-text pre::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
 }
 
 /* AI action bar */
