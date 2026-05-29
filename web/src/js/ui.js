@@ -257,12 +257,21 @@ export function renderMessages() {
         return;
     }
 
-    messagesContainer.innerHTML = msgList.map(msg => messageBubbleHtml(msg)).join('');
+    // Find the latest AI message ID to keep its actions always visible
+    let lastAiMsgId = null;
+    for (let i = msgList.length - 1; i >= 0; i--) {
+        if (msgList[i].sender === 'ai') {
+            lastAiMsgId = msgList[i].id;
+            break;
+        }
+    }
+
+    messagesContainer.innerHTML = msgList.map(msg => messageBubbleHtml(msg, lastAiMsgId)).join('');
     scrollToBottom();
 
 }
 
-function messageBubbleHtml(msg) {
+function messageBubbleHtml(msg, lastAiMsgId) {
     const isUser = msg.sender === 'user';
     const isEdited = !!msg.edited_at;
     const canEdit = isUser && !state.sharedView;
@@ -270,7 +279,8 @@ function messageBubbleHtml(msg) {
     if (isUser) {
         return userBubbleHtml(msg, isEdited, canEdit);
     } else {
-        return aiBubbleHtml(msg);
+        const isLatest = msg.id === lastAiMsgId;
+        return aiBubbleHtml(msg, isLatest);
     }
 }
 
@@ -303,21 +313,11 @@ function userBubbleHtml(msg, isEdited, canEdit) {
                 ${attachmentCard}
                 ${isEdited ? '<div class="edited-indicator">(edited)</div>' : ''}
             </div>
-            ${canEdit ? `
-                <div class="message-actions">
-                    <button class="message-action-btn" onclick="event.stopPropagation(); window.editMessageUI('${msg.id}')" title="Edit" aria-label="Edit message">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                    </button>
-                    <button class="message-action-btn delete" onclick="event.stopPropagation(); window.deleteMessageUI('${msg.id}')" title="Delete" aria-label="Delete message">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
-                    </button>
-                </div>
-            ` : ''}
         </div>
     `;
 }
 
-function aiBubbleHtml(msg) {
+function aiBubbleHtml(msg, isLatest = false) {
     // Render markdown using marked.js if available, else plain text
     let renderedContent;
     if (typeof window.marked !== 'undefined') {
@@ -327,7 +327,7 @@ function aiBubbleHtml(msg) {
     }
 
     return `
-        <div class="message-bubble ai" data-message-id="${msg.id}" role="article">
+        <div class="message-bubble ai${isLatest ? ' is-latest' : ''}" data-message-id="${msg.id}" role="article">
             <div class="ai-bubble-content">
                 <div class="ai-message-text">${renderedContent}</div>
                 <div class="ai-action-bar">

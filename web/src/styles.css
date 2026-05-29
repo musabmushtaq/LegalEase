@@ -442,7 +442,10 @@ html.is-unauthenticated #authModal.modal-overlay {
   margin-top:10px; opacity:0;
   transition:opacity var(--transition);
 }
-.message-bubble.ai:hover .ai-action-bar { opacity:1; }
+.message-bubble.ai:hover .ai-action-bar,
+.message-bubble.ai.is-latest .ai-action-bar {
+  opacity:1;
+}
 .ai-action-btn {
   width:30px; height:30px; border-radius:8px;
   display:flex; align-items:center; justify-content:center;
