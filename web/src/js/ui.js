@@ -76,6 +76,14 @@ export function renderUserState() {
         : (state.isTemporaryChat ? `${DEFAULT_USERNAME} (Temporary)` : DEFAULT_USERNAME);
     if (userStatus) userStatus.textContent = displayName;
     if (authActionBtn) authActionBtn.textContent = state.authToken ? 'Logout' : 'Login / Sign Up';
+    
+    // Dynamically update the Gemini-style welcome screen greeting
+    const welcomeGreeting = document.getElementById('welcomeGreeting');
+    if (welcomeGreeting) {
+        welcomeGreeting.innerHTML = state.authToken 
+            ? `Hello, <span class="gradient-username">${escapeHtml(state.username)}</span>`
+            : `Hello, <span class="gradient-username">Guest</span>`;
+    }
 }
 
 export function renderTemporaryToggle() {
