@@ -199,6 +199,7 @@ function setupEventListeners() {
     ui.messageInput.addEventListener('input', () => {
         ui.messageInput.style.height = 'auto';
         ui.messageInput.style.height = Math.min(ui.messageInput.scrollHeight, 160) + 'px';
+        toggleSendBtnVisibility();
     });
     ui.messageInput.addEventListener('keydown', (event) => {
         if (event.key === 'Enter' && !event.shiftKey) {
@@ -307,6 +308,19 @@ async function deleteChatUI(chatId) {
 }
 
 // ─── Send Message (Full AI Pipeline) ──────────────────────────────────────────
+function toggleSendBtnVisibility() {
+    const messageInput = document.getElementById('messageInput');
+    const sendBtn = document.getElementById('sendBtn');
+    if (messageInput && sendBtn) {
+        const text = messageInput.value.trim();
+        if (text) {
+            sendBtn.classList.remove('hidden-send');
+        } else {
+            sendBtn.classList.add('hidden-send');
+        }
+    }
+}
+
 async function sendMessageUI() {
     if (state.sharedView || state.isAiThinking) return;
 
@@ -346,6 +360,7 @@ async function sendMessageUI() {
 
     ui.messageInput.value = '';
     ui.messageInput.style.height = 'auto';
+    toggleSendBtnVisibility();
     clearAttachment();
     renderMessages();
     saveChatCache();
