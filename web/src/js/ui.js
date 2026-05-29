@@ -200,7 +200,6 @@ export function renderDrawer() {
 
     const html = [];
     if (pinnedChats.length > 0) {
-        html.push('<div class="drawer-section-label">Pinned</div>');
         html.push(pinnedChats.map(c => chatItemHtml(c)).join(''));
     }
     if (recentChats.length > 0) {
