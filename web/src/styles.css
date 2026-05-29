@@ -217,7 +217,7 @@ html.is-unauthenticated #authModal.modal-overlay {
 .chat-container {
   flex:1; display:flex; flex-direction:column;
   height:100vh; overflow:hidden;
-  background: radial-gradient(circle at 50% 50%, #151c2c 0%, #080c14 100%);
+  background: radial-gradient(circle at 50% 50%, #1e1b15 0%, #0f0e0c 100%);
 }
 
 /* ─── Top Bar ────────────────────────────────────────────── */
@@ -1041,14 +1041,14 @@ html.is-unauthenticated #authModal.modal-overlay {
   font-weight: 500;
   letter-spacing: -1.5px;
   line-height: 1.15;
-  background: linear-gradient(74deg, #4285f4 0%, #9b51e0 30%, #e06666 70%);
+  background: linear-gradient(74deg, var(--highlight) 0%, #ffffff 85%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
   margin: 0;
 }
 .welcome-banner h1 .gradient-username {
-  background: linear-gradient(74deg, #4285f4 0%, #9b51e0 30%, #e06666 70%);
+  background: linear-gradient(74deg, var(--highlight) 0%, #ffffff 85%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -1081,7 +1081,7 @@ html.is-unauthenticated #authModal.modal-overlay {
   display: flex;
   align-items: center; /* Centered like a clean pill */
   gap: 12px;
-  background: rgba(22, 26, 38, 0.55);
+  background: rgba(28, 28, 28, 0.65);
   backdrop-filter: var(--blur-lg);
   -webkit-backdrop-filter: var(--blur-lg);
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -1093,48 +1093,8 @@ html.is-unauthenticated #authModal.modal-overlay {
 }
 .input-row:focus-within {
   border-color: rgba(252,229,102,0.3);
-  background: rgba(25, 30, 45, 0.7);
+  background: rgba(35, 35, 35, 0.75);
   box-shadow: 0 20px 48px rgba(0,0,0,0.5);
-}
-
-.input-row-actions-right {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-shrink: 0;
-}
-
-.mock-model-badge {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-2);
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  padding: 6px 12px;
-  border-radius: 20px;
-  cursor: pointer;
-  transition: background var(--transition);
-}
-.mock-model-badge:hover {
-  background: rgba(255, 255, 255, 0.12);
-}
-
-.mock-voice-btn {
-  color: var(--text-3);
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all var(--transition);
-  background: none;
-  border: none;
-  cursor: pointer;
-}
-.mock-voice-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--text-1);
 }
 
 .send-btn {
