@@ -110,18 +110,8 @@ html.is-unauthenticated #authModal.modal-overlay {
 .drawer-overlay.active { opacity:1; pointer-events:all; }
 
 .drawer-header {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 20px 16px 12px;
-  border-bottom: 1px solid var(--glass-border);
-}
-.drawer-header h2 {
-  font-size: 17px; font-weight: 600;
-  color: var(--highlight);
-  text-shadow: 0 0 15px rgba(252, 229, 102, 0.2);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 180px;
+  display: flex; align-items: center; justify-content: flex-end;
+  padding: 16px 16px 8px;
 }
 
 .close-btn {
@@ -222,7 +212,6 @@ html.is-unauthenticated #authModal.modal-overlay {
 
 .drawer-footer {
   padding:12px;
-  border-top:1px solid var(--glass-border);
 }
 .drawer-footer-row {
   display: flex;
@@ -1068,6 +1057,10 @@ html.is-unauthenticated #authModal.modal-overlay {
     border: 1px solid var(--glass-border);
     background: rgba(20, 20, 20, 0.5);
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    overflow: hidden; /* Clips elements cleanly to preserve rounded edges */
+  }
+  .drawer-header {
+    display: none !important; /* Hide close button and empty header on desktop */
   }
   .chat-container {
     height: 100%;
