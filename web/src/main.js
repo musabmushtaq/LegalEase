@@ -3,7 +3,7 @@ import { API_BASE_URL, state, CONNECTIVITY_CHECK_INTERVAL, DEFAULT_USER_ID } fro
 import { loadAuthState, saveAuthState, clearAuthState, handleLogin, handleRegister, handleLogout, toggleTemporaryMode, ensureUserId } from './js/auth.js';
 import { loadChatCache, saveChatCache, loadChatsFromServer, createNewChat, createLocalChat, selectChat, renameChat, togglePinChat, removeChat, searchChatsServer, searchChatsLocal } from './js/chat.js';
 import { initializeDOM, toggleDrawer, closeDrawer, renderUserState, renderTemporaryToggle, renderConnectionBanner, openAuthModal, closeAuthModal, renderDrawer, renderMessages, getUIElements, updateAttachmentPreview, openSettingsModal, closeSettingsModal, renderThinkingIndicator, removeThinkingIndicator, renderContextPill, updatePersonaBtn, showPrivacySections } from './js/ui.js';
-import { checkHealth, saveUserMessage, generateAiReply, saveAiMessage, summarizeText, updateMessage as apiUpdateMessage, deleteMessage as apiDeleteMessage, downloadFile as apiDownloadFile, clearPersonalContext, clearAllHistory, deleteUserAccount } from './js/api.js';
+import { checkHealth, saveUserMessage, generateAiReply, saveAiMessage, summarizeText, updateMessage as apiUpdateMessage, deleteMessage as apiDeleteMessage, downloadFile as apiDownloadFile, clearPersonalContext, clearAllHistory, deleteUserAccount, getUserProfile } from './js/api.js';
 import { debounce, showMessage, logError } from './js/utils.js';
 
 let connectivityInterval = null;
@@ -44,6 +44,30 @@ async function initializeApp() {
         await checkConnectivity();
         setupEventListeners();
 
+        // Validate saved session against server if we are connected and have credentials
+        if (state.isConnected && state.authToken && state.userId) {
+            try {
+                await getUserProfile(state.userId);
+            } catch (error) {
+                const isAuthError = error.message && (
+                    error.message.includes('404') || 
+                    error.message.includes('401') || 
+                    error.message.toLowerCase().includes('not found') || 
+                    error.message.toLowerCase().includes('unauthorized') || 
+                    error.message.toLowerCase().includes('invalid')
+                );
+                if (isAuthError) {
+                    console.warn('Session is invalid. Logging out...', error);
+                    handleLogout();
+                    state.chats = {};
+                    state.messages = {};
+                    state.currentChatId = null;
+                    createLocalChat();
+                    saveChatCache();
+                }
+            }
+        }
+
         if (state.isConnected && !state.isTemporaryChat && state.userId) {
             try {
                 await loadChatsFromServer(state.userId);
@@ -63,8 +87,10 @@ async function initializeApp() {
         renderUserState();
         showPrivacySections(!!state.authToken);
 
-        // If not logged in, prompt login immediately
-        if (!state.authToken) {
+        // If not logged in, prompt login immediately, otherwise close auth modal
+        if (state.authToken) {
+            closeAuthModal();
+        } else {
             openAuthModal('login');
         }
     } catch (error) {

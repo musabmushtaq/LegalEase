@@ -15,7 +15,7 @@
     <script>
         (function() {
             try {
-                const saved = JSON.parse(localStorage.getItem('legalease_auth') || 'null');
+                const saved = JSON.parse(localStorage.getItem('legaleaseWebAuth') || 'null');
                 if (saved && saved.userId && saved.authToken) {
                     document.documentElement.classList.add('is-authenticated');
                 } else {
