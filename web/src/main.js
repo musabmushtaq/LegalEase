@@ -545,6 +545,7 @@ async function handleAuthAction() {
         renderMessages();
         showPrivacySections(false);
         saveChatCache();
+        openAuthModal('login');
     } else {
         openAuthModal('login');
     }
@@ -657,11 +658,16 @@ async function handleDeleteAccount() {
     try {
         await deleteUserAccount(state.userId);
         handleLogout();
+        state.chats = {};
+        state.messages = {};
+        state.currentChatId = null;
+        createLocalChat();
         renderUserState();
         renderDrawer();
         renderMessages();
         closeSettingsModal();
         showMessage('Account deleted.');
+        openAuthModal('login');
     } catch {
         showMessage('Failed to delete account. Check connection.');
     }
