@@ -85,9 +85,11 @@
                 <div class="settings-section">
                     <h3 class="settings-section-title">NETWORK CONFIGURATION</h3>
                     <div class="settings-card">
-                        <div class="settings-row input-row">
+                        <div class="settings-network-row">
                             <svg class="settings-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>
-                            <input id="settingsApiUrl" class="settings-inline-input" type="text" placeholder="http://127.0.0.1:8000" aria-label="API base URL">
+                            <span class="settings-static-part" id="settingsApiPrefix">http://</span>
+                            <input id="settingsApiIp" class="settings-inline-input ip-input" type="text" placeholder="127.0.0.1" aria-label="API base IP">
+                            <span class="settings-static-part" id="settingsApiSuffix">:8000</span>
                         </div>
                     </div>
                 </div>

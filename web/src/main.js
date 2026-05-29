@@ -25,7 +25,7 @@ window.tryReconnect = ensureConnectivity;
 window.openSettingsModalUI = () => {
     console.log("Global openSettingsModalUI called");
     const uiEls = getUIElements();
-    if (uiEls?.settingsApiUrl) uiEls.settingsApiUrl.value = window.API_BASE_URL || '';
+    updateNetworkFields(uiEls);
     openSettingsModal();
 };
 
@@ -155,7 +155,7 @@ function setupEventListeners() {
     const openSettingsAction = (event) => {
         console.log("openSettingsAction triggered by:", event?.currentTarget?.id || "unknown");
         const uiEls = getUIElements();
-        if (uiEls.settingsApiUrl) uiEls.settingsApiUrl.value = window.API_BASE_URL || '';
+        updateNetworkFields(uiEls);
         openSettingsModal();
     };
 
@@ -638,10 +638,41 @@ async function handleSearchInput(event) {
 }
 
 // ─── Settings ─────────────────────────────────────────────────────────────────
+function updateNetworkFields(uiEls) {
+    if (!uiEls) return;
+    const apiUrl = window.API_BASE_URL || 'http://127.0.0.1:8000';
+    let protocol = 'http://';
+    let port = ':8000';
+    let ip = '127.0.0.1';
+
+    try {
+        const u = new URL(apiUrl);
+        protocol = `${u.protocol}//`;
+        ip = u.hostname;
+        port = u.port ? `:${u.port}` : ':8000';
+    } catch (_) {
+        const match = apiUrl.match(/^(https?:\/\/)?([^:/]+)(:\d+)?/);
+        if (match) {
+            protocol = match[1] || 'http://';
+            ip = match[2] || '127.0.0.1';
+            port = match[3] || ':8000';
+        }
+    }
+
+    if (uiEls.settingsApiPrefix) uiEls.settingsApiPrefix.textContent = protocol;
+    if (uiEls.settingsApiSuffix) uiEls.settingsApiSuffix.textContent = port;
+    if (uiEls.settingsApiIp) uiEls.settingsApiIp.value = ip;
+}
+
 async function saveSettings() {
     const ui = getUIElements();
-    const newUrl = ui.settingsApiUrl?.value.trim();
-    if (!newUrl) { showMessage('API URL cannot be empty'); return; }
+    const ip = ui.settingsApiIp?.value.trim();
+    if (!ip) { showMessage('IP address / Host cannot be empty'); return; }
+    
+    const protocol = ui.settingsApiPrefix?.textContent || 'http://';
+    const port = ui.settingsApiSuffix?.textContent || ':8000';
+    const newUrl = `${protocol}${ip}${port}`;
+    
     try { localStorage.setItem('legalease_api_base', newUrl); } catch {}
     window.API_BASE_URL = newUrl;
     closeSettingsModal();

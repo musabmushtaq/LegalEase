@@ -867,6 +867,16 @@ html.is-unauthenticated #authModal.modal-overlay {
 .settings-title {
   font-size: 18px; font-weight: 600; color: var(--text-1);
 }
+.close-drawer-btn {
+  color: var(--text-3); font-size: 16px;
+  width: 32px; height: 32px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 8px;
+  transition: background var(--transition), color var(--transition);
+}
+.close-drawer-btn:hover {
+  background: var(--glass-bg); color: var(--text-1);
+}
 .settings-scroll-area {
   flex: 1; overflow-y: auto; padding: 16px 24px;
 }
@@ -881,6 +891,11 @@ html.is-unauthenticated #authModal.modal-overlay {
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-md);
   overflow: hidden;
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+.settings-card:focus-within {
+  border-color: rgba(252, 229, 102, 0.3);
+  box-shadow: 0 0 12px rgba(252, 229, 102, 0.08);
 }
 .settings-row {
   display: flex; align-items: center; gap: 14px;
@@ -889,10 +904,50 @@ html.is-unauthenticated #authModal.modal-overlay {
 .settings-row.hoverable { cursor: pointer; transition: background var(--transition); }
 .settings-row.hoverable:hover { background: var(--glass-heavy); }
 .settings-row.input-row { padding: 0 16px; }
+.settings-network-row {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 10px 16px;
+  background: transparent;
+}
+.settings-network-row .settings-icon {
+  margin-right: 12px;
+  color: var(--text-3);
+  flex-shrink: 0;
+}
+.settings-static-part {
+  font-size: 13.5px;
+  color: var(--text-3);
+  user-select: none;
+}
+.settings-inline-input.ip-input {
+  width: 140px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  color: var(--text-1);
+  font-size: 13.5px;
+  padding: 6px 8px;
+  margin: 0 8px;
+  text-align: center;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  transition: all var(--transition);
+}
+.settings-inline-input.ip-input:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+.settings-inline-input.ip-input:focus {
+  background: rgba(252, 229, 102, 0.06);
+  border-color: rgba(252, 229, 102, 0.25);
+  box-shadow: 0 0 8px rgba(252, 229, 102, 0.08);
+}
 .settings-divider { height: 1px; background: var(--glass-border); margin: 0 16px; }
 
 .settings-icon-box {
-  width: 36px; height: 36px; border-radius: 9px;
+  width: 36px; height: 36px; border-radius: var(--radius-sm);
   background: var(--glass-bg);
   display: flex; align-items: center; justify-content: center;
   color: var(--text-2); flex-shrink: 0;
