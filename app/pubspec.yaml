@@ -50,6 +50,7 @@ dependencies:
   flutter_markdown: ^0.7.7+1
   open_file: ^3.5.11
   provider: ^6.1.2
+  web_socket_channel: ^3.0.1
 
 dev_dependencies:
   flutter_test:
@@ -61,6 +62,7 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
+  web_socket_channel: ^3.0.3
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

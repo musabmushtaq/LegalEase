@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'dart:ui';
+import 'dart:async';
 import 'package:dotted_border/dotted_border.dart';
 import '../theme/app_theme.dart';
 import '../models/chat.dart';
 import '../services/chat_service.dart';
 import '../screens/login_screen.dart';
 import '../screens/settings_screen.dart';
+import '../screens/manage_access_screen.dart';
 
 class ChatDrawer extends StatefulWidget {
   final ChatService chatService;
@@ -22,6 +25,38 @@ class ChatDrawer extends StatefulWidget {
 }
 
 class _ChatDrawerState extends State<ChatDrawer> {
+  final TextEditingController _searchController = TextEditingController();
+  Timer? _debounce;
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController.text = widget.chatService.searchQuery;
+    _searchController.addListener(_onSearchChanged);
+    
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (widget.chatService.isAuthenticated) {
+        widget.chatService.syncChats();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.removeListener(_onSearchChanged);
+    _searchController.dispose();
+    _debounce?.cancel();
+    super.dispose();
+  }
+
+  void _onSearchChanged() {
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
+    _debounce = Timer(const Duration(milliseconds: 300), () {
+      widget.chatService.setSearchQuery(_searchController.text);
+    });
+    setState(() {});
+  }
+
   Future<void> _togglePin(String id) async {
     await widget.chatService.togglePinChat(id);
     // Don't call setState - ChatService notifies listeners
@@ -98,18 +133,24 @@ class _ChatDrawerState extends State<ChatDrawer> {
       context: context,
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withValues(alpha: 0.5),
+      useSafeArea: true,
       builder: (context) => Padding(
-        padding: const EdgeInsets.all(20.0),
+        padding: const EdgeInsets.only(
+          left: 16.0,
+          right: 16.0,
+          top: 16.0,
+          bottom: 16.0, // Reduced bottom padding to prevent double spacing
+        ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(24.0),
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 15.0, sigmaY: 15.0),
             child: Container(
               decoration: BoxDecoration(
-                color: AppTheme.background.withValues(alpha: 0.8),
+                color: AppTheme.background.withValues(alpha: 0.85),
                 borderRadius: BorderRadius.circular(24.0),
                 border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.1),
+                  color: Colors.white.withValues(alpha: 0.08),
                   width: 1.0,
                 ),
               ),
@@ -125,36 +166,65 @@ class _ChatDrawerState extends State<ChatDrawer> {
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  _buildMenuItem(
-                    icon: Icons.edit,
-                    label: 'Rename',
-                    color: AppTheme.highlight,
-                    onTap: () {
-                      Navigator.pop(context);
-                      _renameChat(chat.id, chat.title);
-                    },
+                  const SizedBox(height: 20),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _buildMenuItem(
+                          icon: Icons.edit,
+                          label: 'Rename',
+                          color: AppTheme.highlight,
+                          onTap: () {
+                            Navigator.pop(context);
+                            _renameChat(chat.id, chat.title);
+                          },
+                        ),
+                        const SizedBox(height: 10),
+                        _buildMenuItem(
+                          icon: chat.isPinned ? Icons.push_pin : Icons.push_pin_outlined,
+                          label: chat.isPinned ? 'Unpin' : 'Pin',
+                          color: AppTheme.highlight,
+                          onTap: () {
+                            Navigator.pop(context);
+                            _togglePin(chat.id);
+                          },
+                        ),
+                        const SizedBox(height: 10),
+                        if (chat.userId == widget.chatService.userId) ...[
+                          _buildMenuItem(
+                            icon: chat.isShared ? Icons.people_outline : Icons.share_outlined,
+                            label: chat.isShared ? 'Manage Shared Access' : 'Share Chat',
+                            color: AppTheme.highlight,
+                            onTap: () {
+                              Navigator.pop(context);
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => ManageAccessScreen(
+                                    chatService: widget.chatService,
+                                    chat: chat,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                          const SizedBox(height: 10),
+                        ],
+                        _buildMenuItem(
+                          icon: Icons.delete,
+                          label: 'Delete',
+                          color: Colors.redAccent,
+                          onTap: () {
+                            Navigator.pop(context);
+                            _deleteChat(chat.id);
+                          },
+                        ),
+                      ],
+                    ),
                   ),
-                  _buildMenuItem(
-                    icon: chat.isPinned ? Icons.push_pin : Icons.push_pin_outlined,
-                    label: chat.isPinned ? 'Unpin' : 'Pin',
-                    color: AppTheme.highlight,
-                    onTap: () {
-                      Navigator.pop(context);
-                      _togglePin(chat.id);
-                    },
-                  ),
-                  const Divider(color: Colors.white10, height: 1),
-                  _buildMenuItem(
-                    icon: Icons.delete,
-                    label: 'Delete',
-                    color: Colors.redAccent,
-                    onTap: () {
-                      Navigator.pop(context);
-                      _deleteChat(chat.id);
-                    },
-                  ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 16), // Match horizontal padding (16.0)
                 ],
               ),
             ),
@@ -170,18 +240,50 @@ class _ChatDrawerState extends State<ChatDrawer> {
     required Color color,
     required VoidCallback onTap,
   }) {
-    return ListTile(
-      leading: Icon(icon, color: color, size: 22),
-      title: Text(
-        label,
-        style: TextStyle(
-          color: Colors.white.withValues(alpha: 0.9),
-          fontSize: 15,
-          fontWeight: FontWeight.w500,
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(16.0),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.06),
+          width: 1.0,
         ),
       ),
-      onTap: onTap,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16.0),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () {
+              HapticFeedback.lightImpact();
+              onTap();
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
+              child: Row(
+                children: [
+                  Icon(
+                    icon,
+                    color: color,
+                    size: 22,
+                  ),
+                  const SizedBox(width: 16.0),
+                  Expanded(
+                    child: Text(
+                      label,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -228,13 +330,14 @@ class _ChatDrawerState extends State<ChatDrawer> {
                              color: Colors.white.withValues(alpha: 0.3), 
                              size: 20),
                         const SizedBox(width: 12),
-                        const Expanded(
+                        Expanded(
                           child: TextField(
-                            style: TextStyle(
+                            controller: _searchController,
+                            style: const TextStyle(
                               color: Colors.white,
                               fontSize: 14,
                             ),
-                            decoration: InputDecoration(
+                            decoration: const InputDecoration(
                               hintText: "Search conversations",
                               hintStyle: TextStyle(
                                 color: Color(0xFF69676C),
@@ -246,6 +349,19 @@ class _ChatDrawerState extends State<ChatDrawer> {
                             ),
                           ),
                         ),
+                        if (_searchController.text.isNotEmpty)
+                          GestureDetector(
+                            onTap: () {
+                              _searchController.clear();
+                              widget.chatService.setSearchQuery('');
+                              FocusScope.of(context).unfocus();
+                            },
+                            child: Icon(
+                              Icons.clear_rounded,
+                              color: Colors.white.withValues(alpha: 0.5),
+                              size: 20,
+                            ),
+                          ),
                       ],
                     ),
                   ),
@@ -268,8 +384,11 @@ class _ChatDrawerState extends State<ChatDrawer> {
                           child: Material(
                             color: Colors.transparent,
                             child: InkWell(
-                              onTap: () async {
-                                await widget.chatService.createNewChat();
+                              onTap: () {
+                                HapticFeedback.mediumImpact();
+                                widget.chatService.clearCurrentChat();
+                                _searchController.clear();
+                                widget.chatService.setSearchQuery('');
                                 if (!context.mounted) return;
                                 widget.onChatSelected();
                                 Navigator.pop(context);
@@ -305,6 +424,8 @@ class _ChatDrawerState extends State<ChatDrawer> {
                         isActive: widget.chatService.isTemporaryChat,
                         onTap: () {
                           widget.chatService.toggleTemporaryChat();
+                          _searchController.clear();
+                          widget.chatService.setSearchQuery('');
                           if (context.mounted) {
                             widget.onChatSelected();
                             Navigator.pop(context);
@@ -335,8 +456,10 @@ class _ChatDrawerState extends State<ChatDrawer> {
                       listenable: widget.chatService,
                       builder: (context, _) {
                         final chats = widget.chatService.displayedChats;
-                        // Sort: Pinned chats float to the top of the single list, others sorted by updatedAt
+                        // Sort: Shared chats float above pinned chats, which float above others, sorted by updatedAt
                         final sortedChats = List<Chat>.from(chats)..sort((a, b) {
+                          if (a.isShared && !b.isShared) return -1;
+                          if (!a.isShared && b.isShared) return 1;
                           if (a.isPinned && !b.isPinned) return -1;
                           if (!a.isPinned && b.isPinned) return 1;
                           return b.updatedAt.compareTo(a.updatedAt);
@@ -352,19 +475,22 @@ class _ChatDrawerState extends State<ChatDrawer> {
                         }
                         
                         if (chats.isEmpty) {
+                          final isSearching = widget.chatService.searchQuery.isNotEmpty;
                           return Center(
                             child: Opacity(
                               opacity: 0.4,
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Icon(Icons.chat_bubble_outline_rounded, 
-                                       color: Colors.white.withValues(alpha: 0.2), 
-                                       size: 40),
+                                  Icon(
+                                    isSearching ? Icons.search_off_rounded : Icons.chat_bubble_outline_rounded, 
+                                    color: Colors.white.withValues(alpha: 0.2), 
+                                    size: 40,
+                                  ),
                                   const SizedBox(height: 16),
-                                  const Text(
-                                    "No chats yet",
-                                    style: TextStyle(
+                                  Text(
+                                    isSearching ? "No matching chats found" : "No chats yet",
+                                    style: const TextStyle(
                                       color: Colors.white,
                                       fontSize: 13,
                                       letterSpacing: 0.5,
@@ -453,61 +579,84 @@ class _ChatDrawerState extends State<ChatDrawer> {
     final isCurrentChat = widget.chatService.currentChatId == chat.id;
     final isGeneratingTitle = widget.chatService.isTitleGenerating(chat.id);
 
-    return GestureDetector(
-      key: ValueKey(chat.id),
-      onLongPress: () {
-        _showChatMenu(chat);
-      },
-      onTap: () {
-        widget.chatService.selectChat(chat.id);
-        widget.onChatSelected();
-        Navigator.pop(context);
-      },
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 4.0),
-        padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 16.0),
-        decoration: BoxDecoration(
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 4.0),
+      decoration: BoxDecoration(
+        color: isCurrentChat
+            ? AppTheme.highlight.withValues(alpha: 0.15)
+            : Colors.transparent,
+        borderRadius: BorderRadius.circular(26.0),
+        border: Border.all(
           color: isCurrentChat
-              ? AppTheme.highlight.withValues(alpha: 0.15)
+              ? AppTheme.highlight.withValues(alpha: 0.3)
               : Colors.transparent,
-          borderRadius: BorderRadius.circular(26.0),
-          border: Border.all(
-            color: isCurrentChat
-                ? AppTheme.highlight.withValues(alpha: 0.3)
-                : Colors.transparent,
-            width: 1.0,
-          ),
+          width: 1.0,
         ),
-        child: Row(
-          children: [
-            Expanded(
-              child: isGeneratingTitle
-                  ? _buildAnimatedTitle(chat.title, isCurrentChat)
-                  : Text(
-                      chat.title,
-                      style: TextStyle(
-                        color: isCurrentChat
-                            ? AppTheme.highlight
-                            : Colors.white,
-                        fontSize: 15,
-                        fontWeight: isCurrentChat
-                            ? FontWeight.w600
-                            : FontWeight.normal,
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(26.0),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () {
+              HapticFeedback.selectionClick();
+              widget.chatService.selectChat(chat.id);
+              _searchController.clear();
+              widget.chatService.setSearchQuery('');
+              widget.onChatSelected();
+              Navigator.pop(context);
+            },
+            onLongPress: () {
+              final isOwner = !widget.chatService.isAuthenticated || chat.userId == widget.chatService.userId;
+              if (isOwner) {
+                HapticFeedback.heavyImpact();
+                _showChatMenu(chat);
+              }
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 16.0),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: isGeneratingTitle
+                        ? _buildAnimatedTitle(chat.title, isCurrentChat)
+                        : Text(
+                            chat.title,
+                            style: TextStyle(
+                              color: isCurrentChat
+                                  ? AppTheme.highlight
+                                  : Colors.white,
+                              fontSize: 15,
+                              fontWeight: isCurrentChat
+                                  ? FontWeight.w600
+                                  : FontWeight.normal,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                  ),
+                  if (chat.isShared)
+                    const Padding(
+                      padding: EdgeInsets.only(left: 8.0),
+                      child: Icon(
+                        Icons.share_outlined,
+                        color: AppTheme.highlight,
+                        size: 16,
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                    )
+                  else if (chat.isPinned)
+                    const Padding(
+                      padding: EdgeInsets.only(left: 8.0),
+                      child: Icon(
+                        Icons.push_pin,
+                        color: AppTheme.highlight,
+                        size: 16,
+                      ),
                     ),
-            ),
-            if (chat.isPinned)
-              const Padding(
-                padding: EdgeInsets.only(left: 8.0),
-                child: Icon(
-                  Icons.push_pin,
-                  color: AppTheme.highlight,
-                  size: 16,
-                ),
+                ],
               ),
-          ],
+            ),
+          ),
         ),
       ),
     );
@@ -521,7 +670,10 @@ class _ChatDrawerState extends State<ChatDrawer> {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: onTap,
+        onTap: () {
+          HapticFeedback.lightImpact();
+          onTap();
+        },
         borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
@@ -586,7 +738,10 @@ class _ChatDrawerState extends State<ChatDrawer> {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: onTap,
+          onTap: () {
+            HapticFeedback.lightImpact();
+            onTap();
+          },
           customBorder: const CircleBorder(),
           child: Center(
             child: Icon(

@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:open_file/open_file.dart';
@@ -22,7 +23,7 @@ class ChatScreen extends StatefulWidget {
   State<ChatScreen> createState() => _ChatScreenState();
 }
 
-class _ChatScreenState extends State<ChatScreen> {
+class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final GlobalKey _triggerMessageKey = GlobalKey();
   late TextEditingController _textController;
@@ -34,6 +35,11 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _isAiThinking = false;
   File? _attachedFile;
   final ImagePicker _imagePicker = ImagePicker();
+  bool _isAtBottom = true;
+  bool _showNewMessagesPill = false;
+  int _lastMessageCount = 0;
+  String? _lastChatId;
+  bool _hasNewUnreadMessages = false;
 
   Future<void> _pickImage(ImageSource source) async {
     try {
@@ -239,7 +245,10 @@ class _ChatScreenState extends State<ChatScreen> {
               top: 2,
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
-                onTap: onClearPressed,
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  onClearPressed();
+                },
                 child: Container(
                   width: 36,
                   height: 36,
@@ -282,7 +291,10 @@ class _ChatScreenState extends State<ChatScreen> {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: onTap,
+          onTap: () {
+            HapticFeedback.selectionClick();
+            onTap();
+          },
           child: Center(
             child: Icon(icon, color: Colors.white, size: 24),
           ),
@@ -294,7 +306,24 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _scrollController = ScrollController();
+    _scrollController.addListener(() {
+      if (!_scrollController.hasClients) return;
+      final currentScroll = _scrollController.position.pixels;
+      const threshold = 40.0;
+      
+      final atBottom = currentScroll <= threshold;
+      if (atBottom != _isAtBottom) {
+        setState(() {
+          _isAtBottom = atBottom;
+          _showNewMessagesPill = !atBottom;
+          if (atBottom) {
+            _hasNewUnreadMessages = false;
+          }
+        });
+      }
+    });
     _textController = TextEditingController();
     _textController.addListener(() {
       setState(() {
@@ -309,14 +338,73 @@ class _ChatScreenState extends State<ChatScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     _chatService = Provider.of<ChatService>(context);
+    
+    final currentChatId = _chatService.currentChatId;
+    debugPrint('ChatScreen: didChangeDependencies called - currentChatId: $currentChatId, _lastChatId: $_lastChatId');
+    if (currentChatId != _lastChatId) {
+      debugPrint('ChatScreen: Active chat ID changed from $_lastChatId to $currentChatId');
+      _lastChatId = currentChatId;
+      _lastMessageCount = _chatService.currentMessages.length;
+      _showNewMessagesPill = false;
+      _hasNewUnreadMessages = false;
+      _jumpToBottom();
+      
+      if (currentChatId == null && Navigator.canPop(context)) {
+        debugPrint('ChatScreen: Access revoked (currentChatId is null). Popping any overlay routes back to base.');
+        Navigator.popUntil(context, (route) => route.isFirst);
+      }
+    } else {
+      final messageCount = _chatService.currentMessages.length;
+      if (_lastMessageCount != 0 && messageCount > _lastMessageCount) {
+        final lastMsg = _chatService.currentMessages.last;
+        final isOwnMsg = lastMsg.sender == 'user' && lastMsg.userId == _chatService.userId;
+        
+        if (isOwnMsg) {
+          _scrollToBottom();
+          setState(() {
+            _showNewMessagesPill = false;
+            _hasNewUnreadMessages = false;
+          });
+        } else {
+          if (_isAtBottom) {
+            _scrollToBottom();
+          } else {
+            setState(() {
+              _showNewMessagesPill = true;
+              _hasNewUnreadMessages = true;
+            });
+          }
+        }
+      }
+      _lastMessageCount = messageCount;
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    debugPrint('ChatScreen: AppLifecycleState changed to $state');
+    if (state == AppLifecycleState.resumed) {
+      debugPrint('ChatScreen: App resumed. Triggering chat sync verification check...');
+      _chatService.checkInitialAndInstantNetwork();
+    }
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _textController.dispose();
     _scrollController.dispose();
     _focusNode.dispose();
     super.dispose();
+  }
+
+  /// Instantly jump to bottom without animation – used on chat load so
+  /// the user never sees a scrolling flash.
+  void _jumpToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scrollController.hasClients) return;
+      _scrollController.jumpTo(0.0);
+    });
   }
 
   void _scrollToBottom({bool toTrigger = false}) {
@@ -326,18 +414,27 @@ class _ChatScreenState extends State<ChatScreen> {
       if (toTrigger && _triggerMessageKey.currentContext != null) {
         Scrollable.ensureVisible(
           _triggerMessageKey.currentContext!,
-          duration: const Duration(milliseconds: 600),
+          duration: const Duration(milliseconds: 400),
           curve: Curves.easeOutCubic,
           alignment: 0.0, // Aligns the user message to the top of the viewport
         );
       } else {
+        final distance = _scrollController.position.pixels.abs();
+        // Dynamic duration based on distance to avoid speed-related jitter
+        // Speed of 2 pixels per ms, clamped between 300ms and 1500ms
+        final durationMs = (distance / 2.0).clamp(300.0, 1500.0).toInt();
+
         _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 600),
+          0.0,
+          duration: Duration(milliseconds: durationMs),
           curve: Curves.easeOutCubic,
         );
       }
     });
+  }
+
+  void _acceleratedScrollToBottom() {
+    _scrollToBottom();
   }
 
   @override
@@ -400,7 +497,6 @@ class _ChatScreenState extends State<ChatScreen> {
               ),
             ),
 
-            // Bottom Overlay Actions (File, Text Input, Voice/Send)
             Positioned(
               bottom: 16.0,
               left: 16.0,
@@ -408,6 +504,28 @@ class _ChatScreenState extends State<ChatScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  // New Messages Pill
+                  AnimatedSize(
+                    duration: const Duration(milliseconds: 200),
+                    curve: Curves.easeInOut,
+                    child: _showNewMessagesPill
+                        ? Padding(
+                            padding: const EdgeInsets.only(bottom: 8.0),
+                            child: _buildNewMessagesPill(),
+                          )
+                        : const SizedBox.shrink(),
+                  ),
+                  // Access Revoked Pill
+                  AnimatedSize(
+                    duration: const Duration(milliseconds: 200),
+                    curve: Curves.easeInOut,
+                    child: _chatService.showAccessRevokedPill
+                        ? Padding(
+                            padding: const EdgeInsets.only(bottom: 8.0),
+                            child: _buildAccessRevokedPill(),
+                          )
+                        : const SizedBox.shrink(),
+                  ),
                   // Context Active Banner/Pill
                   AnimatedContainer(
                     duration: Duration(milliseconds: _showContextActivePill ? 180 : 350),
@@ -761,63 +879,140 @@ class _ChatScreenState extends State<ChatScreen> {
     final messages = _chatService.currentMessages;
 
     if (messages.isEmpty) {
-      return Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Center(
-            child: Text(
-              "Ask me something...",
-              style: TextStyle(
-                color: Colors.white.withOpacity(0.4),
-                fontSize: 18,
-                letterSpacing: 1.2,
+      final username = _chatService.isTemporaryChat ? 'Stranger' : (_chatService.username ?? 'Guest');
+      
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              RichText(
+                textAlign: TextAlign.center,
+                text: TextSpan(
+                  style: (Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ) ?? const TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
+                    fontFamily: 'Lexend',
+                    color: Colors.white,
+                  )),
+                  children: [
+                    const TextSpan(
+                      text: "Hello, ",
+                    ),
+                    TextSpan(
+                      text: username,
+                      style: TextStyle(
+                        color: AppTheme.highlight,
+                        shadows: [
+                          Shadow(
+                            color: AppTheme.highlight.withValues(alpha: 0.35),
+                            blurRadius: 16,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
+              const SizedBox(height: 12),
+              Text(
+                "How can I help you today?",
+                style: TextStyle(
+                  fontSize: 18,
+                  color: Colors.white.withValues(alpha: 0.4),
+                  fontWeight: FontWeight.w400,
+                  letterSpacing: 0.2,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
           ),
-        ],
+        ),
       );
     }
 
-    return ShaderMask(
-      shaderCallback: (Rect bounds) {
-        return LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Colors.black.withValues(alpha: 0),
-            Colors.black,
-            Colors.black,
-            Colors.black.withValues(alpha: 0),
-          ],
-          stops: const [0.0, 0.2, 0.8, 1.0], // Fade in first 20% and out last 20%
-        ).createShader(bounds);
-      },
-      blendMode: BlendMode.dstIn,
-      child: ListView.builder(
-        controller: _scrollController,
-        padding: const EdgeInsets.only(top: 80.0, bottom: 80.0),
-        itemCount: messages.length + (_isAiThinking ? 1 : 0),
-        itemBuilder: (context, index) {
-          if (index == messages.length && _isAiThinking) {
-            return const ThinkingIndicator();
-          }
-          
-          final message = messages[index];
-          // We apply the trigger key to the user message that preceded the current AI response
-          final isTrigger = !_isAiThinking && index == messages.length - 2 && messages[index].sender == 'user';
-          
-          Widget bubble = MessageBubble(message: message);
-          
-          if (isTrigger) {
-            return KeyedSubtree(
-              key: _triggerMessageKey,
-              child: bubble,
-            );
-          }
-          
-          return bubble;
-        },
-      ),
+    return Stack(
+      children: [
+        ListView.builder(
+          controller: _scrollController,
+          physics: const ClampingScrollPhysics(),
+          padding: const EdgeInsets.only(top: 80.0, bottom: 80.0),
+          reverse: true,
+          itemCount: messages.length + (_isAiThinking ? 1 : 0),
+          itemBuilder: (context, index) {
+            if (index == 0 && _isAiThinking) {
+              return const ThinkingIndicator();
+            }
+            
+            final messageIndex = _isAiThinking ? messages.length - index : messages.length - 1 - index;
+            final message = messages[messageIndex];
+            
+            // The trigger message is the user message preceding the latest AI response.
+            // In the reversed list, the latest message is at index 0 (if AI) or we are thinking.
+            // If we are not thinking, the latest message is index 0. The message preceding it is index 1.
+            final isTrigger = !_isAiThinking && index == 1 && message.sender == 'user';
+            
+            Widget bubble = MessageBubble(message: message);
+            
+            if (isTrigger) {
+              return KeyedSubtree(
+                key: _triggerMessageKey,
+                child: bubble,
+              );
+            }
+            
+            return bubble;
+          },
+        ),
+        // Top fade overlay
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 80.0,
+          child: IgnorePointer(
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    AppTheme.background,
+                    AppTheme.background.withValues(alpha: 0.0),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+        // Bottom fade overlay
+        Positioned(
+          bottom: 0,
+          left: 0,
+          right: 0,
+          height: 80.0,
+          child: IgnorePointer(
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
+                  colors: [
+                    AppTheme.background,
+                    AppTheme.background.withValues(alpha: 0.0),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -857,8 +1052,64 @@ class _ChatScreenState extends State<ChatScreen> {
     setState(() {
       _isAiThinking = false;
     });
-    // Use smart scroll to show the context (User Message at top)
-    _scrollToBottom(toTrigger: true);
+    _scrollToBottom();
+  }
+
+  Widget _buildNewMessagesPill() {
+    return Container(
+      height: 56.0,
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      decoration: BoxDecoration(
+        color: const Color(0xFF2E2E2E), // Solid dark grey to eliminate BackdropFilter rendering lag
+        borderRadius: BorderRadius.circular(28.0),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.1),
+          width: 1.0,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.3),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(28.0),
+          onTap: () {
+            HapticFeedback.lightImpact();
+            _acceleratedScrollToBottom();
+            setState(() {
+              _showNewMessagesPill = false;
+              _hasNewUnreadMessages = false;
+            });
+          },
+          child: Row(
+            children: [
+              const Icon(
+                Icons.arrow_downward,
+                color: Colors.white,
+                size: 18,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  _hasNewUnreadMessages ? 'New messages' : 'Scroll to bottom',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildFilePlaceholder() {
@@ -904,7 +1155,10 @@ class _ChatScreenState extends State<ChatScreen> {
             child: Material(
               color: Colors.transparent,
               child: InkWell(
-                onTap: onPressed,
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  onPressed();
+                },
                 customBorder: const CircleBorder(),
                 splashColor: AppTheme.highlight.withValues(alpha: 0.2),
                 child: Padding(
@@ -942,5 +1196,54 @@ class _ChatScreenState extends State<ChatScreen> {
     }
 
     return glassContainer;
+  }
+
+  Widget _buildAccessRevokedPill() {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(28.0),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 15.0, sigmaY: 15.0),
+        child: Container(
+          height: 56.0,
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          decoration: BoxDecoration(
+            color: const Color(0xFF2E2E2E).withValues(alpha: 0.85),
+            borderRadius: BorderRadius.circular(28.0),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.1),
+              width: 1.0,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.3),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: const Row(
+            children: [
+              Icon(
+                Icons.error_outline,
+                color: Colors.white,
+                size: 18,
+              ),
+              SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Access revoked as a collaborator',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }

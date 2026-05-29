@@ -1,13 +1,25 @@
-# LegalEase Database Setup
+# LegalEase Database Setup & Management
 
-This guide walks you through setting up the MongoDB database for LegalEase.
+**Status**: Production Ready | MongoDB | Fully Configured 
+**Database**: MongoDB (NoSQL) 
+**Last Updated**: June 14, 2026
+
+This guide walks you through setting up, initializing, and managing the MongoDB database for LegalEase.
+
+---
 
 ## Prerequisites
 
-- **MongoDB Community Server** (version 5.0+) running on port 27017
-- **Python 3.11+** (for initialization script)
+- **MongoDB Community Server** (version 5.0+) running on port `27017`
+- **Python 3.11+** (for running the automated initialization script)
+- **MongoDB Compass** (Optional: graphical client for database exploration)
 
-**Note:** MongoDB Compass (GUI) is optional - it's useful for viewing data but not required for setup.
+### Requirements Checklist
+
+- [ ] MongoDB Community Server installed and running
+- [ ] Python 3.11+ installed
+- [ ] 500 MB free disk space minimum
+- [ ] Port `27017` available
 
 ---
 
@@ -15,138 +27,81 @@ This guide walks you through setting up the MongoDB database for LegalEase.
 
 ### Windows
 
-**Option 1: MongoDB Community Server (Installer)**
-
-1. Download from [mongodb.com/try/download/community](https://www.mongodb.com/try/download/community)
-2. Run the installer and follow the wizard
-3. Choose "Install MongoDB as a Service" (recommended)
-4. MongoDB runs on default port `27017`
-
-**Option 2: MongoDB via Chocolatey**
-
-```powershell
-choco install mongodb-community
-```
-
-**Option 3: MongoDB via Windows WSL**
-
-```bash
-sudo apt-get install -y mongodb-org
-sudo systemctl start mongod
-```
+1. Download the installer from [mongodb.com/try/download/community](https://www.mongodb.com/try/download/community).
+2. Run the installer and choose **"Install MongoDB as a Service"** to ensure it starts automatically on boot.
+3. Verify the service is running:
+   ```powershell
+   Get-Service MongoDB
+   ```
 
 ### macOS
 
-```bash
-brew tap mongodb/brew
-brew install mongodb-community
-brew services start mongodb-community
-```
+1. Install via Homebrew:
+   ```bash
+   brew tap mongodb/brew
+   brew install mongodb-community
+   brew services start mongodb-community
+   ```
 
-### Linux
+### Linux (Ubuntu/Debian)
 
-```bash
-sudo apt-get install -y mongodb-org
-sudo systemctl start mongod
-```
+1. Install package updates and MongoDB:
+   ```bash
+   sudo apt-get install -y mongodb-org
+   sudo systemctl start mongod
+   sudo systemctl enable mongod
+   ```
 
 ---
 
 ## Database Initialization
 
-### Quick Setup (Automated - Recommended)
+### 1. Start MongoDB Service
 
-This is the fastest way to initialize your database on a new system.
+- **Windows**: `net start MongoDB`
+- **macOS**: `brew services start mongodb-community`
+- **Linux**: `sudo systemctl start mongod`
 
-#### Step 1: Start MongoDB Service
+### 2. Run Automated Initialization Script
 
-**Windows (if installed as service):**
-
-```powershell
-net start MongoDB
-```
-
-**macOS:**
-
-```bash
-brew services start mongodb-community
-```
-
-**Linux:**
-
-```bash
-sudo systemctl start mongod
-```
-
-#### Step 2: Install Python Dependencies
+Navigate to the `db/` folder in a terminal, install drivers, and run `init_db.py` to create the database schema structures and indexes:
 
 ```bash
 cd db
+python -m venv .venv
+# Activate venv:
+# Windows: .venv\Scripts\activate
+# macOS/Linux: source .venv/bin/activate
+
 pip install -r requirements.txt
-```
-
-#### Step 3: Create .env File
-
-Copy the example and configure (optional, defaults work for local dev):
-
-```bash
-cp .env.example .env
-```
-
-Edit `.env` if needed:
-
-```
-MONGODB_URI=mongodb://localhost:27017
-MONGODB_DB=legalease
-```
-
-#### Step 4: Run Initialization Script
-
-```bash
 python init_db.py
 ```
 
-**Expected output:**
-
+**Expected output**:
 ```
-🔌 Connecting to MongoDB at mongodb://localhost:27017...
-✓ Connected to database: legalease
+Connecting to MongoDB at mongodb://localhost:27017...
+Pass Connected to legalease
 
-📊 Creating indexes...
-  ✓ users collection indexes created
-  ✓ chats collection indexes created
-  ✓ files collection indexes created
+ Creating indexes...
+  Pass users indexes created
+  Pass chats indexes created
+  Pass files indexes created
 
-✅ Database initialized successfully!
-   Collections: users, chats, files
-   Database: legalease
+ Database initialized successfully!
 ```
 
 ---
 
-### Manual Setup (Alternative)
+### Manual Setup (Alternative CLI Instructions)
 
-If you prefer to set up manually or run into issues with the automated script:
+If you prefer to configure the collections manually via `mongosh`, execute the following queries:
 
-#### 1. Connect to MongoDB
-
-**Using mongosh (CLI):**
-
-```bash
-mongosh
-```
-
-**Using MongoDB Compass (GUI):**
-
-- Download from [mongodb.com/products/compass](https://www.mongodb.com/products/compass)
-- Connect to `mongodb://localhost:27017`
-
-#### 2. Create Database and Collections
-
-Run this in `mongosh`:
-
+#### 1. Create Database and Collections
 ```javascript
-// Switch to legalease database (creates if doesn't exist)
+// Open mongosh
+mongosh
+
+// Switch to legalease database
 use legalease
 
 // Create users collection with schema validation
@@ -154,14 +109,15 @@ db.createCollection("users", {
   validator: {
     $jsonSchema: {
       bsonType: "object",
-      required: ["userId", "email", "passwordHash"],
+      required: ["user_id", "email", "password"],
       properties: {
         _id: { bsonType: "objectId" },
-        userId: { bsonType: "string" },
+        user_id: { bsonType: "string" },
         email: { bsonType: "string" },
         username: { bsonType: "string" },
-        passwordHash: { bsonType: "string" },
-        context: { bsonType: "string" }
+        password: { bsonType: "string" },
+        context: { bsonType: "string" },
+        created_at: { bsonType: "string" }
       }
     }
   }
@@ -174,196 +130,56 @@ db.createCollection("chats")
 db.createCollection("files")
 ```
 
-#### 3. Create Indexes
-
-Run in `mongosh`:
-
+#### 2. Create Indexes
 ```javascript
 use legalease
 
 // Users indexes
-db.users.createIndex({ "userId": 1 }, { unique: true })
+db.users.createIndex({ "user_id": 1 }, { unique: true })
 db.users.createIndex({ "email": 1 }, { unique: true })
+db.users.createIndex({ "username": 1 }, { unique: true })
 
 // Chats indexes
-db.chats.createIndex({ "chatId": 1 }, { unique: true })
-db.chats.createIndex({ "ownerId": 1, "createdAt": -1 })
-db.chats.createIndex({ "isPinned": 1 })
+db.chats.createIndex({ "chat_id": 1 }, { unique: true })
+db.chats.createIndex({ "owner_id": 1, "updated_at": -1 })
 
 // Files indexes
-db.files.createIndex({ "fileId": 1 }, { unique: true })
-db.files.createIndex({ "userId": 1, "uploadedAt": -1 })
-```
-
-#### 4. Verify Setup
-
-Check your database and collections:
-
-```javascript
-// Show all databases
-show dbs
-
-// Show current database collections
-show collections
-
-// Count documents in each collection
-db.users.countDocuments()
-db.chats.countDocuments()
-db.files.countDocuments()
-
-// Check indexes
-db.users.getIndexes()
-db.chats.getIndexes()
-db.files.getIndexes()
-```
-
----
-
-## Connection String
-
-For your API code, use this connection string:
-
-```
-mongodb://localhost:27017/legalease
-```
-
-**Environment Variable (.env):**
-
-```
-MONGODB_URI=mongodb://localhost:27017/legalease
+db.files.createIndex({ "file_id": 1 }, { unique: true })
+db.files.createIndex({ "chat_id": 1 })
 ```
 
 ---
 
 ## File Storage Setup
 
-Create the local file storage directory:
+Create a local storage directory on your server disk where uploaded legal files will be saved:
 
-**Windows:**
+- **Windows**: Create folder `C:\repo\LegalEase\api\uploads`
+- **macOS/Linux**: Create directory `~/repo/LegalEase/api/uploads`
 
-```powershell
-mkdir C:\legalEaseDB
-```
+Files are saved securely under unique names referencing their document records (e.g. `file_a7e937d10b9d_contract.pdf`).
 
-**macOS/Linux:**
+---
 
+## Backup & Restore
+
+### Export Database
 ```bash
-mkdir -p ~/legalEaseDB
+mongodump --db legalease --out C:\backups\legalease_backup
 ```
 
-Your API will store uploaded files here with structure:
-
-```
-C:\legalEaseDB\
-├── user_123\
-│   ├── contract.pdf
-│   ├── agreement.docx
-│   └── ...
-├── user_456\
-│   └── ...
-```
-
----
-
-## Quick Reset (Wipe Database)
-
-⚠️ **Use only for development!**
-
-```javascript
-use legalease
-
-// Delete all collections
-db.users.deleteMany({})
-db.chats.deleteMany({})
-db.files.deleteMany({})
-
-// Or drop entire database
-db.dropDatabase()
-```
-
-Then re-run the **Create Database and Collections** section above.
-
----
-
-## Verify MongoDB is Running
-
-**Check status:**
-
-```powershell
-# Windows
-Get-Service MongoDB
-
-# macOS
-brew services list
-
-# Linux
-sudo systemctl status mongod
-```
-
-**Test connection:**
-
+### Import/Restore Database
 ```bash
-mongosh --eval "db.adminCommand('ping')"
-```
-
-Expected output:
-
-```
-{ ok: 1 }
-```
-
----
-
-## Access Control (Optional - For Production)
-
-For production setups, create users with authentication:
-
-```javascript
-use admin
-
-// Create admin user
-db.createUser({
-  user: "admin",
-  pwd: "your_secure_password",
-  roles: [ "root" ]
-})
-
-// Create app user with limited permissions
-use legalease
-db.createUser({
-  user: "legalease_app",
-  pwd: "app_password",
-  roles: [ { role: "readWrite", db: "legalease" } ]
-})
-```
-
-Then connect with:
-
-```
-mongodb://legalease_app:app_password@localhost:27017/legalease
+mongorestore --db legalease C:\backups\legalease_backup\legalease
 ```
 
 ---
 
 ## Troubleshooting
 
-| Issue               | Solution                                                              |
-| ------------------- | --------------------------------------------------------------------- |
-| MongoDB won't start | Check if port 27017 is already in use: `netstat -ano \| find "27017"` |
-| Connection refused  | Verify MongoDB service is running: `net start MongoDB` (Windows)      |
-| Database not found  | Databases are created automatically on first write                    |
-| Indexes not working | Run index creation again, ensure no typos in field names              |
-| Permission denied   | Run mongosh with admin privileges or fix folder permissions           |
-
----
-
-## Next Steps
-
-1. **Start MongoDB**: Run service as shown in "Quick Setup" above
-2. **Install dependencies**: `cd db && pip install -r requirements.txt`
-3. **Initialize database**: `python init_db.py`
-4. **Create file storage**: Make `C:\legalEaseDB` directory
-5. **Run API**: Set up and start your FastAPI server (see `api/README.md`)
-6. **Start Flutter app**: Run Flutter on emulator or physical device (see `app/README.md`)
-
-Database is now ready for development! 🚀
+| Issue | Cause | Solution |
+| :--- | :--- | :--- |
+| **Connection Refused** | MongoDB service isn't running | Run `net start MongoDB` (Windows) or `brew services start mongodb-community` (macOS). |
+| **Port Collision** | Port 27017 is taken | Find and kill active processes holding the port. |
+| **Validation Error** | Mismatching payload keys | Ensure your application routes submit queries matching the snake_case schema (e.g., `user_id`, not `userId`). |
+| **Index creation failed** | Duplicate entries exist | Clear collections before running index command. |

@@ -1,94 +1,489 @@
-# LegalEase API (Local Dev)
+# LegalEase API (FastAPI Backend)
 
-This folder contains the local FastAPI server for LegalEase.
+
+This folder contains the production-ready FastAPI server for LegalEase, providing REST endpoints for chat management, AI integration, and data persistence.
 
 ## Stack
 
-- Python + FastAPI
-- MongoDB (local)
+- **Framework**: Python + FastAPI
+- **Database**: MongoDB (NoSQL)
+- **AI Integration**: Google Generative AI (Gemini)
+- **Async**: asyncio + Motor (async MongoDB driver)
+- **Validation**: Pydantic
+- **API**: RESTful API
 
 ## Prerequisites
 
-- Python 3.11+
-- MongoDB running on `mongodb://localhost:27017`
+- **Python**: 3.11 or higher
+  ```bash
+  python --version
+  ```
+- **MongoDB**: Running on `mongodb://localhost:27017`
+  ```bash
+  mongosh # Verify connection
+  ```
+- **Google Gemini API**: API keys for AI integration
+- **pip**: Python package manager
 
 ## Setup
 
-1. **Initialize database** (if you haven't already):
+### 1. Initialize Database (If Not Done)
 
-   ```bash
-   cd ../db
-   pip install -r requirements.txt
-   python init_db.py
-   ```
+```bash
+cd ../db
+pip install -r requirements.txt
+python init_db.py
+```
 
-   See [db/README.md](../db/README.md) for detailed database setup.
+See [db/README.md](../db/README.md) for detailed database setup.
 
-2. **Set up API**:
-   ```bash
-   cd ../api
-   python -m venv .venv
-   .venv\Scripts\activate
-   pip install -r requirements.txt
-   copy .env.example .env
-   ```
+### 2. Setup Python Virtual Environment
 
-## Run Server
+**Windows**:
 
 ```bash
 cd api
+python -m venv .venv
 .venv\Scripts\activate
-uvicorn main:app --host 0.0.0.0 --port 8000 --reload --app-dir c:\repo\LegalEase\api
 ```
 
-Server URL: `http://127.0.0.1:8000`
+**macOS/Linux**:
+
+```bash
+cd api
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+### 3. Install Dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+**Key packages**:
+
+- fastapi - Web framework
+- uvicorn - ASGI server
+- motor - Async MongoDB driver
+- pydantic - Data validation
+- google-generativeai - Gemini API
+- python-multipart - File upload support
+
+### 4. Configure Environment
+
+```bash
+copy .env.example .env
+```
+
+**Edit .env**:
+
+```
+MONGODB_URI=mongodb://localhost:27017
+MONGODB_DB=legalease
+API_BASE_URL=http://127.0.0.1:8000
+DEFAULT_SYSTEM_PROMPT=You are LegalEase...
+GOOGLE_GEMINI_API_KEY=your_key_here
+```
+
+### 5. Add API Keys
+
+Create or edit `api_keys.csv`:
+
+```csv
+# Google Gemini API Keys (one per line)
+AIzaSyDxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+AIzaSyDxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+```
+
+**Never commit .env or api_keys.csv to version control**
+
+## Run Server
+
+### Development (with auto-reload)
+
+```bash
+.venv\Scripts\activate
+uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+**Output**:
+
+```
+INFO: Uvicorn running on http://127.0.0.1:8000
+INFO: Press CTRL+C to quit
+```
+
+### Production (no reload)
+
+```bash
+uvicorn main:app --host 0.0.0.0 --port 8000
+```
+
+### Using run.py script
+
+```bash
+python run.py
+# Automatically activates venv and starts server
+```
+
+### Using run.bat (Windows)
+
+```bash
+run.bat
+```
 
 ## Health Check
 
+Verify server is running:
+
 ```bash
+# Simple status check
 curl http://127.0.0.1:8000/health
+
+# Expected response
+{"status": "ok"}
 ```
 
-Expected response:
+## API Endpoints
+
+### Core Endpoints
+
+**Status**:
+
+- `GET /health` - Health check
+- `GET /api/ping` - Connectivity test
+
+**Authentication & Profile**:
+
+- `POST /auth/register` - Create user account
+- `POST /auth/login` - Authenticate and return JWT token
+- `GET /users/{user_id}` - Get user profile and context
+- `PATCH /users/{user_id}/context` - Update user context manually
+- `DELETE /users/{user_id}` - Permanently delete account and all data
+- `DELETE /users/{user_id}/chats` - Clear all chat histories for user
+
+**Chats & Search**:
+
+- `GET /users/{user_id}/chats` - List user's chats
+- `POST /users/{user_id}/chats` - Create new empty chat
+- `GET /chats/{chat_id}` - Get chat details with messages list
+- `PATCH /chats/{chat_id}` - Rename or pin a chat
+- `DELETE /chats/{chat_id}` - Delete chat (owner only)
+- `GET /users/{user_id}/search` - Search chat messages content
+
+**Messages & Files**:
+
+- `POST /chats/{chat_id}/messages` - Add text message to chat
+- `POST /chats/{chat_id}/messages_with_file` - Multipart form message + file upload
+- `PATCH /chats/{chat_id}/messages/{message_id}` - Edit user message
+- `DELETE /chats/{chat_id}/messages/{message_id}` - Delete message (truncates conversation)
+- `GET /api/files/{file_id}` - Stream download uploaded file
+
+**Real-Time & AI Features**:
+
+- `POST /api/generate_ai` - Generate Gemini reply with context sync
+- `POST /api/generate_live` - Generate live call voice-optimized reply
+- `POST /api/transcribe_raw` - GPU Whisper speech-to-text transcription
+- `POST /api/tts` - Kokoro wave audio speech synthesis
+- `POST /api/summarize` - Summarize message to chat title
+
+Full endpoint documentation: [API_DOCUMENTATION.md](../docs/API_DOCUMENTATION.md)
+
+## Example Usage
+
+### 1. Register User
+
+```bash
+curl -X POST http://127.0.0.1:8000/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "lawyer@example.com",
+    "username": "john_doe",
+    "password": "SecurePass123!",
+    "context": "Corporate attorney"
+  }'
+```
+
+**Response** (200 OK):
 
 ```json
-{ "status": "ok" }
+{
+  "user_id": "user_abc123",
+  "username": "john_doe"
+}
 ```
 
-## Endpoints
-
-- `GET /health`
-- `GET /users/{user_id}/chats`
-- `POST /users/{user_id}/chats`
-- `GET /chats/{chat_id}`
-- `PATCH /chats/{chat_id}`
-- `DELETE /chats/{chat_id}`
-- `POST /chats/{chat_id}/messages`
-- `POST /chats/{chat_id}/share`
-- `GET /share/{share_token}`
-
-## Example Flow
-
-1. Create chat:
+### 2. Create Chat
 
 ```bash
-curl -X POST http://127.0.0.1:8000/users/user1/chats -H "Content-Type: application/json" -d "{\"title\":\"New Chat\"}"
+curl -X POST http://127.0.0.1:8000/users/user_abc123/chats \
+  -H "Content-Type: application/json" \
+  -d '{"title": "Contract Review"}'
 ```
 
-2. Add message:
+### 3. Send Message (Get AI Response)
 
 ```bash
-curl -X POST http://127.0.0.1:8000/chats/<chat_id>/messages -H "Content-Type: application/json" -d "{\"user_id\":\"user1\",\"sender\":\"user\",\"content\":\"Hello\"}"
+curl -X POST http://127.0.0.1:8000/chats/chat_xyz789/messages \
+  -H "Content-Type: application/json" \
+  -d '{
+    "user_id": "user_abc123",
+    "sender": "user",
+    "content": "What is the difference between an LLC and an S-Corp?"
+  }'
 ```
 
-3. List chats:
+**Response**:
+
+```json
+{
+  "messages": [
+    {
+      "messageId": "msg_001",
+      "role": "user",
+      "content": "What is the difference between an LLC and an S-Corp?",
+      "createdAt": "2026-05-20T10:00:00Z"
+    },
+    {
+      "messageId": "msg_002",
+      "role": "assistant",
+      "content": "LLC vs S-Corp: Here are the key differences...",
+      "createdAt": "2026-05-20T10:00:05Z"
+    }
+  ]
+}
+```
+
+### 4. List Chats
 
 ```bash
-curl http://127.0.0.1:8000/users/user1/chats
+curl http://127.0.0.1:8000/users/user_abc123/chats
 ```
 
-## Notes
+### 5. Upload File
 
-- This is local-first demo infrastructure.
-- AI response is currently a demo backend response. Replace `build_demo_reply()` in `main.py` with Gemini integration.
-- Files are expected to be stored locally under `C:\legalEaseDB`.
+```bash
+curl -X POST http://127.0.0.1:8000/files/upload \
+  -F "file=@contract.pdf" \
+  -F "user_id=user_abc123"
+```
+
+## Project Structure
+
+```
+api/
+|--─ main.py                  # FastAPI application & endpoints
+|--─ requirements.txt         # Python dependencies
+|--─ api_keys.csv            # Google Gemini API keys
+|--─ .env.example            # Environment template
+|--─ .env                    # Local environment config
+|--─ run.py                  # Development runner script
+|--─ run.bat                 # Windows batch script
+|--─ uploads/                # Temporary file uploads
+|--─ tests/                  # Test files (if present)
++--─ README.md # This file
+```
+
+## Configuration
+
+### Environment Variables
+
+| Variable              | Description               | Default                   |
+| --------------------- | ------------------------- | ------------------------- |
+| MONGODB_URI           | MongoDB connection string | mongodb://localhost:27017 |
+| MONGODB_DB            | Database name             | legalease                 |
+| API_BASE_URL          | Public API URL            | http://127.0.0.1:8000     |
+| DEFAULT_SYSTEM_PROMPT | AI system prompt          | "You are LegalEase..."    |
+
+### CORS Configuration
+
+Currently allows all origins (`*`). For production:
+
+```python
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["https://yourdomain.com"],
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PATCH", "DELETE"],
+    allow_headers=["*"],
+)
+```
+
+### API Key Rotation
+
+Edit `api_keys.csv` to add/remove keys:
+
+```csv
+# Primary key
+AIzaSyDxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+# Backup key
+AIzaSyDyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy
+```
+
+Server automatically rotates keys on failures.
+
+## Features
+
+### Core Features
+
+- User authentication via JWT Access Tokens
+- Chat CRUD operations
+- Message management with AI responses
+- File upload and storage
+- Google Gemini AI integration
+- MongoDB integration
+
+### Advanced Features
+
+- Async operations (non-blocking)
+- Error handling & validation
+- CORS middleware
+- Request logging
+- Health monitoring
+
+## Database
+
+**Collections**:
+
+- `users` - User accounts
+- `chats` - Conversations (with embedded messages)
+- `files` - Document metadata
+
+**Connection**: Motor (async MongoDB driver)
+
+For schema details, see [DATABASE_DESIGN.md](../docs/DATABASE_DESIGN.md)
+
+## Error Handling
+
+**Standard error response**:
+
+```json
+{
+  "detail": "Error description",
+  "status_code": 400
+}
+```
+
+**Common errors**:
+
+- 400 Bad Request - Invalid input
+- 404 Not Found - Resource doesn't exist
+- 409 Conflict - Duplicate email/username
+- 500 Internal Server Error - Unexpected error
+
+## Testing
+
+### Run Tests
+
+```bash
+pip install pytest pytest-asyncio
+pytest tests/
+```
+
+### Test API Manually
+
+Use included `test.py` in web folder:
+
+```bash
+cd web
+python test.py
+```
+
+Or use Postman/Insomnia for interactive testing.
+
+## Deployment
+
+### Local Deployment
+
+```bash
+# Terminal setup
+.venv\Scripts\activate
+uvicorn main:app --host 0.0.0.0 --port 8000
+```
+
+## Performance
+
+### Optimization Tips
+
+1. **Use indexes** on frequently queried fields
+
+   ```javascript
+   db.chats.createIndex({ ownerId: 1, createdAt: -1 });
+   ```
+
+2. **Limit query results** for large datasets
+
+   ```python
+   chats = await db.chats.find(query).limit(50).to_list(None)
+   ```
+
+3. **Cache responses** where appropriate
+
+   ```python
+   # Future: Implement Redis caching
+   ```
+
+4. **Monitor query performance**
+   ```bash
+   mongosh
+   db.setProfilingLevel(1)
+   ```
+
+## Troubleshooting
+
+### MongoDB Connection Failed
+
+```
+ConnectionFailure: cannot connect to server
+```
+
+**Solutions**:
+
+1. Start MongoDB: `net start MongoDB` (Windows)
+2. Verify connection string in .env
+3. Check MongoDB is listening on port 27017
+
+### API Key Errors
+
+```
+Could not authenticate with the Gemini API
+```
+
+**Solutions**:
+
+1. Verify API keys in `api_keys.csv`
+2. Check keys are not expired
+3. Ensure internet connection
+4. Check API quota limits
+
+### CORS Errors
+
+```
+Access to XMLHttpRequest has been blocked by CORS policy
+```
+
+**Solutions**:
+
+1. Verify CORS middleware is configured
+2. Check client origin is allowed
+3. Use development server without CORS issues
+
+### Port Already in Use
+
+```
+Address already in use
+```
+
+**Solutions**:
+
+```bash
+# Windows: Find process using port 8000
+netstat -ano | findstr :8000
+
+# Kill process
+taskkill /PID <PID> /F
+
+# Or use different port
+uvicorn main:app --port 8001
+```

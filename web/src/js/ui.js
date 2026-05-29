@@ -1,6 +1,7 @@
 // UI rendering module
-import { state, DEFAULT_USERNAME } from './config.js';
+import { state, DEFAULT_USERNAME, DEFAULT_USER_ID } from './config.js';
 import { escapeHtml } from './utils.js';
+import { getUserProfile } from './api.js';
 
 // DOM element references
 let menuBtn, newChatBtn, drawer, drawerOverlay, closeDrawerBtn;
@@ -10,8 +11,16 @@ let attachmentName, removeAttachmentBtn, tempChatToggleBtn, authActionBtn;
 let userStatus, authModal, authForm, authTitle, authSwitchBtn, authSwitchText;
 let authCloseBtn, authUsername, authEmailLabel, authEmail, authPassword;
 let authConfirmLabel, authConfirmPassword, authSubmitBtn;
-let settingsBtn, settingsModal, settingsApiUrl, saveSettingsBtn, settingsCloseBtn;
-let personaBtn, contextPill, attachmentMenu;
+let settingsBtn, settingsModal, settingsApiPrefix, settingsApiSuffix, settingsApiIp, settingsCloseBtn;
+let personaBtn, contextPill, attachmentMenu, newMessagesPill;
+let shareBtn, manageAccessModal, manageAccessCloseBtn, chatPrivacyStateText, revokeAccessBtn;
+let inviteSection, inviteForm, inviteUsername, inviteSubmitBtn, collaboratorsListCard;
+
+// Scroll and unread message states
+let isAtBottom = true;
+let hasNewUnreadMessages = false;
+let lastChatId = null;
+let lastMessageCount = 0;
 
 export function initializeDOM() {
     menuBtn = document.getElementById('menuBtn');
@@ -48,12 +57,44 @@ export function initializeDOM() {
     authSubmitBtn = document.getElementById('authSubmitBtn');
     settingsBtn = document.getElementById('settingsBtn');
     settingsModal = document.getElementById('settingsModal');
-    settingsApiUrl = document.getElementById('settingsApiUrl');
-    saveSettingsBtn = document.getElementById('saveSettingsBtn');
+    settingsApiPrefix = document.getElementById('settingsApiPrefix');
+    settingsApiSuffix = document.getElementById('settingsApiSuffix');
+    settingsApiIp = document.getElementById('settingsApiIp');
     settingsCloseBtn = document.getElementById('settingsCloseBtn');
     personaBtn = document.getElementById('attachPersonaBtn');
     contextPill = document.getElementById('contextActivePill');
     attachmentMenu = document.getElementById('attachmentMenu');
+    shareBtn = document.getElementById('shareBtn');
+    manageAccessModal = document.getElementById('manageAccessModal');
+    manageAccessCloseBtn = document.getElementById('manageAccessCloseBtn');
+    chatPrivacyStateText = document.getElementById('chatPrivacyStateText');
+    revokeAccessBtn = document.getElementById('revokeAccessBtn');
+    inviteSection = document.getElementById('inviteSection');
+    inviteForm = document.getElementById('inviteForm');
+    inviteUsername = document.getElementById('inviteUsername');
+    inviteSubmitBtn = document.getElementById('inviteSubmitBtn');
+    collaboratorsListCard = document.getElementById('collaboratorsListCard');
+    newMessagesPill = document.getElementById('newMessagesPill');
+
+    if (newMessagesPill) {
+        newMessagesPill.addEventListener('click', () => {
+            acceleratedScrollToBottom();
+        });
+    }
+
+    if (messagesContainer) {
+        messagesContainer.addEventListener('scroll', () => {
+            const threshold = 40; // px
+            const atBottom = (messagesContainer.scrollHeight - messagesContainer.scrollTop - messagesContainer.clientHeight) <= threshold;
+            if (atBottom !== isAtBottom) {
+                isAtBottom = atBottom;
+                if (isAtBottom) {
+                    hasNewUnreadMessages = false;
+                }
+                updatePillTextAndVisibility();
+            }
+        });
+    }
 }
 
 export function toggleDrawer() {
@@ -76,6 +117,18 @@ export function renderUserState() {
         : (state.isTemporaryChat ? `${DEFAULT_USERNAME} (Temporary)` : DEFAULT_USERNAME);
     if (userStatus) userStatus.textContent = displayName;
     if (authActionBtn) authActionBtn.textContent = state.authToken ? 'Logout' : 'Login / Sign Up';
+    
+    // Dynamically update the sidebar header username
+    const sidebarUserStatus = document.getElementById('sidebarUserStatus');
+    if (sidebarUserStatus) sidebarUserStatus.textContent = state.authToken ? state.username : 'Guest';
+
+    // Dynamically update the Gemini-style welcome screen greeting
+    const welcomeGreeting = document.getElementById('welcomeGreeting');
+    if (welcomeGreeting) {
+        welcomeGreeting.innerHTML = state.authToken 
+            ? `Hello, <span class="gradient-username">${escapeHtml(state.username)}</span>`
+            : `Hello, <span class="gradient-username">Guest</span>`;
+    }
 }
 
 export function renderTemporaryToggle() {
@@ -109,6 +162,8 @@ export function renderConnectionBanner() {
 export function openAuthModal(mode) {
     state.authMode = mode;
     authModal.classList.remove('hidden');
+    document.documentElement.classList.remove('is-authenticated');
+    document.documentElement.classList.add('is-unauthenticated');
     if (mode === 'login') {
         authTitle.innerHTML = 'Welcome to<br>LegalEase';
         authSubmitBtn.textContent = 'Sign In';
@@ -129,6 +184,8 @@ export function openAuthModal(mode) {
 export function closeAuthModal() {
     authModal.classList.add('hidden');
     authForm.reset();
+    document.documentElement.classList.remove('is-unauthenticated');
+    document.documentElement.classList.add('is-authenticated');
 }
 
 export function openSettingsModal() {
@@ -183,11 +240,9 @@ export function renderDrawer() {
 
     const html = [];
     if (pinnedChats.length > 0) {
-        html.push('<div class="drawer-section-label">Pinned</div>');
         html.push(pinnedChats.map(c => chatItemHtml(c)).join(''));
     }
     if (recentChats.length > 0) {
-        if (pinnedChats.length > 0) html.push('<div class="drawer-section-separator"></div>');
         html.push(recentChats.map(c => chatItemHtml(c)).join(''));
     }
 
@@ -199,33 +254,134 @@ export function renderDrawer() {
 
 function chatItemHtml(chat) {
     const isActive = chat.id === state.currentChatId;
-    const pinIcon = chat.isPinned ? '★' : '☆';
+    const pinIndicator = chat.isPinned 
+        ? `<span class="chat-pinned-indicator" title="Pinned chat">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/></svg>
+           </span>`
+        : '';
+    const sharedIndicator = chat.isShared 
+        ? `<span class="sidebar-shared-icon" title="Shared chat">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+           </span>`
+        : '';
+
+    // Only allow context menu / actions if user is the owner (admin) of the chat
+    const isOwner = !state.authToken || !chat.userId || chat.userId === state.userId;
+    const contextMenuAttr = isOwner 
+        ? `oncontextmenu="event.preventDefault(); event.stopPropagation(); window.showChatMenuUI(event, '${chat.id}')"`
+        : `oncontextmenu="event.preventDefault();"`;
+
+    const menuTrigger = isOwner
+        ? `<button class="chat-menu-trigger"
+                   onclick="event.stopPropagation(); window.showChatMenuUI(event, '${chat.id}')"
+                   title="Chat actions" aria-label="Chat actions">
+               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+           </button>`
+        : '';
+
     return `
         <div class="chat-item ${isActive ? 'active' : ''}"
              data-chat-id="${chat.id}"
              onclick="window.selectChatUI('${chat.id}')"
+             ${contextMenuAttr}
              role="button" tabindex="0"
              aria-label="Chat: ${escapeHtml(chat.title)}">
             <div class="chat-title">${escapeHtml(chat.title)}</div>
-            <div class="chat-actions">
-                <button class="chat-action-btn"
-                        onclick="event.stopPropagation(); window.togglePinChatUI('${chat.id}')"
-                        title="${chat.isPinned ? 'Unpin' : 'Pin'} chat"
-                        aria-label="Toggle pin">${pinIcon}</button>
-                <button class="chat-action-btn"
-                        onclick="event.stopPropagation(); window.renameChatUI('${chat.id}')"
-                        title="Rename" aria-label="Rename chat">✎</button>
-                <button class="chat-action-btn delete"
-                        onclick="event.stopPropagation(); window.deleteChatUI('${chat.id}')"
-                        title="Delete" aria-label="Delete chat">🗑</button>
+            <div class="chat-item-right-row">
+                ${pinIndicator}
+                ${sharedIndicator}
+                ${menuTrigger}
             </div>
         </div>
     `;
 }
 
-// ─── Messages ──────────────────────────────────────────────────────────────────
-export function renderMessages() {
+const usernamesCache = {};
+
+function getUsername(userId) {
+    if (!userId) return '...';
+    if (userId === state.userId && state.username) {
+        return state.username;
+    }
+    if (userId === DEFAULT_USER_ID || userId === 'default_user') {
+        return DEFAULT_USERNAME;
+    }
+    if (usernamesCache[userId]) {
+        return usernamesCache[userId];
+    }
+    usernamesCache[userId] = 'loading';
+    getUserProfile(userId).then(profile => {
+        usernamesCache[userId] = profile.username || 'Unknown';
+        renderMessages();
+    }).catch(() => {
+        usernamesCache[userId] = 'Unknown';
+        renderMessages();
+    });
+    return '...';
+}
+
+function updatePillTextAndVisibility() {
+    if (!newMessagesPill) return;
+    const textSpan = document.getElementById('newMessagesPillText');
+    if (isAtBottom) {
+        newMessagesPill.classList.add('hidden');
+        hasNewUnreadMessages = false;
+    } else {
+        if (textSpan) {
+            textSpan.textContent = hasNewUnreadMessages ? 'New messages' : 'Scroll to bottom';
+        }
+        newMessagesPill.classList.remove('hidden');
+    }
+}
+
+function showNewMessagesPill() {
+    isAtBottom = false;
+    updatePillTextAndVisibility();
+}
+
+function hideNewMessagesPill() {
+    isAtBottom = true;
+    hasNewUnreadMessages = false;
+    updatePillTextAndVisibility();
+}
+
+function acceleratedScrollToBottom() {
     if (!messagesContainer) return;
+    
+    isAtBottom = true;
+    hasNewUnreadMessages = false;
+    updatePillTextAndVisibility();
+
+    const maxScroll = messagesContainer.scrollHeight - messagesContainer.clientHeight;
+    
+    messagesContainer.scrollTo({
+        top: maxScroll,
+        behavior: 'smooth'
+    });
+}
+
+// ─── Messages ──────────────────────────────────────────────────────────────────
+export function renderMessages(forceScroll = false) {
+    if (!messagesContainer) return;
+
+    // Check if we were at the bottom before updating HTML
+    const threshold = 40; // px
+    const wasAtBottom = (messagesContainer.scrollHeight - messagesContainer.scrollTop - messagesContainer.clientHeight) <= threshold;
+    const prevScrollTop = messagesContainer.scrollTop;
+
+    // Update shareBtn visibility
+    const shareBtn = document.getElementById('shareBtn');
+    if (shareBtn) {
+        const activeChat = state.currentChatId ? state.chats[state.currentChatId] : null;
+        const isOwner = activeChat && activeChat.userId === state.userId;
+        const isServerChat = activeChat && !String(activeChat.id).startsWith('local_');
+        
+        if (state.authToken && activeChat && isOwner && isServerChat && !state.isTemporaryChat) {
+            shareBtn.classList.remove('hidden');
+        } else {
+            shareBtn.classList.add('hidden');
+        }
+    }
 
     const chatContainer = document.querySelector('.chat-container');
     const msgList = state.currentChatId
@@ -235,17 +391,158 @@ export function renderMessages() {
     const isEmpty = msgList.length === 0;
     chatContainer?.classList.toggle('no-messages', isEmpty);
 
+    const messageCount = msgList.length;
+
     if (isEmpty) {
         messagesContainer.innerHTML = '';
+        isAtBottom = true;
+        hasNewUnreadMessages = false;
+        updatePillTextAndVisibility();
+        lastChatId = state.currentChatId;
+        lastMessageCount = 0;
         return;
     }
 
-    messagesContainer.innerHTML = msgList.map(msg => messageBubbleHtml(msg)).join('');
-    scrollToBottom();
+    // Find the latest AI message ID to keep its actions always visible
+    let lastAiMsgId = null;
+    for (let i = msgList.length - 1; i >= 0; i--) {
+        if (msgList[i].sender === 'ai') {
+            lastAiMsgId = msgList[i].id;
+            break;
+        }
+    }
 
+    const isChatSwitch = state.currentChatId !== lastChatId;
+    if (isChatSwitch) {
+        messagesContainer.innerHTML = '';
+    }
+
+    const existingBubbles = Array.from(messagesContainer.querySelectorAll('.message-bubble'));
+    const existingIds = existingBubbles.map(el => el.getAttribute('data-message-id'));
+    const newIds = msgList.map(msg => String(msg.id));
+
+    // 1. Remove elements that are no longer in the list (or if chat changed)
+    existingBubbles.forEach(el => {
+        const id = el.getAttribute('data-message-id');
+        if (!newIds.includes(id)) {
+            el.remove();
+        }
+    });
+
+    // 2. Insert or update elements
+    msgList.forEach((msg) => {
+        const msgIdStr = String(msg.id);
+        let el = messagesContainer.querySelector(`.message-bubble[data-message-id="${msgIdStr}"]`);
+        const html = messageBubbleHtml(msg, lastAiMsgId);
+        
+        if (el) {
+            // Update in-place to avoid re-triggering animations on existing elements
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = html;
+            const newInner = tempDiv.firstElementChild.innerHTML;
+            
+            if (el.innerHTML !== newInner) {
+                el.innerHTML = newInner;
+            }
+            
+            // Sync class names except for 'newly-added'
+            const currentClasses = Array.from(el.classList);
+            const targetClasses = Array.from(tempDiv.firstElementChild.classList);
+            targetClasses.forEach(c => {
+                if (!el.classList.contains(c)) el.classList.add(c);
+            });
+            currentClasses.forEach(c => {
+                if (c !== 'newly-added' && !targetClasses.includes(c)) el.classList.remove(c);
+            });
+        } else {
+            // Create and append the new element
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = html;
+            const newEl = tempDiv.firstElementChild;
+            
+            // Run entry slide-up animation only if it's NOT a full chat switch/load
+            if (!isChatSwitch) {
+                newEl.classList.add('newly-added');
+            }
+            
+            messagesContainer.appendChild(newEl);
+        }
+    });
+
+    if (isChatSwitch) {
+        lastChatId = state.currentChatId;
+        lastMessageCount = messageCount;
+        isAtBottom = true;
+        hasNewUnreadMessages = false;
+        scrollToBottom(false); // Instant snap on chat switch
+        updatePillTextAndVisibility();
+    } else {
+        if (lastMessageCount !== 0 && messageCount > lastMessageCount) {
+            const lastMsg = msgList[msgList.length - 1];
+            const isOwnMsg = lastMsg.sender === 'user' && (lastMsg.userId === state.userId || String(lastMsg.id).startsWith('local_'));
+            const isAiMsg = lastMsg.sender === 'ai';
+
+            let isResponseToOwnMsg = false;
+            if (isAiMsg) {
+                for (let i = msgList.length - 2; i >= 0; i--) {
+                    if (msgList[i].sender === 'user') {
+                        const isOwnUserMsg = msgList[i].userId === state.userId || String(msgList[i].id).startsWith('local_');
+                        if (isOwnUserMsg) {
+                            isResponseToOwnMsg = true;
+                        }
+                        break;
+                    }
+                }
+            }
+
+            if (isOwnMsg) {
+                scrollToBottom(true); // Smooth scroll when you send a message
+                isAtBottom = true;
+                hasNewUnreadMessages = false;
+                updatePillTextAndVisibility();
+            } else if (isAiMsg && isResponseToOwnMsg) {
+                if (wasAtBottom) {
+                    scrollToBottom(true); // Smooth scroll when AI responds to your message
+                    isAtBottom = true;
+                    hasNewUnreadMessages = false;
+                    updatePillTextAndVisibility();
+                } else {
+                    messagesContainer.scrollTop = prevScrollTop;
+                    isAtBottom = false;
+                    hasNewUnreadMessages = true;
+                    updatePillTextAndVisibility();
+                }
+            } else {
+                // Message from another user, OR AI responding to another user's message
+                // Never auto scroll, keep scroll position and show the new messages pill
+                messagesContainer.scrollTop = prevScrollTop;
+                isAtBottom = false;
+                hasNewUnreadMessages = true;
+                updatePillTextAndVisibility();
+            }
+        } else {
+            if (forceScroll) {
+                scrollToBottom(true);
+                isAtBottom = true;
+                hasNewUnreadMessages = false;
+                updatePillTextAndVisibility();
+            } else {
+                messagesContainer.scrollTop = prevScrollTop;
+                const currentAtBottom = (messagesContainer.scrollHeight - messagesContainer.scrollTop - messagesContainer.clientHeight) <= threshold;
+                isAtBottom = currentAtBottom;
+                updatePillTextAndVisibility();
+            }
+        }
+        lastMessageCount = messageCount;
+    }
+
+    const thinkingEl = document.getElementById('thinkingIndicator');
+    if (thinkingEl) {
+        messagesContainer.appendChild(thinkingEl);
+    }
 }
 
-function messageBubbleHtml(msg) {
+function messageBubbleHtml(msg, lastAiMsgId) {
     const isUser = msg.sender === 'user';
     const isEdited = !!msg.edited_at;
     const canEdit = isUser && !state.sharedView;
@@ -253,7 +550,8 @@ function messageBubbleHtml(msg) {
     if (isUser) {
         return userBubbleHtml(msg, isEdited, canEdit);
     } else {
-        return aiBubbleHtml(msg);
+        const isLatest = msg.id === lastAiMsgId;
+        return aiBubbleHtml(msg, isLatest);
     }
 }
 
@@ -261,46 +559,55 @@ function userBubbleHtml(msg, isEdited, canEdit) {
     const hasAttachment = msg.fileName && (msg.fileId || msg.localFileUrl);
     const cleanContent = msg.content.trim();
 
+    const activeChat = state.currentChatId ? state.chats[state.currentChatId] : null;
+    const isShared = activeChat ? activeChat.isShared : false;
+    const isOwnMessage = !isShared || !msg.userId || msg.userId === state.userId;
+
+    let usernameLabel = '';
+    if (isShared && msg.userId) {
+        const username = getUsername(msg.userId);
+        usernameLabel = `<div class="message-username">${escapeHtml(username)}</div>`;
+    }
+
     let attachmentCard = '';
     if (hasAttachment) {
-        const isImage = /\.(png|jpe?g|gif|webp|bmp)$/i.test(msg.fileName);
-        const icon = isImage
-            ? `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>`
-            : `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>`;
+        const isPersona = msg.fileName === "Persona Attached" || msg.fileName === "Persona Attached.txt";
+        const displayName = isPersona ? "Persona Attached" : msg.fileName;
+        
+        let icon;
+        if (isPersona) {
+            icon = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`;
+        } else {
+            const isImage = /\.(png|jpe?g|gif|webp|bmp)$/i.test(msg.fileName);
+            icon = isImage
+                ? `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>`
+                : `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>`;
+        }
 
-        const clickAction = msg.fileId
+        const clickAction = (!isPersona && msg.fileId)
             ? `window.downloadFileUI('${msg.fileId}', '${escapeHtml(msg.fileName)}')`
             : '';
         attachmentCard = `
-            <div class="user-attachment-card" ${clickAction ? `onclick="${clickAction}" role="button" tabindex="0" title="Download ${escapeHtml(msg.fileName)}"` : ''}>
+            <div class="user-attachment-card ${isPersona ? 'persona-card' : ''}" ${clickAction ? `onclick="${clickAction}" role="button" tabindex="0" title="${isPersona ? 'Persona Attached' : `Download ${escapeHtml(displayName)}`}"` : ''}>
                 <div class="attachment-icon-box">${icon}</div>
-                <span class="attachment-file-name">${escapeHtml(msg.fileName)}</span>
+                <span class="attachment-file-name">${escapeHtml(displayName)}</span>
             </div>
         `;
     }
 
     return `
-        <div class="message-bubble user" data-message-id="${msg.id}" role="article">
+        <div class="message-bubble user ${isOwnMessage ? '' : 'other'}" data-message-id="${msg.id}" role="article">
             <div class="user-bubble-glass">
                 ${cleanContent ? `<div class="user-bubble-text">${escapeHtml(cleanContent)}</div>` : ''}
                 ${attachmentCard}
                 ${isEdited ? '<div class="edited-indicator">(edited)</div>' : ''}
             </div>
-            ${canEdit ? `
-                <div class="message-actions">
-                    <button class="message-action-btn" onclick="event.stopPropagation(); window.editMessageUI('${msg.id}')" title="Edit" aria-label="Edit message">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                    </button>
-                    <button class="message-action-btn delete" onclick="event.stopPropagation(); window.deleteMessageUI('${msg.id}')" title="Delete" aria-label="Delete message">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
-                    </button>
-                </div>
-            ` : ''}
+            ${usernameLabel}
         </div>
     `;
 }
 
-function aiBubbleHtml(msg) {
+function aiBubbleHtml(msg, isLatest = false) {
     // Render markdown using marked.js if available, else plain text
     let renderedContent;
     if (typeof window.marked !== 'undefined') {
@@ -310,7 +617,7 @@ function aiBubbleHtml(msg) {
     }
 
     return `
-        <div class="message-bubble ai" data-message-id="${msg.id}" role="article">
+        <div class="message-bubble ai${isLatest ? ' is-latest' : ''}" data-message-id="${msg.id}" role="article">
             <div class="ai-bubble-content">
                 <div class="ai-message-text">${renderedContent}</div>
                 <div class="ai-action-bar">
@@ -358,13 +665,25 @@ export function removeThinkingIndicator() {
     document.getElementById('thinkingIndicator')?.remove();
 }
 
-// ─── Helpers ───────────────────────────────────────────────────────────────────
-function scrollToBottom() {
-    requestAnimationFrame(() => {
-        if (messagesContainer) {
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
-        }
-    });
+function scrollToBottom(smooth = false) {
+    isAtBottom = true;
+    hasNewUnreadMessages = false;
+    updatePillTextAndVisibility();
+
+    const performScroll = () => {
+        if (!messagesContainer) return;
+        
+        const maxScroll = messagesContainer.scrollHeight - messagesContainer.clientHeight;
+        messagesContainer.scrollTo({
+            top: maxScroll,
+            behavior: smooth ? 'smooth' : 'auto'
+        });
+    };
+
+    requestAnimationFrame(performScroll);
+    // Double timeout backups to handle mobile keyboard state, browser rendering lag, and dynamic layout reflows
+    setTimeout(performScroll, 80);
+    setTimeout(performScroll, 220);
 }
 
 export function getUIElements() {
@@ -372,20 +691,180 @@ export function getUIElements() {
         messageInput, sendBtn, attachBtn, attachmentInput, attachmentPreview,
         attachmentName, removeAttachmentBtn, drawerSearch, authForm, authUsername,
         authEmail, authPassword, authConfirmPassword, authSwitchBtn, authCloseBtn,
-        settingsBtn, settingsModal, settingsApiUrl, saveSettingsBtn, settingsCloseBtn,
+        settingsBtn, settingsModal, settingsApiPrefix, settingsApiSuffix, settingsApiIp, settingsCloseBtn,
     };
 }
 
 export function updateAttachmentPreview(file) {
-    if (!attachmentPreview || !attachmentName) return;
-    if (file) {
-        attachmentName.textContent = `📎 ${file.name}`;
-        attachmentPreview.classList.remove('hidden');
-    } else {
+    if (attachmentPreview) {
         attachmentPreview.classList.add('hidden');
+    }
+    const attachBtn = document.getElementById('attachBtn');
+    if (!attachBtn) return;
+    
+    attachBtn.classList.remove('has-attachment', 'has-persona');
+    
+    if (file) {
+        attachBtn.classList.add('has-attachment');
+        attachBtn.title = "Clear attachment";
+        attachBtn.innerHTML = `
+            <div class="attach-icon-slot">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+                </svg>
+            </div>
+        `;
+    } else if (state.useContext) {
+        attachBtn.classList.add('has-persona');
+        attachBtn.title = "Clear persona";
+        attachBtn.innerHTML = `
+            <div class="attach-icon-slot">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                    <circle cx="12" cy="7" r="4"/>
+                </svg>
+            </div>
+        `;
+    } else {
+        attachBtn.title = "Attach";
+        attachBtn.innerHTML = `
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <line x1="12" y1="5" x2="12" y2="19"/>
+                <line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+        `;
     }
 }
 
 // Legacy exports kept for compatibility
 export function openShareModal() {}
 export function closeShareModal() {}
+
+export async function openManageAccessModal() {
+    if (!state.currentChatId) return;
+    const chat = state.chats[state.currentChatId];
+    if (!chat) return;
+
+    const modal = document.getElementById('manageAccessModal');
+    if (!modal) return;
+
+    // Reset inputs
+    const usernameInput = document.getElementById('inviteUsername');
+    if (usernameInput) usernameInput.value = '';
+
+    // Render privacy status
+    const privacyText = document.getElementById('chatPrivacyStateText');
+    const revokeBtn = document.getElementById('revokeAccessBtn');
+    
+    if (chat.isShared) {
+        if (privacyText) {
+            privacyText.textContent = 'Shared Chat';
+            privacyText.nextElementSibling.textContent = 'This conversation is shared with collaborators.';
+        }
+        if (revokeBtn) revokeBtn.classList.remove('hidden');
+    } else {
+        if (privacyText) {
+            privacyText.textContent = 'Private Chat';
+            privacyText.nextElementSibling.textContent = 'Only you have access to this conversation.';
+        }
+        if (revokeBtn) revokeBtn.classList.add('hidden');
+    }
+
+    // Render list
+    await renderCollaboratorsList(chat);
+
+    modal.classList.remove('hidden');
+}
+
+export function closeManageAccessModal() {
+    const modal = document.getElementById('manageAccessModal');
+    if (modal) {
+        modal.classList.add('hidden');
+    }
+}
+
+async function renderCollaboratorsList(chat) {
+    const card = document.getElementById('collaboratorsListCard');
+    if (!card) return;
+
+    card.innerHTML = '<div class="loading-text" style="padding: 16px; text-align: center;">Loading collaborators...</div>';
+
+    try {
+        const listHtml = [];
+        
+        // 1. Render Owner row
+        let ownerName = 'Owner';
+        let ownerEmail = '';
+        try {
+            const ownerProfile = await getUserProfile(chat.userId);
+            if (ownerProfile) {
+                ownerName = ownerProfile.username || 'Owner';
+                ownerEmail = ownerProfile.email || '';
+            }
+        } catch (_) {}
+
+        listHtml.push(`
+            <div class="collaborator-row">
+                <div class="collaborator-info">
+                    <span class="collaborator-username">${escapeHtml(ownerName)}</span>
+                    ${ownerEmail ? `<span class="collaborator-email">${escapeHtml(ownerEmail)}</span>` : ''}
+                </div>
+                <span class="collaborator-badge owner">Owner</span>
+            </div>
+        `);
+
+        // 2. Render Collaborator rows
+        const collaborators = chat.collaborators || [];
+        if (collaborators.length > 0) {
+            for (const collabId of collaborators) {
+                let collabName = 'User';
+                let collabEmail = '';
+                try {
+                    const collabProfile = await getUserProfile(collabId);
+                    if (collabProfile) {
+                        collabName = collabProfile.username || 'User';
+                        collabEmail = collabProfile.email || '';
+                    }
+                } catch (_) {}
+
+                listHtml.push(`
+                    <div class="collaborator-row">
+                        <div class="collaborator-info">
+                            <span class="collaborator-username">${escapeHtml(collabName)}</span>
+                            ${collabEmail ? `<span class="collaborator-email">${escapeHtml(collabEmail)}</span>` : ''}
+                        </div>
+                        <button type="button" class="collaborator-remove-btn" onclick="window.removeCollaboratorUI('${escapeHtml(collabName)}')">Remove</button>
+                    </div>
+                `);
+            }
+        } else {
+            listHtml.push(`
+                <div class="collaborators-list-container" style="align-items: center; justify-content: center; opacity: 0.5; padding: 20px 0;">
+                    <span style="font-size: 13px;">No collaborators yet. Invite others to join!</span>
+                </div>
+            `);
+        }
+
+        card.innerHTML = listHtml.join('');
+    } catch (err) {
+        console.error('Error rendering collaborators:', err);
+        card.innerHTML = '<div class="loading-text" style="padding: 16px; text-align: center; color: var(--danger);">Error loading collaborators</div>';
+    }
+}
+
+export function showNotificationPill(message) {
+    const pill = document.getElementById('notificationPill');
+    if (!pill) return;
+    const textSpan = pill.querySelector('span');
+    if (textSpan) textSpan.textContent = message;
+    
+    pill.classList.remove('hidden');
+    
+    // Auto-hide after 3 seconds
+    if (window.notificationPillTimeout) {
+        clearTimeout(window.notificationPillTimeout);
+    }
+    window.notificationPillTimeout = setTimeout(() => {
+        pill.classList.add('hidden');
+    }, 3000);
+}
