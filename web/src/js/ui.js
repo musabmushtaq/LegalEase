@@ -79,6 +79,10 @@ export function renderUserState() {
     if (userStatus) userStatus.textContent = displayName;
     if (authActionBtn) authActionBtn.textContent = state.authToken ? 'Logout' : 'Login / Sign Up';
     
+    // Dynamically update the sidebar header username
+    const sidebarUserStatus = document.getElementById('sidebarUserStatus');
+    if (sidebarUserStatus) sidebarUserStatus.textContent = state.authToken ? state.username : 'Guest';
+
     // Dynamically update the Gemini-style welcome screen greeting
     const welcomeGreeting = document.getElementById('welcomeGreeting');
     if (welcomeGreeting) {

@@ -179,6 +179,12 @@ function setupEventListeners() {
         handleAuthAction();
     });
 
+    // Sidebar custom actions
+    const sidebarNewChatBtn = document.getElementById('sidebarNewChatBtn');
+    if (sidebarNewChatBtn) sidebarNewChatBtn.addEventListener('click', createNewChatUI);
+    const sidebarSettingsBtn = document.getElementById('sidebarSettingsBtn');
+    if (sidebarSettingsBtn) sidebarSettingsBtn.addEventListener('click', openSettingsAction);
+
     // Attachment menu buttons
     document.getElementById('attachFileBtn')?.addEventListener('click', () => {
         closeAttachmentMenu();

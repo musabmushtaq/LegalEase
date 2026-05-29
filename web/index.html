@@ -156,17 +156,31 @@
         <!-- Sidebar Drawer -->
         <nav class="drawer" id="drawer" role="navigation" aria-label="Chat navigation">
             <div class="drawer-header">
-                <h2>LegalEase</h2>
+                <h2 id="sidebarUserStatus">Guest</h2>
                 <button type="button" class="close-btn" id="closeDrawerBtn" aria-label="Close navigation">✕</button>
             </div>
             <div class="drawer-search">
-                <input id="drawerSearch" class="drawer-search-input" type="search" placeholder="Search chats…" aria-label="Search conversations">
+                <div class="drawer-search-row">
+                    <input id="drawerSearch" class="drawer-search-input" type="search" placeholder="Search chats…" aria-label="Search conversations">
+                    <button type="button" class="sidebar-new-chat-btn" id="sidebarNewChatBtn" title="New chat" aria-label="Start new conversation">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                            <path d="M12 5v14M5 12h14"/>
+                        </svg>
+                    </button>
+                </div>
             </div>
             <div class="drawer-content" id="drawerContent" role="list">
                 <div class="loading-text">Loading chats…</div>
             </div>
             <div class="drawer-footer">
-                <button class="drawer-footer-btn primary" id="authActionBtn">Login / Sign Up</button>
+                <div class="drawer-footer-row">
+                    <button class="drawer-footer-btn primary" id="authActionBtn">Login / Sign Up</button>
+                    <button type="button" class="sidebar-settings-btn" id="sidebarSettingsBtn" title="Settings" aria-label="Open settings">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                        </svg>
+                    </button>
+                </div>
             </div>
         </nav>
 

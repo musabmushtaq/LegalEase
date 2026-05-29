@@ -116,9 +116,12 @@ html.is-unauthenticated #authModal.modal-overlay {
 }
 .drawer-header h2 {
   font-size: 17px; font-weight: 600;
-  background: linear-gradient(135deg, var(--highlight), #fff 70%);
-  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: var(--highlight);
+  text-shadow: 0 0 15px rgba(252, 229, 102, 0.2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 180px;
 }
 
 .close-btn {
@@ -129,9 +132,16 @@ html.is-unauthenticated #authModal.modal-overlay {
 }
 .close-btn:hover { background:var(--glass-bg); color:var(--text-1); }
 
-.drawer-search { padding: 12px 12px 8px; }
+.drawer-search { padding: 0; }
+.drawer-search-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 12px 8px;
+}
 .drawer-search-input {
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   background: var(--glass-bg);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-sm);
@@ -141,6 +151,26 @@ html.is-unauthenticated #authModal.modal-overlay {
 }
 .drawer-search-input::placeholder { color: var(--text-3); }
 .drawer-search-input:focus { border-color: rgba(252,229,102,0.4); }
+
+.sidebar-new-chat-btn {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-sm);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  color: var(--text-2);
+  display: flex; align-items: center; justify-content: center;
+  transition: all var(--transition);
+}
+.sidebar-new-chat-btn:hover {
+  background: var(--highlight-dim);
+  border-color: rgba(252, 229, 102, 0.3);
+  color: var(--highlight);
+}
+.sidebar-new-chat-btn svg {
+  pointer-events: none;
+}
 
 .drawer-content {
   flex:1; overflow-y:auto; padding: 6px 8px;
@@ -193,14 +223,38 @@ html.is-unauthenticated #authModal.modal-overlay {
 .drawer-footer {
   padding:12px;
   border-top:1px solid var(--glass-border);
-  display:flex; flex-direction:column; gap:8px;
+}
+.drawer-footer-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+.sidebar-settings-btn {
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--radius-sm);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  color: var(--text-2);
+  display: flex; align-items: center; justify-content: center;
+  transition: all var(--transition);
+}
+.sidebar-settings-btn:hover {
+  background: var(--glass-heavy);
+  color: var(--text-1);
+}
+.sidebar-settings-btn svg {
+  pointer-events: none;
 }
 .drawer-footer-btn {
-  width:100%; padding:10px 14px;
+  flex: 1; padding:10px 14px;
   border-radius:var(--radius-sm); font-size:13px; font-weight:500;
   color:var(--text-2);
   background:var(--glass-bg); border:1px solid var(--glass-border);
   transition: all var(--transition);
+  text-align: center;
 }
 .drawer-footer-btn:hover { background:var(--glass-heavy); color:var(--text-1); }
 .drawer-footer-btn.primary {
@@ -222,14 +276,7 @@ html.is-unauthenticated #authModal.modal-overlay {
 
 /* ─── Top Bar ────────────────────────────────────────────── */
 .chat-top-bar {
-  height: var(--topbar-h);
-  display:flex; align-items:center; justify-content:space-between;
-  padding:0 16px;
-  border-bottom:1px solid var(--glass-border);
-  background:rgba(19,19,19,0.7);
-  backdrop-filter: var(--blur-sm);
-  -webkit-backdrop-filter: var(--blur-sm);
-  flex-shrink:0; z-index:10;
+  display: none !important;
 }
 .top-left,.top-right { display:flex; align-items:center; gap:8px; }
 
