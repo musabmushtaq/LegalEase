@@ -4,7 +4,7 @@ import { loadAuthState, saveAuthState, clearAuthState, handleLogin, handleRegist
 import { loadChatCache, saveChatCache, loadChatsFromServer, createNewChat, createLocalChat, selectChat, renameChat, togglePinChat, removeChat, searchChatsServer, searchChatsLocal } from './js/chat.js';
 import { initializeDOM, toggleDrawer, closeDrawer, renderUserState, renderTemporaryToggle, renderConnectionBanner, openAuthModal, closeAuthModal, renderDrawer, renderMessages, getUIElements, updateAttachmentPreview, openSettingsModal, closeSettingsModal, renderThinkingIndicator, removeThinkingIndicator, renderContextPill, updatePersonaBtn, showPrivacySections } from './js/ui.js';
 import { checkHealth, saveUserMessage, generateAiReply, saveAiMessage, summarizeText, updateMessage as apiUpdateMessage, deleteMessage as apiDeleteMessage, downloadFile as apiDownloadFile, clearPersonalContext, clearAllHistory, deleteUserAccount, getUserProfile } from './js/api.js';
-import { debounce, showMessage, logError } from './js/utils.js';
+import { debounce, showMessage, logError, showCustomConfirm, showCustomPrompt } from './js/utils.js';
 
 let connectivityInterval = null;
 
@@ -286,8 +286,8 @@ async function togglePinChatUI(chatId) {
 async function renameChatUI(chatId) {
     const chat = state.chats[chatId];
     if (!chat) return;
-    const newTitle = prompt('Enter new chat name:', chat.title);
-    if (!newTitle?.trim()) return;
+    const newTitle = await showCustomPrompt('Enter new chat name:', chat.title);
+    if (newTitle === null || !newTitle.trim()) return;
     try {
         await renameChat(chatId, newTitle);
         renderDrawer();
@@ -298,7 +298,8 @@ async function renameChatUI(chatId) {
 }
 
 async function deleteChatUI(chatId) {
-    if (!confirm('Are you sure you want to delete this chat?')) return;
+    const confirmed = await showCustomConfirm('Are you sure you want to delete this chat?');
+    if (!confirmed) return;
     try {
         await removeChat(chatId);
         renderDrawer();
@@ -515,10 +516,10 @@ async function downloadFileUI(fileId, fileName) {
     }
 }
 
-function editMessageUI(messageId) {
+async function editMessageUI(messageId) {
     const msg = state.messages[state.currentChatId]?.find(m => m.id === messageId);
     if (!msg) return;
-    const newContent = prompt('Edit message:', msg.content);
+    const newContent = await showCustomPrompt('Edit message:', msg.content);
     if (newContent === null || !newContent.trim()) return;
     updateMessageUI(messageId, newContent);
 }
@@ -542,7 +543,8 @@ async function updateMessageUI(messageId, newContent) {
 }
 
 async function deleteMessageUI(messageId) {
-    if (!confirm('Delete this message?')) return;
+    const confirmed = await showCustomConfirm('Delete this message?');
+    if (!confirmed) return;
     const chatId = state.currentChatId;
     const isLocal = String(messageId).startsWith('local_') || String(chatId).startsWith('local_');
     try {
@@ -704,7 +706,8 @@ async function saveSettings() {
 
 async function handleDeleteContext() {
     if (!state.userId) return;
-    if (!confirm('This will permanently delete your personal AI context. Continue?')) return;
+    const confirmed = await showCustomConfirm('This will permanently delete your personal AI context. Continue?');
+    if (!confirmed) return;
     try {
         await clearPersonalContext(state.userId);
         showMessage('Personal context deleted.');
@@ -715,7 +718,8 @@ async function handleDeleteContext() {
 
 async function handleClearHistory() {
     if (!state.userId) return;
-    if (!confirm('This will permanently delete ALL your chat history. This cannot be undone. Continue?')) return;
+    const confirmed = await showCustomConfirm('This will permanently delete ALL your chat history. This cannot be undone. Continue?');
+    if (!confirmed) return;
     try {
         await clearAllHistory(state.userId);
         state.chats = {};
@@ -733,7 +737,8 @@ async function handleClearHistory() {
 
 async function handleDeleteAccount() {
     if (!state.userId) return;
-    if (!confirm('WARNING: This will permanently delete your account and all data. This cannot be undone. Continue?')) return;
+    const confirmed = await showCustomConfirm('WARNING: This will permanently delete your account and all data. This cannot be undone. Continue?');
+    if (!confirmed) return;
     try {
         await deleteUserAccount(state.userId);
         handleLogout();
