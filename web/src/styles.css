@@ -441,24 +441,30 @@ html.is-unauthenticated #authModal.modal-overlay {
 
 .input-row {
   display: flex;
-  align-items: flex-end;
-  gap: 8px;
-  background: rgba(19, 19, 19, 0.7);
+  align-items: center; /* Enforces perfect vertical centering */
+  gap: 12px;
+  background: rgba(28, 28, 28, 0.65);
   backdrop-filter: var(--blur-lg);
   -webkit-backdrop-filter: var(--blur-lg);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 28px;
-  padding: 6px 6px 6px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 32px;
+  padding: 8px 10px 8px 18px;
+  min-height: 60px;
   transition: border-color var(--transition), box-shadow var(--transition), background var(--transition);
-  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  box-shadow: 0 16px 40px rgba(0,0,0,0.4);
 }
 .input-row:focus-within {
-  border-color: rgba(252,229,102,0.4);
-  background: rgba(25, 25, 25, 0.8);
-  box-shadow: 0 12px 40px rgba(0,0,0,0.6), 0 0 0 1px rgba(252,229,102,0.15) inset;
+  border-color: rgba(252,229,102,0.3);
+  background: rgba(35, 35, 35, 0.75);
+  box-shadow: 0 20px 48px rgba(0,0,0,0.5);
 }
 
-.input-wrapper { flex:1; min-width:0; }
+.input-wrapper {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+}
 
 .message-input {
   width: 100%;
@@ -466,11 +472,14 @@ html.is-unauthenticated #authModal.modal-overlay {
   border: none;
   color: var(--text-1);
   font-size: 14.5px;
-  line-height: 1.5;
+  line-height: 20px;
+  height: 20px;
   resize: none;
   max-height: 160px;
   overflow-y: auto;
-  padding: 6px 0;
+  padding: 0;
+  margin: 0;
+  display: block;
 }
 .message-input::placeholder { color: var(--text-3); }
 
@@ -1018,10 +1027,10 @@ html.is-unauthenticated #authModal.modal-overlay {
   margin-bottom: 32px;
 }
 .chat-container.no-messages .input-console {
-  margin-bottom: auto;
+  margin: 0 auto auto auto; /* Centered horizontally, pushed to top/bottom by auto margin */
   max-width: 760px;
   width: 100%;
-  padding-bottom: 40px;
+  padding: 12px 40px 40px 40px; /* Aligns left/right boundaries perfectly with .welcome-banner's 40px padding */
 }
 
 /* Gemini Welcome Banner */
@@ -1041,17 +1050,12 @@ html.is-unauthenticated #authModal.modal-overlay {
   font-weight: 500;
   letter-spacing: -1.5px;
   line-height: 1.15;
-  background: linear-gradient(74deg, var(--highlight) 0%, #ffffff 85%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: #ffffff;
+  text-shadow: 0 0 30px rgba(252, 229, 102, 0.25), 0 0 10px rgba(252, 229, 102, 0.15);
   margin: 0;
 }
 .welcome-banner h1 .gradient-username {
-  background: linear-gradient(74deg, var(--highlight) 0%, #ffffff 85%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: var(--highlight);
   font-weight: 600;
 }
 .welcome-banner .welcome-sub-greeting {
@@ -1076,26 +1080,7 @@ html.is-unauthenticated #authModal.modal-overlay {
   padding-right: max(20px, calc(50% - 440px));
 }
 
-/* ─── Gemini Input Row Rehaul ───────────────────────────── */
-.input-row {
-  display: flex;
-  align-items: center; /* Centered like a clean pill */
-  gap: 12px;
-  background: rgba(28, 28, 28, 0.65);
-  backdrop-filter: var(--blur-lg);
-  -webkit-backdrop-filter: var(--blur-lg);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 32px; /* Perfect pill shape */
-  padding: 8px 10px 8px 18px;
-  min-height: 60px;
-  transition: border-color var(--transition), box-shadow var(--transition), background var(--transition);
-  box-shadow: 0 16px 40px rgba(0,0,0,0.4);
-}
-.input-row:focus-within {
-  border-color: rgba(252,229,102,0.3);
-  background: rgba(35, 35, 35, 0.75);
-  box-shadow: 0 20px 48px rgba(0,0,0,0.5);
-}
+/* Note: Duplicate .input-row rehaul declaration removed as it is now defined as a single source of truth at line 442 */
 
 .send-btn {
   width: 36px; height: 36px;
