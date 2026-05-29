@@ -12,6 +12,20 @@
     <!-- marked.js for AI markdown rendering -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <link rel="stylesheet" href="/src/styles.css">
+    <script>
+        (function() {
+            try {
+                const saved = JSON.parse(localStorage.getItem('legalease_auth') || 'null');
+                if (saved && saved.userId && saved.authToken) {
+                    document.documentElement.classList.add('is-authenticated');
+                } else {
+                    document.documentElement.classList.add('is-unauthenticated');
+                }
+            } catch (_) {
+                document.documentElement.classList.add('is-unauthenticated');
+            }
+        })();
+    </script>
 </head>
 <body>
 

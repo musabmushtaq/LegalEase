@@ -109,6 +109,8 @@ export function renderConnectionBanner() {
 export function openAuthModal(mode) {
     state.authMode = mode;
     authModal.classList.remove('hidden');
+    document.documentElement.classList.remove('is-authenticated');
+    document.documentElement.classList.add('is-unauthenticated');
     if (mode === 'login') {
         authTitle.innerHTML = 'Welcome to<br>LegalEase';
         authSubmitBtn.textContent = 'Sign In';
@@ -129,6 +131,8 @@ export function openAuthModal(mode) {
 export function closeAuthModal() {
     authModal.classList.add('hidden');
     authForm.reset();
+    document.documentElement.classList.remove('is-unauthenticated');
+    document.documentElement.classList.add('is-authenticated');
 }
 
 export function openSettingsModal() {
