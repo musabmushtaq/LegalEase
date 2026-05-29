@@ -632,7 +632,7 @@ html.is-unauthenticated #authModal.modal-overlay {
   backdrop-filter: var(--blur-lg);
   -webkit-backdrop-filter: var(--blur-lg);
   border: 1px solid var(--glass-border);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-lg);
   width: 100%;
   animation: modalPop 0.3s cubic-bezier(0.34,1.56,0.64,1);
   position: relative;
@@ -695,7 +695,7 @@ html.is-unauthenticated #authModal.modal-overlay {
   padding: 44px 36px 36px;
   background: rgba(255, 255, 255, 0.02) !important;
   border: 1px solid rgba(255, 255, 255, 0.08) !important;
-  border-radius: var(--radius-xl) !important;
+  border-radius: var(--radius-lg) !important;
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6), 
               0 0 100px rgba(252, 229, 102, 0.03) !important;
   backdrop-filter: blur(24px) !important;
@@ -1051,7 +1051,7 @@ html.is-unauthenticated #authModal.modal-overlay {
     transform: none !important;
     flex-shrink: 0;
     height: 100%;
-    border-radius: var(--radius-xl);
+    border-radius: var(--radius-lg);
     border: 1px solid var(--glass-border);
     background: rgba(20, 20, 20, 0.95); /* Increased opacity & disabled backdrop filters to prevent rendering lag on desktop */
     backdrop-filter: none !important;
@@ -1064,7 +1064,7 @@ html.is-unauthenticated #authModal.modal-overlay {
   }
   .chat-container {
     height: 100%;
-    border-radius: var(--radius-xl);
+    border-radius: var(--radius-lg);
     border: 1px solid var(--glass-border);
     background: radial-gradient(ellipse at top center, rgba(28,24,21,0.95) 0%, rgba(19,19,19,0.95) 60%);
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
@@ -1077,8 +1077,8 @@ html.is-unauthenticated #authModal.modal-overlay {
   #menuBtn { display:none; }
   
   .chat-top-bar {
-    border-top-left-radius: var(--radius-xl);
-    border-top-right-radius: var(--radius-xl);
+    border-top-left-radius: var(--radius-lg);
+    border-top-right-radius: var(--radius-lg);
     background: transparent;
     border-bottom: 1px solid rgba(255,255,255,0.03);
   }
