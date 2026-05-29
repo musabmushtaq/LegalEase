@@ -192,19 +192,36 @@ html.is-unauthenticated #authModal.modal-overlay {
   flex:1; min-width:0; padding-right:8px;
 }
 .chat-item.active .chat-title { color: var(--highlight); font-weight:500; }
-.chat-actions {
-  display:flex; gap:2px; opacity:0; transition:opacity var(--transition);
-  flex-shrink:0;
+.chat-item-right-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
 }
-.chat-item:hover .chat-actions { opacity:1; }
-.chat-action-btn {
-  width:26px; height:26px;
-  display:flex; align-items:center; justify-content:center;
-  border-radius:6px; font-size:12px; color:var(--text-3);
-  transition: background var(--transition), color var(--transition);
+.chat-pinned-indicator {
+  display: flex;
+  align-items: center;
+  color: var(--highlight);
+  opacity: 0.85;
+  flex-shrink: 0;
 }
-.chat-action-btn:hover { background:var(--glass-heavy); color:var(--text-1); }
-.chat-action-btn.delete:hover { background:var(--danger-dim); color:var(--danger); }
+.chat-menu-trigger {
+  width: 26px; height: 26px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 50%;
+  color: var(--text-3);
+  opacity: 0;
+  transition: all var(--transition);
+  flex-shrink: 0;
+}
+.chat-item:hover .chat-menu-trigger,
+.chat-menu-trigger.active {
+  opacity: 1;
+}
+.chat-menu-trigger:hover {
+  background: var(--glass-bg);
+  color: var(--text-1);
+}
 
 .loading-text {
   font-size:13px; color:var(--text-3);
@@ -1220,4 +1237,64 @@ html.is-unauthenticated #authModal.modal-overlay {
 /* ─── Refined connection banner position ────────────────── */
 .connection-banner {
   top: 68px; /* Below topbar */
+}
+
+/* ─── Chat Context Menu ──────────────────────────────────── */
+.chat-context-menu {
+  position: absolute;
+  background: rgba(22, 22, 22, 0.98);
+  backdrop-filter: var(--blur-md);
+  -webkit-backdrop-filter: var(--blur-md);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  padding: 6px;
+  min-width: 170px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 16px 40px rgba(0,0,0,0.5), 0 0 20px rgba(0,0,0,0.3);
+  opacity: 0;
+  transform: translateY(6px) scale(0.97);
+  pointer-events: none;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+.chat-context-menu.open {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: all;
+}
+.chat-context-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 14px;
+  border: none;
+  background: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-2);
+  font-size: 13px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition);
+}
+.chat-context-menu-item:hover {
+  background: var(--glass-bg);
+  color: var(--text-1);
+}
+.chat-context-menu-item.destructive:hover {
+  background: var(--danger-dim);
+  color: var(--danger);
+}
+.chat-context-menu-item svg {
+  flex-shrink: 0;
+  color: var(--text-3);
+  transition: color var(--transition);
+}
+.chat-context-menu-item:hover svg {
+  color: var(--text-1);
+}
+.chat-context-menu-item.destructive:hover svg {
+  color: var(--danger);
 }

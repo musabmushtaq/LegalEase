@@ -22,6 +22,8 @@ window.copyMessageUI = copyMessageUI;
 window.thumbsUpUI = thumbsUpUI;
 window.thumbsDownUI = thumbsDownUI;
 window.tryReconnect = ensureConnectivity;
+window.showChatMenuUI = showChatMenuUI;
+window.hideChatMenuUI = hideChatMenuUI;
 window.openSettingsModalUI = () => {
     console.log("Global openSettingsModalUI called");
     const uiEls = getUIElements();
@@ -748,6 +750,72 @@ async function handleDeleteAccount() {
     } catch {
         showMessage('Failed to delete account. Check connection.');
     }
+}
+
+// ─── Chat Context Menu Handlers ────────────────────────────────────────────────
+function showChatMenuUI(event, chatId) {
+    event.stopPropagation();
+    
+    let menu = document.getElementById('chatContextMenu');
+    if (!menu) {
+        menu = document.createElement('div');
+        menu.id = 'chatContextMenu';
+        menu.className = 'chat-context-menu';
+        document.body.appendChild(menu);
+    }
+    
+    const chat = state.chats[chatId];
+    if (!chat) return;
+    
+    const pinText = chat.isPinned ? 'Unpin' : 'Pin';
+    const pinIcon = chat.isPinned 
+        ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="transform: rotate(45deg);"><path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/></svg>`
+        : `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/></svg>`;
+        
+    menu.innerHTML = `
+        <button class="chat-context-menu-item" onclick="window.togglePinChatUI('${chatId}'); hideChatMenuUI();">
+            ${pinIcon}
+            <span>${pinText}</span>
+        </button>
+        <button class="chat-context-menu-item" onclick="window.renameChatUI('${chatId}'); hideChatMenuUI();">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            <span>Rename</span>
+        </button>
+        <button class="chat-context-menu-item destructive" onclick="window.deleteChatUI('${chatId}'); hideChatMenuUI();">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+            <span>Delete</span>
+        </button>
+    `;
+    
+    const trigger = event.currentTarget;
+    document.querySelectorAll('.chat-menu-trigger').forEach(el => el.classList.remove('active'));
+    trigger.classList.add('active');
+    
+    const rect = trigger.getBoundingClientRect();
+    const menuWidth = 170;
+    
+    menu.style.top = `${rect.bottom + window.scrollY + 4}px`;
+    menu.style.left = `${rect.right - menuWidth + window.scrollX}px`;
+    
+    menu.classList.add('open');
+    
+    const closeMenu = (e) => {
+        if (!menu.contains(e.target) && !trigger.contains(e.target)) {
+            hideChatMenuUI();
+            document.removeEventListener('click', closeMenu);
+        }
+    };
+    setTimeout(() => {
+        document.addEventListener('click', closeMenu);
+    }, 10);
+}
+
+function hideChatMenuUI() {
+    const menu = document.getElementById('chatContextMenu');
+    if (menu) {
+        menu.classList.remove('open');
+    }
+    document.querySelectorAll('.chat-menu-trigger').forEach(el => el.classList.remove('active'));
 }
 
 // ─── Bootstrap ────────────────────────────────────────────────────────────────

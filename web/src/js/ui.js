@@ -216,7 +216,11 @@ export function renderDrawer() {
 
 function chatItemHtml(chat) {
     const isActive = chat.id === state.currentChatId;
-    const pinIcon = chat.isPinned ? '★' : '☆';
+    const pinIndicator = chat.isPinned 
+        ? `<span class="chat-pinned-indicator" title="Pinned chat">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/></svg>
+           </span>`
+        : '';
     return `
         <div class="chat-item ${isActive ? 'active' : ''}"
              data-chat-id="${chat.id}"
@@ -224,17 +228,13 @@ function chatItemHtml(chat) {
              role="button" tabindex="0"
              aria-label="Chat: ${escapeHtml(chat.title)}">
             <div class="chat-title">${escapeHtml(chat.title)}</div>
-            <div class="chat-actions">
-                <button class="chat-action-btn"
-                        onclick="event.stopPropagation(); window.togglePinChatUI('${chat.id}')"
-                        title="${chat.isPinned ? 'Unpin' : 'Pin'} chat"
-                        aria-label="Toggle pin">${pinIcon}</button>
-                <button class="chat-action-btn"
-                        onclick="event.stopPropagation(); window.renameChatUI('${chat.id}')"
-                        title="Rename" aria-label="Rename chat">✎</button>
-                <button class="chat-action-btn delete"
-                        onclick="event.stopPropagation(); window.deleteChatUI('${chat.id}')"
-                        title="Delete" aria-label="Delete chat">🗑</button>
+            <div class="chat-item-right-row">
+                ${pinIndicator}
+                <button class="chat-menu-trigger"
+                        onclick="event.stopPropagation(); window.showChatMenuUI(event, '${chat.id}')"
+                        title="Chat actions" aria-label="Chat actions">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+                </button>
             </div>
         </div>
     `;
