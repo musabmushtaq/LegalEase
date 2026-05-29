@@ -340,6 +340,9 @@ async function sendMessageUI() {
     const ui = getUIElements();
     const content = ui.messageInput.value.trim();
     
+    // Capture active useContext flag before clearAttachment resets it
+    const activeUseContext = state.useContext;
+
     // Enforce mutual exclusion and use virtual files for database persistence of persona messages
     const file = state.attachment || (state.useContext ? new File(["Active Context"], "Persona Attached.txt", { type: "text/plain" }) : null);
 
@@ -428,7 +431,7 @@ async function sendMessageUI() {
         const aiResp = await generateAiReply(
             isPersistent ? chatId : null,
             messagesForContext,
-            state.useContext
+            activeUseContext
         );
 
         const aiContent = aiResp?.assistant_message?.content || "I'm sorry, I encountered an error. Please try again.";

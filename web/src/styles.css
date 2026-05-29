@@ -2142,27 +2142,6 @@ html.is-unauthenticated #authModal.modal-overlay {
   transition: opacity 0.2s ease, transform 0.2s ease;
 }
 
-.attach-trigger .attach-clear-slot {
-  display: none;
-  align-items: center;
-  justify-content: center;
-  font-size: 16px;
-  font-weight: bold;
-  color: #ff4a4a !important; /* Premium red for clear/cancel */
-  transition: opacity 0.2s ease, transform 0.2s ease;
-}
-
-/* Hover state transitions */
-.attach-trigger.has-attachment:hover .attach-icon-slot,
-.attach-trigger.has-persona:hover .attach-icon-slot {
-  display: none;
-}
-
-.attach-trigger.has-attachment:hover .attach-clear-slot,
-.attach-trigger.has-persona:hover .attach-clear-slot {
-  display: flex;
-  animation: fadeInScale 0.15s ease-out;
-}
 
 /* Close badge on the top-right of the morphed button, visible on hover */
 .attach-trigger.has-attachment::after,

@@ -436,7 +436,7 @@ async def update_user_context_from_interaction(owner_id: str, user_message: str,
 
 
 @app.post("/api/generate_ai")
-async def generate_ai(payload: GenerateAiRequest, background_tasks: BackgroundTasks) -> dict[str, Any]:
+async def generate_ai(payload: GenerateAiRequest, request: Request, background_tasks: BackgroundTasks) -> dict[str, Any]:
     # 1. Gather Context
     chat_history = []
     system_prompt = payload.system_prompt or settings.default_system_prompt
@@ -449,6 +449,17 @@ async def generate_ai(payload: GenerateAiRequest, background_tasks: BackgroundTa
             owner_id = chat.get("owner_id")
     elif payload.messages is not None:
         chat_history = payload.messages
+
+    # Try to extract user_id from Authorization header if owner_id is still None
+    if not owner_id:
+        auth_header = request.headers.get("Authorization")
+        if auth_header and auth_header.startswith("Bearer "):
+            try:
+                token = auth_header.split(" ")[1]
+                payload_data = jwt.decode(token, "my_super_secret_jwt_key_for_legalease", algorithms=["HS256"])
+                owner_id = payload_data.get("user_id")
+            except Exception as e:
+                print(f"Failed to decode token in generate_ai: {e}")
 
     # NEW: Fetch and inject user background context if requested and owner is present
     if payload.use_context and owner_id:
