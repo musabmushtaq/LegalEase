@@ -60,8 +60,8 @@ export async function loadChatsFromServer(userId) {
             }));
         });
         
-        if (!state.currentChatId && items.length > 0) {
-            state.currentChatId = items[0].id;
+        if (!state.currentChatId || !state.chats[state.currentChatId]) {
+            state.currentChatId = items.length > 0 ? items[0].id : null;
         }
         
         saveChatCache();
