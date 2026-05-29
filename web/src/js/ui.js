@@ -10,7 +10,7 @@ let attachmentName, removeAttachmentBtn, tempChatToggleBtn, authActionBtn;
 let userStatus, authModal, authForm, authTitle, authSwitchBtn, authSwitchText;
 let authCloseBtn, authUsername, authEmailLabel, authEmail, authPassword;
 let authConfirmLabel, authConfirmPassword, authSubmitBtn;
-let settingsBtn, settingsModal, settingsApiPrefix, settingsApiSuffix, settingsApiIp, saveSettingsBtn, settingsCloseBtn;
+let settingsBtn, settingsModal, settingsApiPrefix, settingsApiSuffix, settingsApiIp, settingsCloseBtn;
 let personaBtn, contextPill, attachmentMenu;
 
 export function initializeDOM() {
@@ -51,7 +51,6 @@ export function initializeDOM() {
     settingsApiPrefix = document.getElementById('settingsApiPrefix');
     settingsApiSuffix = document.getElementById('settingsApiSuffix');
     settingsApiIp = document.getElementById('settingsApiIp');
-    saveSettingsBtn = document.getElementById('saveSettingsBtn');
     settingsCloseBtn = document.getElementById('settingsCloseBtn');
     personaBtn = document.getElementById('attachPersonaBtn');
     contextPill = document.getElementById('contextActivePill');
@@ -390,7 +389,7 @@ export function getUIElements() {
         messageInput, sendBtn, attachBtn, attachmentInput, attachmentPreview,
         attachmentName, removeAttachmentBtn, drawerSearch, authForm, authUsername,
         authEmail, authPassword, authConfirmPassword, authSwitchBtn, authCloseBtn,
-        settingsBtn, settingsModal, settingsApiPrefix, settingsApiSuffix, settingsApiIp, saveSettingsBtn, settingsCloseBtn,
+        settingsBtn, settingsModal, settingsApiPrefix, settingsApiSuffix, settingsApiIp, settingsCloseBtn,
     };
 }
 

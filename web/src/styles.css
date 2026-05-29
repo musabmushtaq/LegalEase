@@ -1009,11 +1009,6 @@ html.is-unauthenticated #authModal.modal-overlay {
 .settings-inline-input::placeholder { color: var(--text-3); }
 .settings-icon { color: var(--text-3); flex-shrink: 0; }
 
-.settings-actions {
-  padding: 16px 24px;
-  border-top: 1px solid var(--glass-border);
-  flex-shrink: 0;
-}
 
 /* ─── Keyframe Animations ────────────────────────────────── */
 @keyframes msgAppear {

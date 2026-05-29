@@ -169,8 +169,7 @@ function setupEventListeners() {
     } else {
         console.warn("authSettingsBtn NOT found in the DOM!");
     }
-    document.getElementById('saveSettingsBtn')?.addEventListener('click', saveSettings);
-    document.getElementById('settingsCloseBtn')?.addEventListener('click', closeSettingsModal);
+    document.getElementById('settingsCloseBtn')?.addEventListener('click', saveSettings);
     document.getElementById('deleteContextBtn')?.addEventListener('click', handleDeleteContext);
     document.getElementById('clearHistoryBtn')?.addEventListener('click', handleClearHistory);
     document.getElementById('deleteAccountBtn')?.addEventListener('click', handleDeleteAccount);
