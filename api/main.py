@@ -431,6 +431,10 @@ async def update_user_context_from_interaction(owner_id: str, user_message: str,
         )
         
         extracted_info = extracted_info.strip().strip('"').strip("'")
+        if extracted_info.startswith("Error:"):
+            print(f"⚠️ Warning: Context extraction failed with error: {extracted_info}")
+            return
+            
         if not extracted_info or extracted_info.lower() == "none" or "none." in extracted_info.lower():
             return
             
@@ -505,8 +509,8 @@ async def generate_ai(payload: GenerateAiRequest, background_tasks: BackgroundTa
         "created_at": now_iso(),
     }
     
-    # 4. If we have a valid owner and update_context is enabled, queue a background task
-    if owner_id and prompt and payload.update_context:
+    # 4. If we have a valid owner and update_context is enabled, queue a background task (skip on errors)
+    if owner_id and prompt and payload.update_context and not ai_content.startswith("Error:"):
         background_tasks.add_task(
             update_user_context_from_interaction,
             owner_id=owner_id,
@@ -785,6 +789,8 @@ async def summarize(payload: SummarizeRequest) -> dict[str, str]:
             "You are an expert legal title generator. Your sole function is to produce concise, elegant 2-to-4 word titles with absolutely no conversational filler, quotes, or markdown.",
             []
         )
+        if title.startswith("Error:"):
+            return {"summary": text[:50] + "..." if len(text) > 50 else text}
         return {"summary": title.strip().strip('"').strip()}
     except Exception as e:
         return {"summary": text[:50] + "..." if len(text) > 50 else text}
