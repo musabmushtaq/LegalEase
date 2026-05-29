@@ -304,22 +304,27 @@ html.is-unauthenticated #authModal.modal-overlay {
 .chat-item-right-row {
   display: flex;
   align-items: center;
-  gap: 4px;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
   flex-shrink: 0;
+  position: relative;
 }
 
 .chat-pinned-indicator {
   display: flex;
   align-items: center;
+  justify-content: center;
   color: var(--highlight);
   opacity: 0.85;
   flex-shrink: 0;
+  transition: opacity var(--transition);
 }
 
 .chat-menu-trigger {
   width: 26px;
   height: 26px;
-  display: flex;
+  display: none;
   align-items: center;
   justify-content: center;
   border-radius: 50%;
@@ -330,8 +335,14 @@ html.is-unauthenticated #authModal.modal-overlay {
 }
 
 .chat-item:hover .chat-menu-trigger,
-.chat-menu-trigger.active {
+.chat-item:has(.chat-menu-trigger.active) .chat-menu-trigger {
+  display: flex;
   opacity: 1;
+}
+
+.chat-item:hover .chat-pinned-indicator,
+.chat-item:has(.chat-menu-trigger.active) .chat-pinned-indicator {
+  display: none !important;
 }
 
 .chat-menu-trigger:hover {

@@ -204,7 +204,6 @@ export function renderDrawer() {
         html.push(pinnedChats.map(c => chatItemHtml(c)).join(''));
     }
     if (recentChats.length > 0) {
-        if (pinnedChats.length > 0) html.push('<div class="drawer-section-separator"></div>');
         html.push(recentChats.map(c => chatItemHtml(c)).join(''));
     }
 

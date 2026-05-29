@@ -247,22 +247,14 @@ async function createNewChatUI() {
         openAuthModal('login');
         return;
     }
-    try {
-        if (!state.isConnected || !state.userId) {
-            createLocalChat();
-        } else {
-            await createNewChat(state.userId);
-        }
-        renderDrawer();
-        renderMessages();
-        renderUserState();
-        document.getElementById('messageInput')?.focus();
-    } catch (error) {
-        logError('createNewChatUI', error);
-        createLocalChat();
-        renderDrawer();
-        renderMessages();
-    }
+    state.currentChatId = null;
+    saveChatCache();
+    
+    clearAttachment();
+    renderDrawer();
+    renderMessages();
+    renderUserState();
+    document.getElementById('messageInput')?.focus();
 }
 
 // ─── Select / Pin / Rename / Delete chat ──────────────────────────────────────
@@ -340,7 +332,23 @@ async function sendMessageUI() {
     const file = state.attachment;
 
     if (!content && !file) return;
-    if (!state.currentChatId) await createNewChatUI();
+
+    // Dynamically create a chat on first message rather than creating empty chats
+    if (!state.currentChatId) {
+        try {
+            if (!state.isConnected || !state.userId) {
+                createLocalChat();
+            } else {
+                const response = await createNewChat(state.userId);
+                state.currentChatId = response.id;
+            }
+            renderDrawer();
+        } catch (error) {
+            logError('sendMessageUI - createNewChat', error);
+            createLocalChat();
+            renderDrawer();
+        }
+    }
     if (!state.currentChatId) return;
 
     if (!state.isConnected) await ensureConnectivity();
