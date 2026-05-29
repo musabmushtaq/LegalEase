@@ -288,7 +288,8 @@ function userBubbleHtml(msg, isEdited, canEdit) {
 
     let attachmentCard = '';
     if (hasAttachment) {
-        const isPersona = msg.fileName === "Persona Attached";
+        const isPersona = msg.fileName === "Persona Attached" || msg.fileName === "Persona Attached.txt";
+        const displayName = isPersona ? "Persona Attached" : msg.fileName;
         
         let icon;
         if (isPersona) {
@@ -304,9 +305,9 @@ function userBubbleHtml(msg, isEdited, canEdit) {
             ? `window.downloadFileUI('${msg.fileId}', '${escapeHtml(msg.fileName)}')`
             : '';
         attachmentCard = `
-            <div class="user-attachment-card ${isPersona ? 'persona-card' : ''}" ${clickAction ? `onclick="${clickAction}" role="button" tabindex="0" title="Download ${escapeHtml(msg.fileName)}"` : ''}>
+            <div class="user-attachment-card ${isPersona ? 'persona-card' : ''}" ${clickAction ? `onclick="${clickAction}" role="button" tabindex="0" title="${isPersona ? 'Persona Attached' : `Download ${escapeHtml(displayName)}`}"` : ''}>
                 <div class="attachment-icon-box">${icon}</div>
-                <span class="attachment-file-name">${escapeHtml(msg.fileName)}</span>
+                <span class="attachment-file-name">${escapeHtml(displayName)}</span>
             </div>
         `;
     }
@@ -399,55 +400,45 @@ export function getUIElements() {
 }
 
 export function updateAttachmentPreview(file) {
-    if (!attachmentPreview || !attachmentName) return;
+    if (attachmentPreview) {
+        attachmentPreview.classList.add('hidden');
+    }
     const attachBtn = document.getElementById('attachBtn');
+    if (!attachBtn) return;
+    
+    attachBtn.classList.remove('has-attachment', 'has-persona');
     
     if (file) {
-        attachmentPreview.innerHTML = `
-            <span class="attachment-pill-icon">📎</span>
-            <span id="attachmentName">${escapeHtml(file.name)}</span>
-            <button type="button" class="message-action-btn delete" id="removeAttachmentBtn" title="Remove attachment" aria-label="Remove attached file" onclick="window.clearAttachmentUI()">✕</button>
-        `;
-        attachmentPreview.classList.remove('hidden');
-        
-        if (attachBtn) {
-            attachBtn.innerHTML = `
+        attachBtn.classList.add('has-attachment');
+        attachBtn.title = "Clear attachment";
+        attachBtn.innerHTML = `
+            <div class="attach-icon-slot">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                    <line x1="18" y1="6" x2="6" y2="18"/>
-                    <line x1="6" y1="6" x2="18" y2="18"/>
+                    <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
                 </svg>
-            `;
-            attachBtn.title = "Clear attachment";
-        }
+            </div>
+            <div class="attach-clear-slot">✕</div>
+        `;
     } else if (state.useContext) {
-        attachmentPreview.innerHTML = `
-            <span class="attachment-pill-icon">👤</span>
-            <span id="attachmentName">Persona Attached</span>
-            <button type="button" class="message-action-btn delete" id="removeAttachmentBtn" title="Remove persona" aria-label="Remove attached persona" onclick="window.clearAttachmentUI()">✕</button>
+        attachBtn.classList.add('has-persona');
+        attachBtn.title = "Clear persona";
+        attachBtn.innerHTML = `
+            <div class="attach-icon-slot">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                    <circle cx="12" cy="7" r="4"/>
+                </svg>
+            </div>
+            <div class="attach-clear-slot">✕</div>
         `;
-        attachmentPreview.classList.remove('hidden');
-        
-        if (attachBtn) {
-            attachBtn.innerHTML = `
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                    <line x1="18" y1="6" x2="6" y2="18"/>
-                    <line x1="6" y1="6" x2="18" y2="18"/>
-                </svg>
-            `;
-            attachBtn.title = "Clear persona";
-        }
     } else {
-        attachmentPreview.classList.add('hidden');
-        
-        if (attachBtn) {
-            attachBtn.innerHTML = `
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                    <line x1="12" y1="5" x2="12" y2="19"/>
-                    <line x1="5" y1="12" x2="19" y2="12"/>
-                </svg>
-            `;
-            attachBtn.title = "Attach";
-        }
+        attachBtn.title = "Attach";
+        attachBtn.innerHTML = `
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <line x1="12" y1="5" x2="12" y2="19"/>
+                <line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+        `;
     }
 }
 

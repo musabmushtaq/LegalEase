@@ -2124,3 +2124,93 @@ html.is-unauthenticated #authModal.modal-overlay {
   background: var(--glass-heavy);
   color: var(--text-1);
 }
+
+/* Styling for attachment states of the trigger button */
+.attach-trigger.has-attachment,
+.attach-trigger.has-persona {
+  background: var(--glass-heavy) !important;
+  border-color: var(--highlight) !important;
+  color: var(--highlight) !important;
+  position: relative;
+}
+
+/* Inner slot layouts */
+.attach-trigger .attach-icon-slot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.attach-trigger .attach-clear-slot {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: bold;
+  color: #ff4a4a !important; /* Premium red for clear/cancel */
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+/* Hover state transitions */
+.attach-trigger.has-attachment:hover .attach-icon-slot,
+.attach-trigger.has-persona:hover .attach-icon-slot {
+  display: none;
+}
+
+.attach-trigger.has-attachment:hover .attach-clear-slot,
+.attach-trigger.has-persona:hover .attach-clear-slot {
+  display: flex;
+  animation: fadeInScale 0.15s ease-out;
+}
+
+/* Close badge on the top-right of the morphed button, visible on hover */
+.attach-trigger.has-attachment::after,
+.attach-trigger.has-persona::after {
+  content: '✕';
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #e03131;
+  color: white;
+  font-size: 9px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid #131313;
+  opacity: 0;
+  transform: scale(0.6);
+  transition: opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1), transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+}
+
+.attach-trigger.has-attachment:hover::after,
+.attach-trigger.has-persona:hover::after {
+  opacity: 1;
+  transform: scale(1);
+}
+
+@keyframes fadeInScale {
+  from {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* User Bubble Showcase Styles */
+.user-attachment-card.persona-card {
+  cursor: default !important;
+}
+
+.user-attachment-card.persona-card:hover {
+  background: rgba(0, 0, 0, 0.25) !important;
+}

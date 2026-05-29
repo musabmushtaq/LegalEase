@@ -341,7 +341,7 @@ async function sendMessageUI() {
     const content = ui.messageInput.value.trim();
     
     // Enforce mutual exclusion and use virtual files for database persistence of persona messages
-    const file = state.attachment || (state.useContext ? new File([""], "Persona Attached", { type: "text/plain" }) : null);
+    const file = state.attachment || (state.useContext ? new File(["Active Context"], "Persona Attached.txt", { type: "text/plain" }) : null);
 
     if (!content && !file) return;
 
@@ -494,11 +494,38 @@ async function autoRenameChat(chatId, firstMessage) {
     }
 }
 
-// ─── Message Actions ───────────────────────────────────────────────────────────
+// Robust copy-to-clipboard helper that falls back to document.execCommand if needed
+function copyTextToClipboard(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        return navigator.clipboard.writeText(text);
+    }
+    return new Promise((resolve, reject) => {
+        try {
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            textArea.style.top = "0";
+            textArea.style.left = "0";
+            textArea.style.position = "fixed";
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            const successful = document.execCommand('copy');
+            document.body.removeChild(textArea);
+            if (successful) {
+                resolve();
+            } else {
+                reject(new Error('execCommand copy failed'));
+            }
+        } catch (err) {
+            reject(err);
+        }
+    });
+}
+
 function copyMessageUI(messageId) {
     const msg = state.messages[state.currentChatId]?.find(m => m.id === messageId);
     if (!msg) return;
-    navigator.clipboard.writeText(msg.content).then(() => {
+    copyTextToClipboard(msg.content).then(() => {
         showMessage('Copied to clipboard');
     }).catch(() => showMessage('Could not copy'));
 }
