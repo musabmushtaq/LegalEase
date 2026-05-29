@@ -436,6 +436,10 @@ html.is-unauthenticated #authModal.modal-overlay {
   flex-direction: column;
   height: 100vh;
   overflow: hidden;
+  background: var(--bg);
+}
+
+.chat-container.no-messages {
   background: radial-gradient(circle at 50% 50%, #1e1b15 0%, #0f0e0c 100%);
 }
 
@@ -1795,11 +1799,15 @@ html.is-unauthenticated #authModal.modal-overlay {
     height: 100%;
     border-radius: var(--radius-lg);
     border: 1px solid var(--glass-border);
-    background: radial-gradient(ellipse at top center, rgba(28, 24, 21, 0.95) 0%, rgba(19, 19, 19, 0.95) 60%);
+    background: rgba(19, 19, 19, 0.95);
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
     backdrop-filter: none !important;
     /* Disabled backdrop filters to prevent GPU/CPU typing lag */
     -webkit-backdrop-filter: none !important;
+  }
+
+  .chat-container.no-messages {
+    background: radial-gradient(ellipse at top center, rgba(28, 24, 21, 0.95) 0%, rgba(19, 19, 19, 0.95) 60%);
   }
 
   .drawer-overlay {
@@ -2192,4 +2200,267 @@ html.is-unauthenticated #authModal.modal-overlay {
 
 .user-attachment-card.persona-card:hover {
   background: rgba(0, 0, 0, 0.25) !important;
-}
+}
+
+/* ─── Mobile Responsiveness ──────────────────────────────── */
+@media (max-width: 1023px) {
+  .chat-top-bar {
+    display: flex !important;
+    background: transparent;
+    border: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    padding: 20px 16px 12px;
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 100;
+  }
+  
+  .chat-top-bar .top-right,
+  #newChatBtn,
+  #liveCallBtn {
+    display: none !important;
+  }
+
+  /* Menu button as a rounded card */
+  #menuBtn {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-sm);
+    width: 48px !important;
+    height: 48px !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  }
+  
+  #menuBtn svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  /* Increase scale of sidebar for touch */
+  .drawer {
+    width: 85vw;
+    max-width: 360px;
+  }
+  
+  .drawer-search-input {
+    height: 48px;
+    font-size: 16px;
+  }
+  
+  .sidebar-new-chat-btn {
+    width: 48px;
+    height: 48px;
+  }
+  
+  .chat-item {
+    padding: 16px 14px;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  
+  .chat-title {
+    font-size: 16px;
+  }
+  
+  .drawer-footer-btn {
+    height: 52px;
+    font-size: 16px;
+  }
+  
+  .sidebar-settings-btn {
+    width: 52px;
+    height: 52px;
+  }
+
+  .chat-container.no-messages {
+    justify-content: flex-start;
+  }
+  
+  .chat-container.no-messages .welcome-banner {
+    margin-top: 25vh;
+    margin-bottom: auto;
+  }
+  
+  .welcome-banner h1 {
+    font-size: 42px !important;
+    letter-spacing: -1px !important;
+  }
+  
+  .welcome-banner .welcome-sub-greeting {
+    font-size: 36px !important;
+    letter-spacing: -1px !important;
+  }
+
+  /* Increase message font sizes, spacing, and user-friendliness */
+  .user-bubble-text,
+  .ai-message-text {
+    font-size: 16.5px !important;
+    line-height: 1.6 !important;
+  }
+  
+  .ai-message-text p {
+    margin-bottom: 12px;
+  }
+  
+  .ai-message-text h1 {
+    font-size: 20px !important;
+    margin: 18px 0 10px;
+  }
+  .ai-message-text h2 {
+    font-size: 18px !important;
+    margin: 16px 0 8px;
+  }
+  .ai-message-text h3 {
+    font-size: 16.5px !important;
+    margin: 14px 0 6px;
+  }
+  
+  .user-bubble-glass {
+    max-width: 88% !important;
+    padding: 14px 18px !important;
+  }
+  
+  .ai-bubble-content {
+    max-width: 95% !important;
+    padding: 8px 0 !important;
+  }
+  
+  .message-bubble {
+    padding: 8px 16px !important;
+  }
+
+  /* Larger attachment items inside bubbles */
+  .user-attachment-card {
+    padding: 12px 14px !important;
+  }
+  
+  .attachment-file-name {
+    font-size: 14px !important;
+    max-width: 250px !important;
+  }
+
+  /* Touch-friendly attachments preview above input */
+  .attachment-preview {
+    font-size: 14px !important;
+    padding: 8px 16px !important;
+    border-radius: var(--radius-lg) !important;
+  }
+  
+  .attachment-pill-icon {
+    font-size: 15px !important;
+  }
+  
+  #attachmentName {
+    max-width: 280px !important;
+  }
+
+  /* Touch-friendly attachment menu */
+  .attachment-menu {
+    min-width: 200px !important;
+    padding: 8px !important;
+    bottom: calc(100% + 12px) !important;
+  }
+  
+  .attach-menu-btn {
+    padding: 12px 14px !important;
+    font-size: 15px !important;
+  }
+
+  /* Overall scale of the input area */
+  .input-console {
+    padding: 12px 16px 24px !important;
+    gap: 10px !important;
+  }
+
+  .input-capsule {
+    min-height: 56px !important;
+    padding: 12px 20px !important;
+    border-radius: 28px !important;
+  }
+
+  .message-input {
+    font-size: 16.5px !important;
+    line-height: 22px !important;
+    height: 22px !important;
+  }
+
+  .send-btn,
+  .attach-trigger {
+    width: 56px !important;
+    height: 56px !important;
+  }
+  
+  .send-btn svg {
+    width: 18px !important;
+    height: 18px !important;
+  }
+  
+  .attach-trigger svg {
+    width: 22px !important;
+    height: 22px !important;
+  }
+
+  .chat-container.no-messages .input-console {
+    margin: auto auto 0 auto;
+    padding-bottom: 32px !important;
+    width: 100%;
+  }
+
+  /* Settings Modal - touch adjustments */
+  .settings-modal-card {
+    max-height: 92vh !important;
+    max-width: 90vw !important;
+  }
+  
+  .modal-header {
+    padding: 20px 16px 14px !important;
+  }
+  
+  .settings-title {
+    font-size: 20px !important;
+  }
+  
+  .settings-section-title {
+    font-size: 11px !important;
+    padding: 0 4px 8px !important;
+  }
+  
+  .settings-row {
+    padding: 14px 16px !important;
+  }
+  
+  .settings-title-text {
+    font-size: 15.5px !important;
+  }
+  
+  .settings-subtitle {
+    font-size: 13px !important;
+    margin-top: 4px !important;
+  }
+  
+  .settings-inline-input {
+    font-size: 15.5px !important;
+    padding: 12px 0 !important;
+  }
+  
+  .settings-network-row {
+    padding: 14px 16px !important;
+  }
+  
+  .settings-inline-input.ip-input {
+    font-size: 15.5px !important;
+  }
+  
+  .settings-icon-box {
+    width: 42px !important;
+    height: 42px !important;
+  }
+}
+
+

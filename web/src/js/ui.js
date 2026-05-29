@@ -223,6 +223,7 @@ function chatItemHtml(chat) {
         <div class="chat-item ${isActive ? 'active' : ''}"
              data-chat-id="${chat.id}"
              onclick="window.selectChatUI('${chat.id}')"
+             oncontextmenu="event.preventDefault(); event.stopPropagation(); window.showChatMenuUI(event, '${chat.id}')"
              role="button" tabindex="0"
              aria-label="Chat: ${escapeHtml(chat.title)}">
             <div class="chat-title">${escapeHtml(chat.title)}</div>
