@@ -938,12 +938,17 @@ html.is-unauthenticated #authModal.modal-overlay {
 /* ─── Settings Modal ─────────────────────────────────────── */
 #settingsModal.modal-overlay {
   z-index: 600 !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  background: rgba(0, 0, 0, 0.55);
 }
 .settings-modal-card {
   max-width: 480px;
   max-height: 88vh;
   display: flex; flex-direction: column;
   overflow: hidden;
+  background: rgba(20, 20, 20, 0.98) !important;
+  box-shadow: 0 32px 80px rgba(0, 0, 0, 0.85), 0 0 32px rgba(0, 0, 0, 0.4) !important;
 }
 .modal-header {
   display: flex; align-items: center; justify-content: space-between;
