@@ -24,6 +24,7 @@ window.thumbsDownUI = thumbsDownUI;
 window.tryReconnect = ensureConnectivity;
 window.showChatMenuUI = showChatMenuUI;
 window.hideChatMenuUI = hideChatMenuUI;
+window.clearAttachmentUI = clearAttachment;
 window.openSettingsModalUI = () => {
     console.log("Global openSettingsModalUI called");
     const uiEls = getUIElements();
@@ -143,7 +144,13 @@ function setupEventListeners() {
     document.getElementById('closeDrawerBtn').addEventListener('click', closeDrawer);
     document.getElementById('drawerOverlay').addEventListener('click', closeDrawer);
     document.getElementById('sendBtn').addEventListener('click', sendMessageUI);
-    document.getElementById('attachBtn').addEventListener('click', () => toggleAttachmentMenu());
+    document.getElementById('attachBtn').addEventListener('click', () => {
+        if (state.attachment || state.useContext) {
+            clearAttachment();
+        } else {
+            toggleAttachmentMenu();
+        }
+    });
     ui.attachmentInput.addEventListener('change', handleAttachmentSelection);
     document.getElementById('removeAttachmentBtn').addEventListener('click', clearAttachment);
     ui.drawerSearch.addEventListener('input', debounce(handleSearchInput, 300));
@@ -233,12 +240,15 @@ function closeAttachmentMenu() {
 function togglePersonaMode() {
     state.useContext = !state.useContext;
     updatePersonaBtn(state.useContext);
+    
     if (state.useContext) {
-        renderContextPill(true);
-        setTimeout(() => renderContextPill(false), 3000);
-    } else {
-        renderContextPill(false);
+        // Enforce mutual exclusion: clear file attachments when persona is attached
+        state.attachment = null;
+        const input = document.getElementById('attachmentInput');
+        if (input) input.value = '';
     }
+    
+    updateAttachmentPreview(state.attachment);
 }
 
 // ─── New Chat ──────────────────────────────────────────────────────────────────
@@ -329,7 +339,9 @@ async function sendMessageUI() {
 
     const ui = getUIElements();
     const content = ui.messageInput.value.trim();
-    const file = state.attachment;
+    
+    // Enforce mutual exclusion and use virtual files for database persistence of persona messages
+    const file = state.attachment || (state.useContext ? new File([""], "Persona Attached", { type: "text/plain" }) : null);
 
     if (!content && !file) return;
 
@@ -581,11 +593,19 @@ function handleAttachmentSelection(event) {
         return;
     }
     state.attachment = file;
+    
+    // Enforce mutual exclusion: clear persona mode when a file is selected
+    state.useContext = false;
+    updatePersonaBtn(false);
+    
     updateAttachmentPreview(file);
 }
 
 function clearAttachment() {
     state.attachment = null;
+    state.useContext = false; // Disable persona mode when clearing
+    updatePersonaBtn(false);
+    
     const input = document.getElementById('attachmentInput');
     if (input) input.value = '';
     updateAttachmentPreview(null);

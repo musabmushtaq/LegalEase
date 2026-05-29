@@ -56,6 +56,8 @@ export async function loadChatsFromServer(userId) {
                 content: msg.content,
                 createdAt: msg.created_at,
                 edited_at: msg.edited_at,
+                fileId: msg.file_id || null,
+                fileName: msg.filename || null,
                 isNew: false,
             }));
         });

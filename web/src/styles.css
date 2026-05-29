@@ -1135,39 +1135,47 @@ html.is-unauthenticated #authModal.modal-overlay {
 
 /* ─── Context Active Pill ────────────────────────────────── */
 .context-pill {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background: rgba(252, 229, 102, 0.1);
-  border: 1px solid rgba(252, 229, 102, 0.25);
-  border-radius: var(--radius-xl);
-  padding: 5px 14px;
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--highlight);
-  align-self: center;
-  opacity: 0;
-  transform: translateY(6px);
-  pointer-events: none;
-  transition: opacity 0.22s ease, transform 0.22s ease;
-}
-
-.context-pill.visible {
-  opacity: 1;
-  transform: translateY(0);
+  display: none !important; /* Unified preview pill is used instead */
 }
 
 /* ─── Attachment Preview Bar ─────────────────────────────── */
 .attachment-preview {
+  display: inline-flex;
+  align-self: flex-start;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-xl);
+  padding: 6px 14px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text-2);
+  margin-bottom: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  max-width: fit-content;
+}
+
+.attachment-pill-icon {
+  color: var(--highlight);
+  font-size: 14px;
   display: flex;
   align-items: center;
-  gap: 10px;
-  background: var(--glass-bg);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-sm);
-  padding: 8px 12px;
-  font-size: 13px;
-  color: var(--text-2);
+}
+
+#attachmentName {
+  max-width: 250px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-attachment-card.persona-card {
+  cursor: default !important;
+}
+
+.user-attachment-card.persona-card:hover {
+  background: rgba(0, 0, 0, 0.25) !important;
 }
 
 /* ─── Modals ─────────────────────────────────────────────── */
