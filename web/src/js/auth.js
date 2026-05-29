@@ -64,8 +64,8 @@ export async function handleRegister(username, email, password) {
 
 export function handleLogout() {
     clearAuthState();
-    state.isTemporaryChat = true;
-    showMessage('Logged out. Temporary chat mode enabled.');
+    state.isTemporaryChat = false;
+    showMessage('Logged out successfully.');
 }
 
 export function toggleTemporaryMode() {
