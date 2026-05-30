@@ -10,7 +10,7 @@ let attachmentName, removeAttachmentBtn, tempChatToggleBtn, authActionBtn;
 let userStatus, authModal, authForm, authTitle, authSwitchBtn, authSwitchText;
 let authCloseBtn, authUsername, authEmailLabel, authEmail, authPassword;
 let authConfirmLabel, authConfirmPassword, authSubmitBtn;
-let settingsBtn, settingsModal, settingsApiUrl, saveSettingsBtn, settingsCloseBtn;
+let settingsBtn, settingsModal, settingsApiPrefix, settingsApiSuffix, settingsApiIp, settingsCloseBtn;
 let personaBtn, contextPill, attachmentMenu;
 
 export function initializeDOM() {
@@ -48,8 +48,9 @@ export function initializeDOM() {
     authSubmitBtn = document.getElementById('authSubmitBtn');
     settingsBtn = document.getElementById('settingsBtn');
     settingsModal = document.getElementById('settingsModal');
-    settingsApiUrl = document.getElementById('settingsApiUrl');
-    saveSettingsBtn = document.getElementById('saveSettingsBtn');
+    settingsApiPrefix = document.getElementById('settingsApiPrefix');
+    settingsApiSuffix = document.getElementById('settingsApiSuffix');
+    settingsApiIp = document.getElementById('settingsApiIp');
     settingsCloseBtn = document.getElementById('settingsCloseBtn');
     personaBtn = document.getElementById('attachPersonaBtn');
     contextPill = document.getElementById('contextActivePill');
@@ -76,6 +77,18 @@ export function renderUserState() {
         : (state.isTemporaryChat ? `${DEFAULT_USERNAME} (Temporary)` : DEFAULT_USERNAME);
     if (userStatus) userStatus.textContent = displayName;
     if (authActionBtn) authActionBtn.textContent = state.authToken ? 'Logout' : 'Login / Sign Up';
+    
+    // Dynamically update the sidebar header username
+    const sidebarUserStatus = document.getElementById('sidebarUserStatus');
+    if (sidebarUserStatus) sidebarUserStatus.textContent = state.authToken ? state.username : 'Guest';
+
+    // Dynamically update the Gemini-style welcome screen greeting
+    const welcomeGreeting = document.getElementById('welcomeGreeting');
+    if (welcomeGreeting) {
+        welcomeGreeting.innerHTML = state.authToken 
+            ? `Hello, <span class="gradient-username">${escapeHtml(state.username)}</span>`
+            : `Hello, <span class="gradient-username">Guest</span>`;
+    }
 }
 
 export function renderTemporaryToggle() {
@@ -109,6 +122,8 @@ export function renderConnectionBanner() {
 export function openAuthModal(mode) {
     state.authMode = mode;
     authModal.classList.remove('hidden');
+    document.documentElement.classList.remove('is-authenticated');
+    document.documentElement.classList.add('is-unauthenticated');
     if (mode === 'login') {
         authTitle.innerHTML = 'Welcome to<br>LegalEase';
         authSubmitBtn.textContent = 'Sign In';
@@ -129,13 +144,17 @@ export function openAuthModal(mode) {
 export function closeAuthModal() {
     authModal.classList.add('hidden');
     authForm.reset();
+    document.documentElement.classList.remove('is-unauthenticated');
+    document.documentElement.classList.add('is-authenticated');
 }
 
 export function openSettingsModal() {
+    console.log("openSettingsModal called, settingsModal:", settingsModal);
     settingsModal?.classList.remove('hidden');
 }
 
 export function closeSettingsModal() {
+    console.log("closeSettingsModal called, settingsModal:", settingsModal);
     settingsModal?.classList.add('hidden');
 }
 
@@ -181,11 +200,9 @@ export function renderDrawer() {
 
     const html = [];
     if (pinnedChats.length > 0) {
-        html.push('<div class="drawer-section-label">Pinned</div>');
         html.push(pinnedChats.map(c => chatItemHtml(c)).join(''));
     }
     if (recentChats.length > 0) {
-        if (pinnedChats.length > 0) html.push('<div class="drawer-section-separator"></div>');
         html.push(recentChats.map(c => chatItemHtml(c)).join(''));
     }
 
@@ -197,25 +214,26 @@ export function renderDrawer() {
 
 function chatItemHtml(chat) {
     const isActive = chat.id === state.currentChatId;
-    const pinIcon = chat.isPinned ? '★' : '☆';
+    const pinIndicator = chat.isPinned 
+        ? `<span class="chat-pinned-indicator" title="Pinned chat">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/></svg>
+           </span>`
+        : '';
     return `
         <div class="chat-item ${isActive ? 'active' : ''}"
              data-chat-id="${chat.id}"
              onclick="window.selectChatUI('${chat.id}')"
+             oncontextmenu="event.preventDefault(); event.stopPropagation(); window.showChatMenuUI(event, '${chat.id}')"
              role="button" tabindex="0"
              aria-label="Chat: ${escapeHtml(chat.title)}">
             <div class="chat-title">${escapeHtml(chat.title)}</div>
-            <div class="chat-actions">
-                <button class="chat-action-btn"
-                        onclick="event.stopPropagation(); window.togglePinChatUI('${chat.id}')"
-                        title="${chat.isPinned ? 'Unpin' : 'Pin'} chat"
-                        aria-label="Toggle pin">${pinIcon}</button>
-                <button class="chat-action-btn"
-                        onclick="event.stopPropagation(); window.renameChatUI('${chat.id}')"
-                        title="Rename" aria-label="Rename chat">✎</button>
-                <button class="chat-action-btn delete"
-                        onclick="event.stopPropagation(); window.deleteChatUI('${chat.id}')"
-                        title="Delete" aria-label="Delete chat">🗑</button>
+            <div class="chat-item-right-row">
+                ${pinIndicator}
+                <button class="chat-menu-trigger"
+                        onclick="event.stopPropagation(); window.showChatMenuUI(event, '${chat.id}')"
+                        title="Chat actions" aria-label="Chat actions">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+                </button>
             </div>
         </div>
     `;
@@ -238,12 +256,21 @@ export function renderMessages() {
         return;
     }
 
-    messagesContainer.innerHTML = msgList.map(msg => messageBubbleHtml(msg)).join('');
+    // Find the latest AI message ID to keep its actions always visible
+    let lastAiMsgId = null;
+    for (let i = msgList.length - 1; i >= 0; i--) {
+        if (msgList[i].sender === 'ai') {
+            lastAiMsgId = msgList[i].id;
+            break;
+        }
+    }
+
+    messagesContainer.innerHTML = msgList.map(msg => messageBubbleHtml(msg, lastAiMsgId)).join('');
     scrollToBottom();
 
 }
 
-function messageBubbleHtml(msg) {
+function messageBubbleHtml(msg, lastAiMsgId) {
     const isUser = msg.sender === 'user';
     const isEdited = !!msg.edited_at;
     const canEdit = isUser && !state.sharedView;
@@ -251,7 +278,8 @@ function messageBubbleHtml(msg) {
     if (isUser) {
         return userBubbleHtml(msg, isEdited, canEdit);
     } else {
-        return aiBubbleHtml(msg);
+        const isLatest = msg.id === lastAiMsgId;
+        return aiBubbleHtml(msg, isLatest);
     }
 }
 
@@ -261,18 +289,26 @@ function userBubbleHtml(msg, isEdited, canEdit) {
 
     let attachmentCard = '';
     if (hasAttachment) {
-        const isImage = /\.(png|jpe?g|gif|webp|bmp)$/i.test(msg.fileName);
-        const icon = isImage
-            ? `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>`
-            : `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>`;
+        const isPersona = msg.fileName === "Persona Attached" || msg.fileName === "Persona Attached.txt";
+        const displayName = isPersona ? "Persona Attached" : msg.fileName;
+        
+        let icon;
+        if (isPersona) {
+            icon = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`;
+        } else {
+            const isImage = /\.(png|jpe?g|gif|webp|bmp)$/i.test(msg.fileName);
+            icon = isImage
+                ? `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>`
+                : `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>`;
+        }
 
-        const clickAction = msg.fileId
+        const clickAction = (!isPersona && msg.fileId)
             ? `window.downloadFileUI('${msg.fileId}', '${escapeHtml(msg.fileName)}')`
             : '';
         attachmentCard = `
-            <div class="user-attachment-card" ${clickAction ? `onclick="${clickAction}" role="button" tabindex="0" title="Download ${escapeHtml(msg.fileName)}"` : ''}>
+            <div class="user-attachment-card ${isPersona ? 'persona-card' : ''}" ${clickAction ? `onclick="${clickAction}" role="button" tabindex="0" title="${isPersona ? 'Persona Attached' : `Download ${escapeHtml(displayName)}`}"` : ''}>
                 <div class="attachment-icon-box">${icon}</div>
-                <span class="attachment-file-name">${escapeHtml(msg.fileName)}</span>
+                <span class="attachment-file-name">${escapeHtml(displayName)}</span>
             </div>
         `;
     }
@@ -284,21 +320,11 @@ function userBubbleHtml(msg, isEdited, canEdit) {
                 ${attachmentCard}
                 ${isEdited ? '<div class="edited-indicator">(edited)</div>' : ''}
             </div>
-            ${canEdit ? `
-                <div class="message-actions">
-                    <button class="message-action-btn" onclick="event.stopPropagation(); window.editMessageUI('${msg.id}')" title="Edit" aria-label="Edit message">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                    </button>
-                    <button class="message-action-btn delete" onclick="event.stopPropagation(); window.deleteMessageUI('${msg.id}')" title="Delete" aria-label="Delete message">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
-                    </button>
-                </div>
-            ` : ''}
         </div>
     `;
 }
 
-function aiBubbleHtml(msg) {
+function aiBubbleHtml(msg, isLatest = false) {
     // Render markdown using marked.js if available, else plain text
     let renderedContent;
     if (typeof window.marked !== 'undefined') {
@@ -308,7 +334,7 @@ function aiBubbleHtml(msg) {
     }
 
     return `
-        <div class="message-bubble ai" data-message-id="${msg.id}" role="article">
+        <div class="message-bubble ai${isLatest ? ' is-latest' : ''}" data-message-id="${msg.id}" role="article">
             <div class="ai-bubble-content">
                 <div class="ai-message-text">${renderedContent}</div>
                 <div class="ai-action-bar">
@@ -356,13 +382,23 @@ export function removeThinkingIndicator() {
     document.getElementById('thinkingIndicator')?.remove();
 }
 
-// ─── Helpers ───────────────────────────────────────────────────────────────────
 function scrollToBottom() {
-    requestAnimationFrame(() => {
-        if (messagesContainer) {
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    const performScroll = () => {
+        if (!messagesContainer) return;
+        
+        // Scroll the container scrollTop
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        
+        // Also scroll the last element into view as a backup for mobile devices
+        if (messagesContainer.lastElementChild) {
+            messagesContainer.lastElementChild.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }
-    });
+    };
+
+    requestAnimationFrame(performScroll);
+    // Double timeout backups to handle mobile keyboard state, browser rendering lag, and dynamic layout reflows
+    setTimeout(performScroll, 80);
+    setTimeout(performScroll, 220);
 }
 
 export function getUIElements() {
@@ -370,17 +406,48 @@ export function getUIElements() {
         messageInput, sendBtn, attachBtn, attachmentInput, attachmentPreview,
         attachmentName, removeAttachmentBtn, drawerSearch, authForm, authUsername,
         authEmail, authPassword, authConfirmPassword, authSwitchBtn, authCloseBtn,
-        settingsBtn, settingsModal, settingsApiUrl, saveSettingsBtn, settingsCloseBtn,
+        settingsBtn, settingsModal, settingsApiPrefix, settingsApiSuffix, settingsApiIp, settingsCloseBtn,
     };
 }
 
 export function updateAttachmentPreview(file) {
-    if (!attachmentPreview || !attachmentName) return;
-    if (file) {
-        attachmentName.textContent = `📎 ${file.name}`;
-        attachmentPreview.classList.remove('hidden');
-    } else {
+    if (attachmentPreview) {
         attachmentPreview.classList.add('hidden');
+    }
+    const attachBtn = document.getElementById('attachBtn');
+    if (!attachBtn) return;
+    
+    attachBtn.classList.remove('has-attachment', 'has-persona');
+    
+    if (file) {
+        attachBtn.classList.add('has-attachment');
+        attachBtn.title = "Clear attachment";
+        attachBtn.innerHTML = `
+            <div class="attach-icon-slot">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+                </svg>
+            </div>
+        `;
+    } else if (state.useContext) {
+        attachBtn.classList.add('has-persona');
+        attachBtn.title = "Clear persona";
+        attachBtn.innerHTML = `
+            <div class="attach-icon-slot">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                    <circle cx="12" cy="7" r="4"/>
+                </svg>
+            </div>
+        `;
+    } else {
+        attachBtn.title = "Attach";
+        attachBtn.innerHTML = `
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <line x1="12" y1="5" x2="12" y2="19"/>
+                <line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+        `;
     }
 }
 

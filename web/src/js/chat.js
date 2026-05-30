@@ -56,12 +56,14 @@ export async function loadChatsFromServer(userId) {
                 content: msg.content,
                 createdAt: msg.created_at,
                 edited_at: msg.edited_at,
+                fileId: msg.file_id || null,
+                fileName: msg.filename || null,
                 isNew: false,
             }));
         });
         
-        if (!state.currentChatId && items.length > 0) {
-            state.currentChatId = items[0].id;
+        if (!state.currentChatId || !state.chats[state.currentChatId]) {
+            state.currentChatId = items.length > 0 ? items[0].id : null;
         }
         
         saveChatCache();
