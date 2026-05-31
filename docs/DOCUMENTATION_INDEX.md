@@ -491,7 +491,7 @@ net start MongoDB
 cd api && .venv\Scripts\activate && uvicorn main:app --reload
 
 # Terminal 3: Web
-cd web && python -m http.server 8080
+cd web && npm install && npm run dev
 
 # Terminal 4: Mobile
 cd app && flutter run
