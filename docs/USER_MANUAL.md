@@ -1,24 +1,26 @@
-# LegalEase Mobile App - User Manual
+# LegalEase - Complete User Manual
 
 **Version**: 1.0  
-**Platform**: Android  
-**Last Updated**: May 20, 2026
+**Platforms**: Android (Mobile App) & Modern Web Browser (Vite Web App)  
+**Last Updated**: May 31, 2026
 
 ---
 
 ## Table of Contents
 
-1. [Getting Started](#getting-started)
-2. [Installation](#installation)
-3. [Main Features](#main-features)
-4. [Walkthrough: First Steps](#walkthrough-first-steps)
-5. [Chat Management](#chat-management)
-6. [Live Calls](#live-calls)
-7. [Document Upload & Analysis](#document-upload--analysis)
-8. [Settings & Preferences](#settings--preferences)
-9. [Frequently Asked Questions](#frequently-asked-questions)
-10. [Troubleshooting](#troubleshooting)
-11. [Privacy & Security](#privacy--security)
+1. [Getting Started & Overview](#getting-started)
+2. [Installation & Setup](#installation)
+3. [Main Interface Options](#main-interface-options)
+   - [Modern Web Interface (Vite + Vanilla JS)](#modern-web-interface)
+   - [Mobile Web Responsiveness & Touch Enhancements](#mobile-web-responsiveness--touch-enhancements)
+4. [Chat & Session Management](#chat-management)
+5. [Live Conversational Calls (Voice Support)](#live-calls)
+6. [Document Upload & Intelligent Analysis](#document-upload--analysis)
+7. [Context-Aware Personalization (Persona Mode)](#context-aware-personalization)
+8. [Settings, Privacy, & Purging Profile Context](#settings--preferences)
+9. [Frequently Asked Questions (FAQ)](#frequently-asked-questions)
+10. [Troubleshooting & Support](#troubleshooting)
+11. [Data Security & Privacy Protections](#privacy--security)
 
 ---
 
@@ -26,183 +28,137 @@
 
 ### What is LegalEase?
 
-LegalEase is an AI-powered legal assistant that helps you:
+LegalEase is a premium, AI-powered legal assistant accessible via a dynamic Web Application (Vite + Vanilla JS) and a robust Android Mobile App (Flutter). It helps you:
 
-- Ask legal questions and get intelligent responses
-- Upload and analyze legal documents
-- Generate legal templates and summaries
-- Manage conversations about legal matters
-- Export and share your work
+- Ask complex legal questions and receive intelligent, personalized responses
+- Upload and inspect legal documents (contracts, leases, agreements)
+- Generate legal templates, summaries, and audit reports
+- Maintain persistent, contextual conversations across multiple devices
+- Personalize responses automatically using a dynamic user background context
+- Converse naturally in real-time via hands-free voice calls
 
 **Perfect for:**
-
-- Students studying law
-- Legal professionals seeking a second opinion
-- Business owners managing contracts
-- Anyone needing accessible legal information
+- Law students and academic researchers
+- Business owners drafting or inspecting service contracts
+- Legal professionals seeking prompt reference analysis
+- Individuals needing clear, accessible explanations of legal jargon
 
 ### Key Features at a Glance
 
-✅ **Chat-Based Interface** - Intuitive conversation with an AI legal assistant  
-✅ **Live Voice Calls** - Real-time audio conversation with AI, voice-to-text, automatic responses  
-✅ **Document Upload** - Analyze PDFs, Word docs, images, and text files  
-✅ **Smart Summaries** - Get concise summaries of complex legal documents  
-✅ **Chat History** - Never lose important conversations  
-✅ **Offline Support** - Some features work without internet  
-✅ **Dark Theme** - Easy on the eyes for extended use  
-✅ **Export & Share** - Save and share your legal analysis
+✅ **Modern Responsive UI** - Harmonious dark mode design with glassmorphic accents tailored for both desktop and mobile web viewports.
+✅ **Context-Aware Personalization** - Transparent, automated profile building based on your chat history, allowing the AI to tailor legal advice to your specific profession or location.
+✅ **Live Conversational Calls** - Real-time audio streams with Voice Activity Detection (VAD), Whisper-powered transcription, and Kokoro speech generation.
+✅ **Intelligent Document Upload** - Direct extraction and analysis of PDFs, Word documents, images, and text attachments.
+✅ **Offline Resilience** - Native caching mechanisms that allow you to read recent chats and queue message updates even when internet access is interrupted.
+✅ **Key Rotation Protection** - Automatic, behind-the-scenes rotation of API credentials to ensure 100% service availability and zero rate-limiting interruptions.
 
 ---
 
-## Installation
+## Installation & Setup
 
 ### System Requirements
 
-- **Android Version**: 8.0 or higher
-- **Storage Space**: At least 100 MB free
-- **RAM**: 2 GB minimum
-- **Internet**: Required for AI features (some offline support available)
+#### Mobile Application (Android)
+- **Android Version**: 8.0 (Oreo) or higher
+- **Storage Space**: At least 100 MB free for app cache
+- **Permissions Required**: Microphone (for Live Calls), Storage/Camera (for file uploads)
 
-### Installation Steps
-
-#### Option 1: Play Store (Recommended)
-
-1. Open **Google Play Store**
-2. Search for **"LegalEase"**
-3. Tap **Install**
-4. Grant permissions when prompted
-5. Tap **Open** once installation completes
-
-#### Option 2: Direct APK Installation
-
-1. **Download**: Get the APK file from the download link
-2. **Enable Installation**: Go to Settings → Security → Unknown Sources → Enable
-3. **Install**: Locate the APK and tap to install
-4. **Permissions**: Grant requested permissions
-5. **Launch**: Find LegalEase in your app drawer
-
-#### Option 3: Development Installation (Developers)
-
-```bash
-# Build APK locally
-cd app
-flutter build apk
-
-# Install on device
-flutter install
-
-# Or use ADB directly
-adb install build/app/outputs/flutter-apk/app-release.apk
-```
-
-### First Launch
-
-On first launch, LegalEase will:
-
-1. Ask for necessary permissions (camera, storage, microphone)
-2. Display a quick tutorial (can be skipped)
-3. Take you to the login screen
+#### Web Application (Browser)
+- **Supported Browsers**: Google Chrome, Mozilla Firefox, Apple Safari, Microsoft Edge (modern versions)
+- **Platform**: Fully compatible with desktop, tablet, and mobile browsers
+- **Vite Local Server (for Developers/Self-hosters)**: Node.js v18+ and npm installed
 
 ---
 
-## Main Features
+### Setup & Launch Steps
 
-### 1. Chat Interface
+#### 🌐 Web Interface (Recommended & Easiest)
+For end-users accessing a deployed instance, simply navigate to the provided web address in your browser (e.g., `https://legalease.example.com`).
 
-The main screen where you interact with LegalEase.
+If you are running the Web Interface locally:
+1. Open a terminal and navigate to the project directory:
+   ```bash
+   cd web
+   ```
+2. Install npm dependencies (compiles Vite scripts and bundles premium stylesheets):
+   ```bash
+   npm install
+   ```
+3. Run the Vite development server:
+   ```bash
+   npm run dev
+   ```
+4. Click or navigate to the localhost address reported in your terminal (typically `http://localhost:5173`).
 
-**Components:**
+---
 
-- **Message Area**: Read your conversation history
-- **Input Box**: Type questions or legal queries
-- **Send Button**: Submit your message
-- **Attachment Icon**: Upload documents
-- **Menu Icon**: Access settings and options
+#### 📱 Android Mobile App
 
-**How to Chat:**
+##### Option 1: Play Store (Recommended)
+1. Open the **Google Play Store** on your Android device.
+2. Search for **"LegalEase AI"**.
+3. Tap **Install** and accept basic runtime prompts.
+4. Launch the application from your app drawer.
 
-1. Tap the input box at the bottom
-2. Type your legal question
-3. Press **Send** (or swipe up if keyboard doesn't show button)
-4. Wait for AI response
-5. Continue the conversation as needed
+##### Option 2: Direct APK Installation
+1. **Download**: Secure the `.apk` release file from the repository releases page.
+2. **Enable Unknown Sources**: Navigate to your device settings -> Apps -> Special App Access -> Install Unknown Apps -> Allow from your browser.
+3. **Install**: Tap the downloaded APK in your Downloads folder and follow installation steps.
 
-### 2. Document Upload
+---
 
-Analyze your legal documents with AI.
+### First Launch Checklist
 
-**Supported Formats:**
+On your first launch (whether on Web or Mobile):
+1. **API Server Hook**: Verify the green status indicator. If self-hosting, click **Settings (⚙️)** and adjust the API Base URL (defaults to `http://127.0.0.1:8000`).
+2. **Authentication**: Choose **Login / Sign Up** in the navigation bar to create a secure JWT-authenticated account.
+3. **Microphone Permissions**: If you plan to use voice features, grant the browser or app access to your microphone when prompted.
 
-- PDF (`.pdf`) - Portable Document Format
-- Word (`.docx`) - Microsoft Word documents
-- Text (`.txt`) - Plain text files
-- Images (`.png`, `.jpg`) - Screenshots of documents
+---
 
-**File Limits:**
+## Main Interface Options
 
-- Maximum 50 MB per file
-- Recommended: Keep files under 10 MB for faster processing
+LegalEase offers a premium, modern user interface designed to maximize accessibility, readability, and speed across both desktop and handheld touch screens.
 
-**How to Upload:**
+---
 
-1. In a chat, tap the **📎 Attachment** button
-2. Choose file source:
-   - **Gallery**: Select existing file
-   - **Files**: Browse device storage
-   - **Camera**: Photograph a document
-3. Select file and confirm
-4. Ask LegalEase to analyze it
-5. Receive AI analysis and insights
+### 🌐 Modern Web Interface (Vite + Vanilla JS)
 
-### 3. Chat History
+The Vite-compiled SPA provides a desktop-class console with:
+- **Glassmorphic Top Bar**: Displays your current authentication username (e.g., "Guest" or your custom username), diagnostic connection banner, and settings shortcuts.
+- **Collapsible Sidebar (Drawer)**: Clean sliding list of past chats with a real-time responsive Search input. You can pin important chats (pinned items stay locked to the top with a star icon), rename chats, or purge individual threads.
+- **Interactive Chat Container**: Implements progressive-rendering message bubbles, a dynamic typing "thinking dot" animation while the AI generates legal insights, and a separate typewriter display for fresh stream replies.
+- **Attachment Drawer Console**: Floating glass panel that allows you to:
+  - **Upload Files**: Browse device storage for PDFs, Word docs, images, or raw text.
+  - **Toggle Persona Mode**: Turn on the context injection system.
 
-Access all your past conversations.
+---
 
-**Left Sidebar:**
+### 📱 Mobile Web Responsiveness & Touch Enhancements
 
-- Shows all your chats
-- Pinned chats appear at top
-- Recent chats listed below
-- Search chats (future feature)
+When accessed on a mobile web browser or handheld device, the interface automatically scales and shifts layouts using responsive CSS declarations to optimize touch interactions:
+- **Collapsible Side-Drawer Navigation**: Accessed via a modern, glassmorphic cards-style header menu button on the top left.
+- **Adaptive Welcome Greetings**: Displays a dynamic greetings banner that adapts automatically based on your device's current time of day (e.g., *"Good morning"*, *"Good afternoon"*, *"Good evening"*).
+- **Oversized Thumb-Friendly Compose Console**: Features a massive 60px touch compose bar at the bottom, equipped with large, easy-to-tap circular buttons for sending messages and opening attachments.
+- **Oversized Bubble Typography (18px)**: Chat bubbles automatically scale up their text content to a comfortable 18px font size, reducing optical fatigue and eye strain during detailed document reviews on smaller screens.
+- **Touch-Friendly Drawer Actions**: Sidebar chat lists have expanded hit zones and intuitive controls for smooth management on mobile viewports.
 
-**How to Use:**
+---
 
-1. **View Chat**: Tap any chat to open it
-2. **Pin Chat**: Long-press → Pin (keeps at top)
-3. **Archive Chat**: Long-press → Archive
-4. **Delete Chat**: Long-press → Delete
-5. **New Chat**: Tap **+ New Chat** button
+### 👥 Context-Aware Personalization (Persona Mode)
 
-### 4. Live Calls
+Unlike traditional chatbots that treat every query in isolation, LegalEase features a background context-aggregation pipeline:
+- **Transparent Learning**: When logged into your account, an asynchronous background task analyzes your chat topics (e.g., tenancy issues, corporate filings, intellectual property) and aggregates these facts into a unified **User Profile Context**.
+- **Personalized Context Mode**: Toggle the "Persona / Context" pill in the attachment console. When active, the backend injects your aggregated persona details directly into the Gemini AI generation pipeline, ensuring suggestions are automatically tailored to your state/jurisdiction, professional role, and preferences.
+- **Full Control & Purging**: Under the settings panel (⚙️), you can view your running personal context, manually override it, or permanently purge all stored inferred AI facts with a single click.
 
-Have real-time voice conversations with the AI assistant.
+---
 
-**Features:**
+### 🔒 Temporary & Offline Modes
+- **Temporary Chat Mode**: Toggle this mode on/off instantly via the side drawer to conduct private legal queries. In temporary mode, chats are stored strictly in your local browser cache and never hit the MongoDB server databases.
+- **Offline Resiliency Banner**: Displays an informative warning banner if API server connectivity is lost, switching the app automatically to offline view mode so you can browse existing chat threads.
 
-- 🎙️ **Voice Input**: Speak instead of typing
-- 👂 **Audio Response**: Hear AI answers immediately
-- ⚡ **Interruption**: Cut off AI anytime to ask follow-ups
-- 📝 **Transcription**: See what was said in text
-- 🔇 **Mute Control**: Toggle microphone on/off
-
-**How to Start:**
-
-1. Tap **🎤 Live Call** button or **☰ Menu** → **Live Call**
-2. Grant microphone permission if first time
-3. Start speaking naturally
-4. App detects when you finish and gets AI response
-5. Continue conversation or interrupt AI anytime
-
-**Perfect for:**
-
-- Hands-free conversation
-- Complex questions better explained verbally
-- Natural back-and-forth discussion
-- When typing is inconvenient
-
-### 5. Settings
-
-Personalize your LegalEase experience.
+---
 
 **Available Settings:**
 
@@ -217,79 +173,35 @@ Personalize your LegalEase experience.
 
 ## Walkthrough: First Steps
 
-### Step 1: Create an Account
+### Step 1: Create a JWT-Authenticated Account
+1. Open the **LegalEase Web App** in your browser or launch the **Mobile App**.
+2. Click the **Login / Sign Up** button in the sidebar drawer or footer.
+3. In the modal, select **Create one** (to toggle the Sign Up form).
+4. Enter your preferred username, valid email, and a strong password. Click **Sign Up**.
+5. Once registered, you will be automatically logged in, and your username will be displayed at the top right of the top bar.
 
-**First-time users:**
+---
 
-1. Launch LegalEase
-2. Tap **Sign Up**
-3. Enter your details:
-   - **Email**: Valid email address
-   - **Username**: Display name (3-50 characters)
-   - **Password**: Strong password (8+ characters)
-   - **Professional Context**: (Optional) Tell us your role (e.g., "I'm a real estate attorney")
-4. Tap **Create Account**
-5. Welcome! You're now ready to start
+### Step 2: Start Your First Conversational Thread
+1. Once logged in, click the **+ New Chat** button (on web, located next to the menu drawer trigger in the top bar; on mobile, inside the sidebar drawer).
+2. A clean chat interface opens, displaying the time-of-day greeting (e.g. *"Good afternoon!"*).
+3. Type a query in the bottom compose console. For example:
+   - *"What are the standard terms required in a commercial sublease agreement?"*
+   - *"Explain the difference between indemnification and limitation of liability in simple terms."*
+4. Tap **Send** (or press `Enter` on your physical keyboard).
+5. The AI assistant progressive-renders its analysis, utilizing clean markdown formatting.
 
-### Step 2: Start Your First Chat
+---
 
-**After login:**
-
-1. You'll see the main chat screen
-2. Tap the input box at the bottom
-3. Ask a legal question, for example:
-   - "What is the difference between an LLC and an S-Corp?"
-   - "Explain intellectual property rights in simple terms"
-   - "What should I know about non-disclosure agreements?"
-4. Tap **Send**
-5. LegalEase will respond with a detailed answer
-
-**Example Conversation:**
-
-```
-You: "I'm starting a small business. What legal structure should I choose?"
-
-LegalEase: "Great question! Here are the main options:
-
-**Sole Proprietorship**
-- Simplest form
-- Full liability
-- Easy to start
-
-**LLC (Limited Liability Company)**
-- Personal liability protection
-- Flexible taxation
-- Requires registration
-
-**S-Corporation**
-- Professional structure
-- Tax benefits
-- More compliance required
-
-I'd recommend consulting with a lawyer for your specific situation."
-```
-
-### Step 3: Upload a Document
-
-**Add a contract for analysis:**
-
-1. In your chat, tap the **📎 Attachment** icon
-2. Choose **Gallery** or **Files**
-3. Select a PDF or document
-4. Ask: "Please review this contract and identify potential issues"
-5. LegalEase analyzes and provides insights
-
-### Step 4: Export Your Chat
-
-**Save important conversations:**
-
-1. Open any chat
-2. Tap the **⋮ Menu** (three dots)
-3. Select **Export**
-4. Choose format:
-   - **PDF**: For printing and sharing
-   - **Text**: For editing
-5. Save to your device
+### Step 3: Analyze a Legal Document
+1. Inside your active chat thread, click the **📎 Attach** icon on the left of the compose box.
+2. In the attachment menu, select **File / Image**.
+3. Browse and select your target document (PDF, Word, TXT, or JPEG/PNG photo).
+4. An attachment preview pill will appear directly above the input box showing your file name.
+5. In the compose input, type a prompt describing your request:
+   - *"Please analyze this employment agreement for hidden liabilities and highlight any non-compete clauses."*
+6. Click **Send**.
+7. The file is uploaded directly to the backend MongoDB files server, and the Gemini AI inspects the document contents, generating a comprehensive compliance report.
 
 ---
 
@@ -344,98 +256,46 @@ I'd recommend consulting with a lawyer for your specific situation."
 
 ---
 
-## Live Calls
+## Live Conversational Calls (Voice Support)
 
 ### What are Live Calls?
 
-Live Calls is a **voice interaction feature** that lets you have real-time conversations with LegalEase's AI assistant. Instead of typing, you can:
+Live Calls is a high-performance **real-time voice interface** that leverages specialized local AI models hosted directly on the LegalEase backend. Instead of typing, you can speak naturally, and the AI will transcribe your voice, formulate legal context, and stream human-like synthesized voice responses back to you instantly.
 
-- 🎙️ **Speak naturally** - Talk to the AI about legal questions
-- 👂 **Hear responses** - Get immediate audio answers
-- ⚡ **Interrupt seamlessly** - Cut off the AI anytime to ask follow-up questions
-- 📝 **See transcriptions** - Written record of what was said appears on screen
+Key speech assets running locally on the backend:
+- **Speech-to-Text (STT)**: `faster-whisper` (utilizing CUDA-quantized Whisper large-v3-turbo GPU pipelines) transcribes your verbal inputs with extreme precision.
+- **Text-to-Speech (TTS)**: `kokoro` (Kokoro-82M ONNX model) synthesizes human-like audio streams, bypassing cloud-based TTS latency.
 
-**Best for:**
+---
 
-- Hands-free questions while busy
-- Natural conversation flow
-- Difficult-to-type questions
-- Testing complex legal scenarios verbally
+### Key Voice Features
 
-### Getting Started with Live Calls
+- 🎙️ **Hands-Free Operation**: Speak naturally without needing to tap send. Voice Activity Detection (VAD) automatically identifies when you start and stop talking.
+- ⚡ **Seamless Interruption**: Cut off the AI voice mid-sentence at any point. Simply start speaking a follow-up query, and the audio output immediately mutes, switching automatically to record your next question.
+- 📝 **Dual Text + Audio Transcriptions**: As the AI speaks, the text transcription progressive-renders inside the active chat timeline.
+- 🌊 **Real-Time VAD Visualizers**: Beautiful animated wave indicators clearly illustrate who has the floor:
+  - 🔵 **Blue Waves**: App is actively listening to you speak (User turn).
+  - 🟡 **Golden/Orange Waves**: The AI is currently playing synthesized audio replies (AI turn).
 
-**Requirements:**
-✅ Microphone permission granted  
-✅ Good internet connection  
-✅ Android 8.0+  
-✅ At least 100 MB free storage
-
-### Starting a Live Call
-
-**Method 1: From Home Screen**
-
-1. Tap **🎤 Live Call** button (if visible on home)
-2. Or tap **☰ Menu** → **Live Call**
-
-**Method 2: From Chat Screen**
-
-1. Open any chat
-2. Tap **🎤 Call** icon (top right)
-3. Live Call screen opens in that chat
+---
 
 ### How to Use Live Calls
 
-#### Step 1: Grant Microphone Permission
+#### 1. Launching the Voice Console
+- **Web App**: Click the **🎤 Live Call** microphone button at the top right of the top bar (next to Settings).
+- **Mobile App**: Tap the **🎤 Call** icon in the upper right header within any active chat.
 
-- First use will prompt for microphone access
-- Tap **Allow**
-- If denied, go to Settings → Apps → LegalEase → Permissions → Grant Microphone
+#### 2. Granting Microphone Permissions
+- When prompted, grant your browser or Android OS permission to capture audio.
+- *Note:* If you experience issues, verify that microphone access is permitted under your browser security settings (click the padlock icon in the URL bar) or under Android App Info Permissions.
 
-#### Step 2: Start Speaking
+#### 3. Conversing with the AI
+- Start speaking. The visualizer will animate with **blue waves**, indicating signal level.
+- When you pause naturally, the local Whisper model transcribes your query, and the Gemini assistant starts formulating its brief, conversation-tailored answer.
+- The VAD indicator will switch to **golden waves** as the local Kokoro pipeline streams natural-sounding speech through your device speakers.
+- **To interrupt the AI**: Simply speak. The golden visualizer immediately turns blue, and the audio playback halts to capture your new statement.
 
-- Tap the **microphone icon** or simply start speaking
-- The app automatically detects speech using Voice Activity Detection (VAD)
-- Visual indicator shows:
-  - 🔵 **Blue wave** = You're speaking (user turn)
-  - 🟡 **Golden wave** = AI is speaking (AI turn)
-
-#### Step 3: Let AI Respond
-
-- After you finish speaking, the app:
-  1. Transcribes your speech to text (visible on screen)
-  2. Sends to AI for processing (shows "🤔 Thinking...")
-  3. Generates audio response
-  4. Plays response back with text visible
-
-#### Step 4: Interrupt or Continue
-
-- **To ask a follow-up**: Just start speaking while AI is responding
-  - AI will stop immediately
-  - Your new question is recorded
-  - Process repeats
-- **To let AI finish**: Wait for response to complete
-  - Tap microphone when ready to speak next
-
-### Live Call Features Explained
-
-#### 🎙️ Microphone Level Indicator
-
-- **Animated wave visualization** shows audio levels
-- Helps you know if mic is picking up your voice
-- Green/blue wave = Good signal
-- Flat line = Not detecting speech (try speaking louder)
-
-#### 🤐 Mute Function
-
-- **Tap 🔇 Mute button** to temporarily disable microphone
-- Button shows **🔊 Unmute** when muted
-- Useful if background noise is present
-- AI can still speak while muted
-
-#### 📝 Live Transcription
-
-- Your speech appears as text in real-time
-- Shows what the AI "heard" from you
+---
 - Helps you verify accuracy before AI responds
 
 #### 💬 Chat History
@@ -599,53 +459,45 @@ Recommendation: Have legal counsel review before signing.
 
 ## Settings & Preferences
 
-### Account Settings
+LegalEase values your data privacy and provides comprehensive settings to configure connectivity and manage your personal details.
 
-**Access:** Tap **⚙️ Settings** → **Account**
+---
 
-- **Username**: Change display name
-- **Email**: Update email address (primary login)
-- **Password**: Change account password
-- **Context**: Update professional background
-- **Delete Account**: Permanently remove all data
+### Accessing Settings
+- **Web App**: Click the **⚙️ Settings** gear icon in the top right corner of the top bar.
+- **Mobile App**: Tap the **☰ Menu** drawer -> **Settings (⚙️)**.
 
-### App Settings
+---
 
-**Access:** Tap **⚙️ Settings** → **App**
+### Account & Session Settings
 
-| Setting         | Options              | Default |
-| --------------- | -------------------- | ------- |
-| Theme           | Light, Dark, Auto    | Auto    |
-| Notifications   | On, Off              | On      |
-| Font Size       | Small, Normal, Large | Normal  |
-| Auto-save Chats | On, Off              | On      |
-| Offline Mode    | On, Off              | On      |
+Under the **Account** tab, you can view your display details and take active control over your personal data footprint.
 
-### API Configuration
+| Feature / Setting | Description | Privacy Action |
+| --- | --- | --- |
+| **Username** | Display name used in greeting banners. | Can be updated via profile form. |
+| **Email** | Primary JWT authentication identifier. | Syncs with your account profile. |
+| **Personal Context** | Review the compiled background facts inferred by the AI worker. | Can be overridden or manual text appended. |
+| **Delete Personal Context** | Wipes the aggregated User Profile Context collection in MongoDB. | 🔴 **Immediate Purge**: All learned AI preferences are deleted instantly. Irreversible. |
+| **Clear All Chat History** | Clears the conversations list and removes all chat documents. | 🔴 **Wipe History**: Deletes all threads permanently. |
+| **Delete Account** | Purges your entire database footprint (profile, context, and files). | 🔴 **Purge Profile**: Deletes the account and logged credentials permanently. |
 
-**For power users/developers:**
+---
 
-1. Tap **⚙️ Settings** → **Developer**
-2. Enter custom API endpoint (if hosting locally)
-3. Default: Production server
-4. Changes apply after app restart
+### Network Configuration (API Endpoint)
 
-**Example Custom Endpoint:**
+If self-hosting the LegalEase FastAPI backend locally or deploying a custom instance, you can configure your connection base path:
+1. Open the Settings modal and locate the **Network Configuration** section.
+2. In the API URL field, type your custom base address (e.g. `http://192.168.1.15:8000`).
+3. Click **Save Settings**.
+4. The application will instantly test connectivity and switch to the new host.
 
-```
-http://192.168.1.100:8000
-```
+---
 
-### Notification Settings
+### Theme & Layout Controls
 
-**Customize alerts:**
-
-1. Tap **⚙️ Settings** → **Notifications**
-2. Enable/disable:
-   - **Message Alerts**: New AI responses
-   - **Email Notifications**: Digest emails
-   - **Sound**: Alert sound on/off
-   - **Vibration**: Vibration feedback
+- **Dark Theme**: The premium, ultra-dark layout (#131313 with yellow accents) is active by default on Web to reduce optic strain.
+- **Font & Text Scaling**: On mobile web viewports, font size automatically scales up to 18px in chat bubbles for enhanced legibility.
 
 ---
 

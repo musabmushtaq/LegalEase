@@ -25,21 +25,20 @@
 
 ## Authentication
 
-**Current Implementation**: User ID-based tracking
+**Current Implementation**: JWT Token-Based Authentication
 
-All requests should include `user_id` in the request body or URL parameter.
-
-**Future**: Implement JWT token-based authentication:
+All authenticated requests must include the JWT token in the `Authorization` header:
 
 ```
 Authorization: Bearer <jwt_token>
 ```
 
-**Password Security**:
+The JWT token contains the user's ID and username, cryptographically signed with a secure key.
 
-- Passwords hashed with bcrypt (cost factor: 12)
-- Never store plaintext passwords
-- Client-side validation recommended
+**Password Security**:
+- Passwords are hashed with bcrypt (cost factor: 12) before persistence in MongoDB
+- Plaintext passwords are never stored
+- Password length is limited to 72 characters for secure hashing
 
 ---
 
@@ -67,7 +66,7 @@ Authorization: Bearer <jwt_token>
 
 **Endpoint**: `GET /api/ping`
 
-**Description**: Simple connectivity test (logged separately, not in general logs)
+**Description**: Simple connectivity test (logged separately, bypasses general logs)
 
 **Response**:
 
@@ -85,16 +84,16 @@ Authorization: Bearer <jwt_token>
 
 ### Create User (Register)
 
-**Endpoint**: `POST /users`
+**Endpoint**: `POST /auth/register`
 
-**Description**: Register a new user account
+**Description**: Register a new user account with secure credentials and optional professional context
 
 **Request Body**:
 
 ```json
 {
-  "email": "user@example.com",
   "username": "john_doe",
+  "email": "user@example.com",
   "password": "SecurePassword123!",
   "context": "I am a corporate attorney specializing in M&A"
 }
@@ -103,27 +102,59 @@ Authorization: Bearer <jwt_token>
 **Request Parameters**:
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
+| username | string | Yes | Unique username (must be unique) |
 | email | string | Yes | Valid email address (must be unique) |
-| username | string | Yes | Unique username (3-50 characters) |
-| password | string | Yes | Password (min 8 characters, recommend strong) |
-| context | string | No | User's professional context for AI personalization |
+| password | string | Yes | Password (will be securely hashed) |
+| context | string | No | User's professional context for personalized AI interactions |
 
-**Response** (201 Created):
+**Response** (200 OK):
 
 ```json
 {
-  "userId": "user_550f35068db3c8f5d3d8e4a2",
-  "email": "user@example.com",
-  "username": "john_doe",
-  "context": "I am a corporate attorney specializing in M&A",
-  "createdAt": "2026-05-20T10:00:00Z"
+  "user_id": "user_550f35068db3c8f5d3d8e4a2",
+  "username": "john_doe"
 }
 ```
 
 **Possible Errors**:
+- 400 Bad Request: Username or email already taken
+- 422 Unprocessable Entity: Validation error on email format or password
 
-- 400 Bad Request: Invalid email format or duplicate email/username
-- 409 Conflict: Email or username already exists
+---
+
+### User Login
+
+**Endpoint**: `POST /auth/login`
+
+**Description**: Authenticate user credentials and return a signed JWT access token
+
+**Request Body**:
+
+```json
+{
+  "username": "john_doe",
+  "password": "SecurePassword123!"
+}
+```
+
+**Request Parameters**:
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| username | string | Yes | Registered username |
+| password | string | Yes | Plaintext password |
+
+**Response** (200 OK):
+
+```json
+{
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "token_type": "bearer",
+  "user_id": "user_550f35068db3c8f5d3d8e4a2"
+}
+```
+
+**Possible Errors**:
+- 401 Unauthorized: Invalid username or password
 - 422 Unprocessable Entity: Validation error on input
 
 ---
@@ -132,7 +163,7 @@ Authorization: Bearer <jwt_token>
 
 **Endpoint**: `GET /users/{user_id}`
 
-**Description**: Retrieve user account information
+**Description**: Retrieve user account details (username, email, and personal AI context)
 
 **URL Parameters**:
 | Parameter | Type | Description |
@@ -143,39 +174,34 @@ Authorization: Bearer <jwt_token>
 
 ```json
 {
-  "userId": "user_550f35068db3c8f5d3d8e4a2",
-  "email": "user@example.com",
+  "user_id": "user_550f35068db3c8f5d3d8e4a2",
   "username": "john_doe",
-  "context": "I am a corporate attorney specializing in M&A",
-  "createdAt": "2026-05-20T10:00:00Z",
-  "updatedAt": "2026-05-20T10:00:00Z"
+  "email": "user@example.com",
+  "context": "I am a corporate attorney specializing in M&A"
 }
 ```
 
 **Possible Errors**:
-
 - 404 Not Found: User does not exist
 
 ---
 
-### Update User Profile
+### Update User Personal Context
 
-**Endpoint**: `PATCH /users/{user_id}`
+**Endpoint**: `PATCH /users/{user_id}/context`
 
-**Description**: Update user information
+**Description**: Manually override or update the personalized AI background context for this user
 
 **URL Parameters**:
 | Parameter | Type | Description |
 |-----------|------|-------------|
 | user_id | string | Unique user identifier |
 
-**Request Body** (all fields optional):
+**Request Body**:
 
 ```json
 {
-  "username": "john_doe_updated",
-  "context": "Updated professional context",
-  "password": "NewSecurePassword123!"
+  "context": "- User is a freelance graphic designer based in California.\n- User is facing a copyright infringement issue."
 }
 ```
 
@@ -183,19 +209,64 @@ Authorization: Bearer <jwt_token>
 
 ```json
 {
-  "userId": "user_550f35068db3c8f5d3d8e4a2",
-  "email": "user@example.com",
-  "username": "john_doe_updated",
-  "context": "Updated professional context",
-  "updatedAt": "2026-05-20T10:15:00Z"
+  "status": "success",
+  "context": "- User is a freelance graphic designer based in California.\n- User is facing a copyright infringement issue."
 }
 ```
 
 **Possible Errors**:
-
-- 400 Bad Request: Invalid input
 - 404 Not Found: User does not exist
-- 409 Conflict: Username already taken
+- 422 Unprocessable Entity: Validation error on input
+
+---
+
+### Permanently Delete Account
+
+**Endpoint**: `DELETE /users/{user_id}`
+
+**Description**: Wipe out the user profile, all associated documents/files, and all persistent chat history permanently
+
+**URL Parameters**:
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| user_id | string | Unique user identifier |
+
+**Response** (200 OK):
+
+```json
+{
+  "status": "success",
+  "message": "User account and all related chats deleted permanently."
+}
+```
+
+**Possible Errors**:
+- 404 Not Found: User does not exist
+
+---
+
+### Clear All Chat History
+
+**Endpoint**: `DELETE /users/{user_id}/chats`
+
+**Description**: Wipe all persistent conversation histories from the user's account (retaining profile and context)
+
+**URL Parameters**:
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| user_id | string | Unique user identifier |
+
+**Response** (200 OK):
+
+```json
+{
+  "status": "success",
+  "message": "All chat history cleared successfully."
+}
+```
+
+**Possible Errors**:
+- 404 Not Found: User does not exist
 
 ---
 
@@ -400,13 +471,13 @@ Authorization: Bearer <jwt_token>
 
 ---
 
-## Message Endpoints
+### Message Endpoints
 
 ### Add Message to Chat
 
 **Endpoint**: `POST /chats/{chat_id}/messages`
 
-**Description**: Send a message and receive AI response
+**Description**: Persist a user or AI message to the database for a specific chat conversation
 
 **URL Parameters**:
 | Parameter | Type | Description |
@@ -419,48 +490,81 @@ Authorization: Bearer <jwt_token>
 {
   "user_id": "user_550f35068db3c8f5d3d8e4a2",
   "sender": "user",
-  "content": "What are the key differences between an LLC and an S-Corp?",
-  "attachments": []
+  "content": "What are the key differences between an LLC and an S-Corp?"
 }
 ```
 
 **Request Parameters**:
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| user_id | string | Yes | ID of the user sending the message |
-| sender | string | Yes | Either "user" or "ai" |
-| content | string | Yes | Message content (min 1 character) |
-| attachments | array | No | Array of file references |
+| user_id | string | No | User identifier |
+| sender | string | Yes | Sender role, must be either `"user"` or `"ai"` |
+| content | string | Yes | Message text content (min 1 character) |
 
 **Response** (200 OK):
 
 ```json
 {
-  "messages": [
-    {
-      "messageId": "msg_001",
-      "userId": "user_550f35068db3c8f5d3d8e4a2",
-      "role": "user",
-      "content": "What are the key differences between an LLC and an S-Corp?",
-      "createdAt": "2026-05-20T10:10:00Z"
-    },
-    {
-      "messageId": "msg_002",
-      "userId": null,
-      "role": "assistant",
-      "content": "Great question! Here are the key differences:\n\n**LLC (Limited Liability Company)**\n- Pass-through taxation by default\n- Flexible management structure\n- Greater liability protection\n- Less complex formation\n\n**S-Corp (S Corporation)**\n- Must have 1-100 shareholders\n- More complex tax implications\n- Stricter operational requirements\n- Potential for greater tax savings\n\n**Key Differences**\n1. Taxation: LLCs offer flexibility, S-Corps have specific rules\n2. Ownership: S-Corps limited to 100 shareholders\n3. Compliance: S-Corps require more formal documentation",
-      "createdAt": "2026-05-20T10:10:30Z"
-    }
-  ],
-  "updatedAt": "2026-05-20T10:10:30Z"
+  "chat_id": "chat_a1b2c3d4e5f6g7h8",
+  "message": {
+    "id": "msg_f35068db3c8f5",
+    "chat_id": "chat_a1b2c3d4e5f6g7h8",
+    "sender": "user",
+    "content": "What are the key differences between an LLC and an S-Corp?",
+    "created_at": "2026-05-31T12:00:00Z",
+    "user_id": "user_550f35068db3c8f5d3d8e4a2"
+  }
 }
 ```
 
 **Possible Errors**:
-
-- 400 Bad Request: Invalid sender or empty content
 - 404 Not Found: Chat does not exist
-- 500 Internal Server Error: AI API failure (returns demo response)
+- 422 Unprocessable Entity: Validation error on input
+
+---
+
+### Add Message with File (Multipart)
+
+**Endpoint**: `POST /chats/{chat_id}/messages_with_file`
+
+**Description**: Persist a user message along with an uploaded legal document attachment (PDF, DOCX, TXT, or images)
+
+**URL Parameters**:
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| chat_id | string | Unique chat identifier |
+
+**Request Headers**:
+
+```
+Content-Type: multipart/form-data
+```
+
+**Request Body** (form-data):
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| content | string | Yes | Message text (e.g., "See attachment") |
+| file | file | No | Multipart file data |
+
+**Response** (200 OK):
+
+```json
+{
+  "chat_id": "chat_a1b2c3d4e5f6g7h8",
+  "message": {
+    "id": "msg_f35068db3c8f5",
+    "sender": "user",
+    "content": "See attachment",
+    "file_id": "file_abc123xyz789",
+    "filename": "contract.pdf",
+    "created_at": "2026-05-31T12:00:00Z"
+  }
+}
+```
+
+**Possible Errors**:
+- 404 Not Found: Chat does not exist
+- 400 Bad Request: File upload error
 
 ---
 
@@ -468,7 +572,7 @@ Authorization: Bearer <jwt_token>
 
 **Endpoint**: `PATCH /chats/{chat_id}/messages/{message_id}`
 
-**Description**: Edit existing message content
+**Description**: Edit the text content of a user message. Editing AI messages is disabled.
 
 **URL Parameters**:
 | Parameter | Type | Description |
@@ -488,14 +592,15 @@ Authorization: Bearer <jwt_token>
 
 ```json
 {
-  "messageId": "msg_001",
+  "chat_id": "chat_a1b2c3d4e5f6g7h8",
+  "message_id": "msg_f35068db3c8f5",
   "content": "Updated message content",
-  "updatedAt": "2026-05-20T10:30:00Z"
+  "edited_at": "2026-05-31T12:05:00Z"
 }
 ```
 
 **Possible Errors**:
-
+- 400 Bad Request: Attempted to edit an AI message
 - 404 Not Found: Chat or message does not exist
 
 ---
@@ -504,7 +609,7 @@ Authorization: Bearer <jwt_token>
 
 **Endpoint**: `DELETE /chats/{chat_id}/messages/{message_id}`
 
-**Description**: Delete a message from chat
+**Description**: Delete a specific message and all subsequent messages in the conversation (standard branch truncation behavior)
 
 **URL Parameters**:
 | Parameter | Type | Description |
@@ -512,217 +617,150 @@ Authorization: Bearer <jwt_token>
 | chat_id | string | Unique chat identifier |
 | message_id | string | Unique message identifier |
 
-**Response** (204 No Content): No response body
+**Response** (200 OK):
+
+```json
+{
+  "deleted": true
+}
+```
 
 **Possible Errors**:
-
 - 404 Not Found: Chat or message does not exist
 
 ---
 
 ## File Endpoints
 
-### Upload File
+### Download/View File
 
-**Endpoint**: `POST /files/upload`
+**Endpoint**: `GET /api/files/{file_id}`
 
-**Description**: Upload a legal document
-
-**Request Headers**:
-
-```
-Content-Type: multipart/form-data
-```
-
-**Request Body** (multipart):
-| Field | Type | Description |
-|-------|------|-------------|
-| file | file | Document file (PDF, DOCX, TXT, PNG, JPG) |
-| user_id | string | User uploading the file |
-
-**Supported File Types**:
-
-- PDF (`.pdf`) - Portable Document Format
-- DOCX (`.docx`) - Microsoft Word
-- TXT (`.txt`) - Plain text
-- PNG (`.png`) - Image
-- JPG (`.jpg`, `.jpeg`) - Image
-
-**Response** (200 OK):
-
-```json
-{
-  "fileId": "file_abc123xyz789",
-  "filename": "contract.pdf",
-  "mimeType": "application/pdf",
-  "size": 256000,
-  "uploadedAt": "2026-05-20T10:00:00Z"
-}
-```
-
-**File Storage**:
-
-- Location: `C:\legalEaseDB\{user_id}\{filename}`
-- Size limits: 50MB per file (configurable)
-- Retention: Until manually deleted
-
-**Possible Errors**:
-
-- 400 Bad Request: Invalid file type or missing fields
-- 413 Payload Too Large: File exceeds size limit
-- 500 Internal Server Error: Storage issue
-
----
-
-### Get File Metadata
-
-**Endpoint**: `GET /files/{file_id}`
-
-**Description**: Retrieve file metadata
+**Description**: Stream the binary data of an uploaded attachment directly with its proper content-type header
 
 **URL Parameters**:
 | Parameter | Type | Description |
 |-----------|------|-------------|
 | file_id | string | Unique file identifier |
 
-**Response** (200 OK):
-
-```json
-{
-  "fileId": "file_abc123xyz789",
-  "userId": "user_550f35068db3c8f5d3d8e4a2",
-  "filename": "contract.pdf",
-  "filepath": "C:\\legalEaseDB\\user_550f35068db3c8f5d3d8e4a2\\contract.pdf",
-  "mimeType": "application/pdf",
-  "size": 256000,
-  "uploadedAt": "2026-05-20T10:00:00Z"
-}
-```
+**Response**: Binary file stream (with `application/octet-stream` or native MIME)
 
 **Possible Errors**:
-
-- 404 Not Found: File does not exist
+- 404 Not Found: File record or physical file on disk does not exist
 
 ---
 
-### Delete File
+## AI & Generation Endpoints
 
-**Endpoint**: `DELETE /files/{file_id}`
+### Generate AI Reply
 
-**Description**: Delete a file
+**Endpoint**: `POST /api/generate_ai`
 
-**URL Parameters**:
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| file_id | string | Unique file identifier |
-
-**Response** (204 No Content): File deleted
-
-**Possible Errors**:
-
-- 404 Not Found: File does not exist
-
----
-
-## AI Features
-
-### Summarize Text
-
-**Endpoint**: `POST /summarize`
-
-**Description**: Generate a concise summary of legal text
+**Description**: Call the Gemini AI to generate a legal reply. Automatically reads chat history from DB if `chat_id` is passed, or accepts inline messages. Supports personalized background user-context injection and updating.
 
 **Request Body**:
 
 ```json
 {
-  "text": "Lengthy legal document text here...",
-  "user_id": "user_550f35068db3c8f5d3d8e4a2"
+  "chat_id": "chat_a1b2c3d4e5f6g7h8",
+  "messages": null,
+  "system_prompt": "You are a professional legal contract reviewer...",
+  "update_context": true,
+  "use_context": true
 }
 ```
 
 **Request Parameters**:
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| text | string | Yes | Text to summarize (min 100 characters) |
-| user_id | string | Yes | User making the request |
-| length | string | No | "short" (50-100 words) / "medium" (100-200) / "long" (200+) |
+| chat_id | string | No | Unique chat identifier. Reads history and file attachments from DB |
+| messages | array | No | Inline message array (`[{"sender": "user", "content": "..."}]`) if no `chat_id` |
+| system_prompt | string | No | Override system guidance prompt |
+| update_context | boolean | No | If `true`, runs a background task to extract user facts from this turn (default: `true`) |
+| use_context | boolean | No | If `true`, fetches and injects the user's background details into the system instruction (default: `false`) |
 
 **Response** (200 OK):
 
 ```json
 {
-  "summary": "This contract outlines the terms of service between Party A and Party B. Key obligations include...",
-  "original_length": 5000,
-  "summary_length": 150,
-  "timestamp": "2026-05-20T10:00:00Z"
+  "assistant_message": {
+    "id": "msg_ai_987654321",
+    "sender": "ai",
+    "content": "Based on the NDA provided, the liability limitation clause is standard but...",
+    "created_at": "2026-05-31T12:00:30Z"
+  }
 }
 ```
 
-**Possible Errors**:
-
-- 400 Bad Request: Text too short or invalid input
-- 500 Internal Server Error: AI API failure
+**Notes**:
+- Gemini API errors (rate limits, key exhaustions) are caught and returned safely as an error payload without updating database context.
 
 ---
 
-### Real-time Chat (WebSocket)
+### Summarize Chat Title
 
-**Endpoint**: `WS /ws/{chat_id}`
+**Endpoint**: `POST /api/summarize`
 
-**Description**: Establish WebSocket connection for real-time messaging
+**Description**: Generate a short, descriptive 2-to-4 word conversation title representing the topic of the user's initial message
 
-**URL Parameters**:
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| chat_id | string | Unique chat identifier |
-
-**Connection Flow**:
-
-1. **Establish Connection**:
-
-```
-GET /ws/chat_a1b2c3d4e5f6g7h8
-Upgrade: websocket
-```
-
-2. **Send Message** (JSON):
+**Request Body**:
 
 ```json
 {
-  "user_id": "user_550f35068db3c8f5d3d8e4a2",
-  "content": "Real-time message"
+  "text": "What are the requirements for starting a trademark application in California?"
 }
 ```
 
-3. **Receive Message** (JSON):
+**Response** (200 OK):
 
 ```json
 {
-  "messageId": "msg_001",
-  "role": "user",
-  "content": "Real-time message",
-  "timestamp": "2026-05-20T10:00:00Z"
+  "summary": "Trademark Application Requirements"
 }
 ```
 
-**Connection Codes**:
-
-- 1000: Normal closure
-- 1006: Abnormal closure
-- 1011: Server error
+**Notes**:
+- Falls back to a clean text slice of the query if the AI summarization fails.
 
 ---
 
-## Live Call Endpoints
+## Live Call / Voice Endpoints
 
-### Transcribe Raw Audio
+### Conversational Voice Generator
+
+**Endpoint**: `POST /api/generate_live`
+
+**Description**: Specialized, high-performance Gemini API reply generator tailored for real-time Live Calls. Optimizes outputs to be short, natural, conversational, and list-free for speech synthesis.
+
+**Request Body**:
+
+```json
+{
+  "chat_id": "chat_a1b2c3d4e5f6g7h8",
+  "messages": null
+}
+```
+
+**Response** (200 OK):
+
+```json
+{
+  "assistant_message": {
+    "id": "msg_live_777",
+    "sender": "ai",
+    "content": "An LLC protects your personal assets, while an S-Corp offers potential self-employment tax savings. I recommend consulting a CPA for details.",
+    "created_at": "2026-05-31T12:00:32Z"
+  }
+}
+```
+
+---
+
+### Transcribe Raw Audio (Whisper)
 
 **Endpoint**: `POST /api/transcribe_raw`
 
-**Description**: Convert raw audio data to text using speech-to-text
-
-**Request Body**: Binary audio data (raw PCM or WAV format)
+**Description**: Transcribe raw 16kHz float32 binary audio stream directly into text using local **Whisper large-v3-turbo** on GPU
 
 **Request Headers**:
 
@@ -730,39 +768,33 @@ Upgrade: websocket
 Content-Type: application/octet-stream
 ```
 
+**Request Body**: Raw float32 PCM audio stream bytes
+
 **Response** (200 OK):
 
 ```json
 {
-  "text": "What are the tax implications of this clause?",
-  "confidence": 0.98,
-  "language": "en",
-  "duration": 3.5,
-  "timestamp": "2026-05-20T10:15:30Z"
+  "text": "what are the tax differences"
 }
 ```
 
-**Response Parameters**:
-| Field | Type | Description |
-|-------|------|-------------|
-| text | string | Transcribed text from audio |
-| confidence | float | Confidence level (0.0 - 1.0) |
-| language | string | Detected language code (e.g., "en") |
-| duration | float | Audio duration in seconds |
-| timestamp | string | ISO 8601 timestamp |
+---
 
-**Possible Errors**:
+### Text-To-Speech Stream (Kokoro)
 
-- 400 Bad Request: Invalid audio format
-- 413 Payload Too Large: Audio file exceeds size limit
-- 422 Unprocessable Entity: Audio too short or no speech detected
-- 500 Internal Server Error: Transcription service unavailable
+**Endpoint**: `POST /api/tts`
 
-**Notes**:
+**Description**: Generate premium, natural-sounding audio for legal guidance text using local **Kokoro-82M** speech synthesis pipeline
 
-- Supports concurrent recording and playback for user interruption
-- Optimized for natural speech patterns
-- Automatic silence detection
+**Request Body**:
+
+```json
+{
+  "text": "An LLC protects your personal assets."
+}
+```
+
+**Response** (200 OK): Binary streaming audio chunk (`audio/wav`)
 
 ---
 
@@ -795,49 +827,6 @@ Content-Type: application/octet-stream
 
 ```json
 {
-  "interaction_id": "interaction_x1y2z3a4b5c6",
-  "chat_id": "chat_a1b2c3d4e5f6g7h8",
-  "user_message": {
-    "messageId": "msg_001",
-    "role": "user",
-    "content": "What are the tax implications of this clause?",
-    "timestamp": "2026-05-20T10:15:32Z"
-  },
-  "ai_response": {
-    "messageId": "msg_002",
-    "role": "assistant",
-    "content": "The tax implications include...",
-    "audio_url": "/api/files/audio_a1b2c3d4.mp3",
-    "timestamp": "2026-05-20T10:15:35Z"
-  },
-  "interrupted": false
-}
-```
-
-**Response Parameters**:
-| Field | Type | Description |
-|-------|------|-------------|
-| interaction_id | string | Unique interaction identifier |
-| chat_id | string | Associated chat ID |
-| user_message | object | User's message object with metadata |
-| ai_response | object | AI's response (null if skipped due to interruption) |
-| interrupted | boolean | Whether user interrupted the interaction |
-
-**Possible Errors**:
-
-- 400 Bad Request: Missing required fields or invalid chat_id
-- 404 Not Found: Chat does not exist
-- 422 Unprocessable Entity: User text empty or too short
-- 500 Internal Server Error: AI processing failed
-
-**Notes**:
-
-- Saves both user text and AI response atomically
-- If `skip_ai_response=true`, only saves user message
-- AI response includes both text and audio URL
-- Interaction tracked for user interruption scenarios
-- Fully integrated with chat history
-
 ---
 
 ## Sharing & Collaboration
