@@ -700,8 +700,8 @@ class ChatService extends ChangeNotifier {
     await _saveCurrentChatToCache();
     notifyListeners();
 
-    // 8. Background sync AI message to server if online and NOT temporary
-    if (!_isTemporaryChat) {
+    // 8. Background sync AI message to server if online and NOT temporary (skip on error messages)
+    if (!_isTemporaryChat && !finalAiText.startsWith('Error:') && !finalAiText.startsWith("I'm sorry, I encountered an error")) {
       _syncMessageToServer(finalChatId, finalAiText, 'ai');
     }
 
@@ -914,8 +914,8 @@ class ChatService extends ChangeNotifier {
           await _saveCurrentChatToCache();
           notifyListeners();
 
-          // 3. Persistent Chat: App explicitly saves AI Message to DB
-          if (!_isTemporaryChat) {
+          // 3. Persistent Chat: App explicitly saves AI Message to DB (skip on API error pollution)
+          if (!_isTemporaryChat && !aiMsg.content.startsWith('Error:')) {
              try {
                final saveAiUri = Uri.parse('$_apiBaseUrl/chats/$currentId/messages');
                await http.post(
@@ -930,8 +930,9 @@ class ChatService extends ChangeNotifier {
              } catch (_) {}
           }
         }
-      } else if (_isTemporaryChat) {
-        addMessage('Error connecting to AI. Please try again.', 'ai');
+      } else {
+        // Show error message locally in UI
+        await addMessage('Error connecting to AI. Please try again.', 'ai');
       }
 
       // Auto-generate title from first message
@@ -957,9 +958,8 @@ class ChatService extends ChangeNotifier {
         debugPrint('ChatService: Title generation complete for $currentId. UI notified.');
       }
     } catch (_) {
-      if (_isTemporaryChat) {
-        addMessage('Error connecting to AI. Please try again.', 'ai');
-      }
+      // Always show error message locally in UI so we don't get stuck in thinking state
+      await addMessage('Error connecting to AI. Please try again.', 'ai');
     }
   }
 
