@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:open_file/open_file.dart';
@@ -239,7 +240,10 @@ class _ChatScreenState extends State<ChatScreen> {
               top: 2,
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
-                onTap: onClearPressed,
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  onClearPressed();
+                },
                 child: Container(
                   width: 36,
                   height: 36,
@@ -282,7 +286,10 @@ class _ChatScreenState extends State<ChatScreen> {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: onTap,
+          onTap: () {
+            HapticFeedback.selectionClick();
+            onTap();
+          },
           child: Center(
             child: Icon(icon, color: Colors.white, size: 24),
           ),
@@ -904,7 +911,10 @@ class _ChatScreenState extends State<ChatScreen> {
             child: Material(
               color: Colors.transparent,
               child: InkWell(
-                onTap: onPressed,
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  onPressed();
+                },
                 customBorder: const CircleBorder(),
                 splashColor: AppTheme.highlight.withValues(alpha: 0.2),
                 child: Padding(
