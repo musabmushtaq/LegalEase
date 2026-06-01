@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'dart:ui';
 import 'package:dotted_border/dotted_border.dart';
 import '../theme/app_theme.dart';
@@ -180,7 +181,10 @@ class _ChatDrawerState extends State<ChatDrawer> {
           fontWeight: FontWeight.w500,
         ),
       ),
-      onTap: onTap,
+      onTap: () {
+        HapticFeedback.lightImpact();
+        onTap();
+      },
       contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
     );
   }
@@ -269,6 +273,7 @@ class _ChatDrawerState extends State<ChatDrawer> {
                             color: Colors.transparent,
                             child: InkWell(
                               onTap: () async {
+                                HapticFeedback.mediumImpact();
                                 await widget.chatService.createNewChat();
                                 if (!context.mounted) return;
                                 widget.onChatSelected();
@@ -456,9 +461,11 @@ class _ChatDrawerState extends State<ChatDrawer> {
     return GestureDetector(
       key: ValueKey(chat.id),
       onLongPress: () {
+        HapticFeedback.heavyImpact();
         _showChatMenu(chat);
       },
       onTap: () {
+        HapticFeedback.selectionClick();
         widget.chatService.selectChat(chat.id);
         widget.onChatSelected();
         Navigator.pop(context);
@@ -521,7 +528,10 @@ class _ChatDrawerState extends State<ChatDrawer> {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: onTap,
+        onTap: () {
+          HapticFeedback.lightImpact();
+          onTap();
+        },
         borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
@@ -586,7 +596,10 @@ class _ChatDrawerState extends State<ChatDrawer> {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: onTap,
+          onTap: () {
+            HapticFeedback.lightImpact();
+            onTap();
+          },
           customBorder: const CircleBorder(),
           child: Center(
             child: Icon(

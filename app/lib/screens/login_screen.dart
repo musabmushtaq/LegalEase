@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../services/chat_service.dart';
 import '../theme/app_theme.dart';
 import 'chat_screen.dart';
@@ -69,6 +70,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         child: IconButton(
                           icon: const Icon(Icons.settings_outlined, color: Colors.grey),
                           onPressed: () {
+                            HapticFeedback.lightImpact();
                             Navigator.push(
                               context,
                               MaterialPageRoute(
@@ -201,7 +203,10 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           )
                         : ElevatedButton(
-                            onPressed: _login,
+                            onPressed: () {
+                              HapticFeedback.mediumImpact();
+                              _login();
+                            },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppTheme.highlight,
                               foregroundColor: AppTheme.background,
@@ -232,6 +237,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         GestureDetector(
                           onTap: () {
+                            HapticFeedback.selectionClick();
                             Navigator.pushReplacement(
                               context,
                               MaterialPageRoute(
