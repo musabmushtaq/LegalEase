@@ -768,20 +768,61 @@ class _ChatScreenState extends State<ChatScreen> {
     final messages = _chatService.currentMessages;
 
     if (messages.isEmpty) {
-      return Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Center(
-            child: Text(
-              "Ask me something...",
-              style: TextStyle(
-                color: Colors.white.withOpacity(0.4),
-                fontSize: 18,
-                letterSpacing: 1.2,
+      final username = _chatService.username ?? 'Guest';
+      
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              RichText(
+                textAlign: TextAlign.center,
+                text: TextSpan(
+                  style: (Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ) ?? const TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
+                    fontFamily: 'Lexend',
+                    color: Colors.white,
+                  )),
+                  children: [
+                    const TextSpan(
+                      text: "Hello, ",
+                    ),
+                    TextSpan(
+                      text: username,
+                      style: TextStyle(
+                        color: AppTheme.highlight,
+                        shadows: [
+                          Shadow(
+                            color: AppTheme.highlight.withValues(alpha: 0.35),
+                            blurRadius: 16,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
+              const SizedBox(height: 12),
+              Text(
+                "How can I help you today?",
+                style: TextStyle(
+                  fontSize: 18,
+                  color: Colors.white.withValues(alpha: 0.4),
+                  fontWeight: FontWeight.w400,
+                  letterSpacing: 0.2,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
           ),
-        ],
+        ),
       );
     }
 

@@ -18,6 +18,7 @@ class ChatService extends ChangeNotifier {
 
   String? _userId;
   String? _authToken;
+  String? _username;
 
   String? _currentChatId;
   final Map<String, Chat> _chats = {};
@@ -39,6 +40,7 @@ class ChatService extends ChangeNotifier {
   bool get isConnected => _isConnected;
   bool get isConnecting => _isConnecting;
   bool get isAuthenticated => _isAuthenticated;
+  String? get username => _username;
   bool get isTemporaryChat => _isTemporaryChat;
   String? get currentChatId => _currentChatId;
   Chat? get currentChat =>
@@ -128,6 +130,7 @@ class ChatService extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     _userId = prefs.getString('userId');
     _authToken = prefs.getString('authToken');
+    _username = prefs.getString('username');
     _isAuthenticated = _userId != null && _authToken != null;
   }
 
@@ -153,11 +156,13 @@ class ChatService extends ChangeNotifier {
         final decoded = jsonDecode(response.body);
         _userId = decoded['user_id'];
         _authToken = decoded['access_token'];
+        _username = username;
         _isAuthenticated = true;
 
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('userId', _userId!);
         await prefs.setString('authToken', _authToken!);
+        await prefs.setString('username', _username!);
 
         await _syncFromApi();
         notifyListeners();
@@ -197,6 +202,7 @@ class ChatService extends ChangeNotifier {
   Future<void> logout() async {
     _userId = null;
     _authToken = null;
+    _username = null;
     _isAuthenticated = false;
     _currentChatId = null;
     _chats.clear();
@@ -205,6 +211,7 @@ class ChatService extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('userId');
     await prefs.remove('authToken');
+    await prefs.remove('username');
     await prefs.remove('currentChatCache');
     await prefs.remove('currentChatIdCache');
 
