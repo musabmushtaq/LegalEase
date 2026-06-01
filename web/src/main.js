@@ -450,8 +450,8 @@ async function sendMessageUI() {
         // Update chat timestamp
         if (state.chats[chatId]) state.chats[chatId].updatedAt = new Date().toISOString();
 
-        // 6. Save AI message to DB (persistent chats only)
-        if (isPersistent) {
+        // 6. Save AI message to DB (persistent chats only, skip on API errors)
+        if (isPersistent && !aiContent.startsWith('Error:')) {
             try {
                 await saveAiMessage(chatId, aiContent);
             } catch (e) {

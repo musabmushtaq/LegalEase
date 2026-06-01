@@ -1196,6 +1196,10 @@ html.is-unauthenticated #authModal.modal-overlay {
   padding: 16px;
 }
 
+#customConfirmModal, #customPromptModal {
+  z-index: 700 !important;
+}
+
 .modal-card {
   background: rgba(20, 20, 20, 0.92);
   backdrop-filter: var(--blur-lg);
