@@ -768,7 +768,7 @@ class _ChatScreenState extends State<ChatScreen> {
     final messages = _chatService.currentMessages;
 
     if (messages.isEmpty) {
-      final username = _chatService.username ?? 'Guest';
+      final username = _chatService.isTemporaryChat ? 'Stranger' : (_chatService.username ?? 'Guest');
       
       return Center(
         child: Padding(
