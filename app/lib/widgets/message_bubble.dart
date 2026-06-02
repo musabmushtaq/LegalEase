@@ -369,11 +369,88 @@ class _AiDocumentationMessageState extends State<_AiDocumentationMessage> with S
                     fontWeight: FontWeight.w600,
                     height: 1.8,
                   ),
+                  h3: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    height: 1.6,
+                  ),
+                  h4: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    height: 1.5,
+                  ),
+                  h5: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    height: 1.5,
+                  ),
+                  h6: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    height: 1.5,
+                  ),
                   strong: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.bold,
                   ),
+                  em: TextStyle(
+                    color: AppTheme.textBody.withValues(alpha: 0.85),
+                    fontStyle: FontStyle.italic,
+                  ),
                   listBullet: const TextStyle(color: AppTheme.highlight, fontSize: 16),
+                  blockquote: TextStyle(
+                    color: AppTheme.textBody.withValues(alpha: 0.85),
+                    fontSize: 14,
+                    height: 1.6,
+                    fontStyle: FontStyle.italic,
+                  ),
+                  blockquoteDecoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.03),
+                    border: const Border(
+                      left: BorderSide(
+                        color: AppTheme.highlight,
+                        width: 4.0,
+                      ),
+                    ),
+                    borderRadius: const BorderRadius.only(
+                      topRight: Radius.circular(8.0),
+                      bottomRight: Radius.circular(8.0),
+                    ),
+                  ),
+                  blockquotePadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+                  tableHead: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                  tableBody: const TextStyle(
+                    color: AppTheme.textBody,
+                    fontSize: 13,
+                    height: 1.4,
+                  ),
+                  tableBorder: TableBorder.all(
+                    color: Colors.white.withValues(alpha: 0.15),
+                    width: 1.0,
+                  ),
+                  tableCellsPadding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+                  code: TextStyle(
+                    color: AppTheme.highlight,
+                    backgroundColor: Colors.transparent,
+                    fontFamily: Platform.isIOS ? 'Courier' : 'monospace',
+                    fontSize: 13,
+                  ),
+                  codeblockDecoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.04),
+                    borderRadius: BorderRadius.circular(8.0),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.08),
+                    ),
+                  ),
+                  codeblockPadding: const EdgeInsets.all(12.0),
                 ),
               ),
               const SizedBox(height: 24),

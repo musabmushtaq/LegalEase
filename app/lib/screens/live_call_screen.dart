@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:vad/vad.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:http/http.dart' as http;
@@ -331,6 +332,7 @@ class _LiveCallScreenState extends State<LiveCallScreen>
   }
 
   Future<void> _toggleMute() async {
+    HapticFeedback.lightImpact();
     final bool wasMuted = _isMuted;
     final bool wasSpeaking = _isUserSpeaking;
 
@@ -530,7 +532,10 @@ class _LiveCallScreenState extends State<LiveCallScreen>
                       
                       // End Call Button
                       InkWell(
-                        onTap: () => Navigator.pop(context),
+                        onTap: () {
+                          HapticFeedback.mediumImpact();
+                          Navigator.pop(context);
+                        },
                         child: Container(
                           width: 72,
                           height: 72,

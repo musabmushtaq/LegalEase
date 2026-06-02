@@ -301,3 +301,12 @@ export async function deleteUserAccount(userId) {
         method: 'DELETE',
     });
 }
+
+/**
+ * Fetch user profile from server.
+ */
+export async function getUserProfile(userId) {
+    return apiCall(`/users/${userId}`, {
+        method: 'GET',
+    });
+}

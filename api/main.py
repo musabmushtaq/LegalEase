@@ -33,7 +33,7 @@ if os.name == "nt":
             os.add_dll_directory(cudnn)
             os.environ["PATH"] += os.pathsep + cudnn
 
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, BackgroundTasks
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, BackgroundTasks, Request
 from fastapi.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 from pydantic import BaseModel, Field
@@ -61,9 +61,20 @@ class Settings(BaseSettings):
     mongodb_db: str = "legalease"
     api_base_url: str = "http://127.0.0.1:8000"
     default_system_prompt: str = (
-        "You are LegalEase, a legal-focused assistant. Provide clear and practical guidance, "
-        "mention limitations, and recommend consulting a qualified lawyer for "
-        "jurisdiction-specific legal advice."
+        "You are LegalEase, an elite, highly sophisticated legal-focused AI assistant. "
+        "Your mission is to provide authoritative, structured, and extremely practical legal guidance while maintaining "
+        "an objective, supportive, and professional tone.\n\n"
+        "### PRESENTATION AND FORMATTING RULES:\n"
+        "- ALWAYS format your response using beautifully structured GitHub Flavored Markdown (GFM).\n"
+        "- USE clear headings (###), bold styling for emphasis, and bulleted or numbered lists for logical steps.\n"
+        "- USE professional Markdown tables whenever presenting comparisons, timelines, fee structures, or structured data.\n"
+        "- USE Markdown blockquotes (>) to highlight warnings, critical notifications, or essential cautions.\n"
+        "- Keep paragraphs cohesive and short. Avoid dense blocks of text to maximize scannability.\n\n"
+        "### STRUCTURAL GUIDELINES (Use these sections for a comprehensive answer):\n"
+        "1. **### Executive Summary / Quick Answer**: Start with a concise, direct 2-3 sentence overview answering the user's core query immediately.\n"
+        "2. **### Detailed Guidance**: Provide a thorough, structured breakdown of the legal concepts, rights, obligations, or processes. Use lists, bold key terms, and tables here for maximum readability.\n"
+        "3. **### Practical Recommendations**: List actionable, clear steps the user can take (e.g., specific documents to gather, questions to ask, or registries to check).\n"
+        "4. **### Jurisdiction & Legal Disclaimer**: Always include a standardized blockquote (>) emphasizing that your output is for educational and informational purposes only, does not constitute official legal counsel or establish an attorney-client relationship, and strongly advise consulting a qualified lawyer licensed in their specific jurisdiction."
     )
 
 
@@ -397,26 +408,33 @@ async def update_user_context_from_interaction(owner_id: str, user_message: str,
         # 2. Build a specialized prompt that feeds in existing context
         summarizer_prompt = (
             "Analyze the following conversation turn between a user and their AI legal assistant. "
-            "Extract any new, important details about the user's specific context, background, goals, "
-            "occupation, jurisdiction, or legal issues.\n\n"
+            "Identify and extract any new, specific facts about the user's individual profile (e.g., location/jurisdiction, "
+            "occupation, specific legal disputes/cases, current business entities, assets, or immediate legal goals).\n\n"
             f"Here is the user's EXISTING KNOWN CONTEXT:\n{existing_context or 'None'}\n\n"
-            "Only extract details that are NEW and NOT already stated or implied in the existing known context. "
-            "If no new facts or details are revealed, or if the facts are already recorded above, return 'None'.\n\n"
+            "CRITICAL INSTRUCTIONS:\n"
+            "- Extract ONLY specific facts that are completely NEW and not already documented or implied in the existing known context.\n"
+            "- Focus purely on factual user profile data. Do not summarize general legal concepts or conversational filler.\n"
+            "- Format the output as a single, extremely concise bullet point starting with a hyphen (e.g., '- User is a freelance graphic designer based in California').\n"
+            "- The bullet point must be under 20 words.\n"
+            "- If there are no new facts, or if all mentioned details are already represented in the existing context, you MUST return exactly the word 'None'.\n\n"
             "Current Conversation Turn:\n"
             f"User Message: {user_message}\n"
             f"AI Reply: {ai_reply}\n\n"
-            "Return only a very short, concise, single-sentence summary of the NEW details (under 25 words). "
-            "Do not include general introductory remarks. If there is nothing new, return 'None'."
+            "Return only the concise bullet point or 'None'. No introduction, no conversational text."
         )
         
         # 3. Call the Gemini API to get the unique summary
         extracted_info = await generate_ai_reply(
             prompt=summarizer_prompt,
-            system_prompt="You are a precise information extractor. Extract only specific user background facts.",
+            system_prompt="You are an expert fact extractor. Extract only specific, unique user profile facts as a single concise bullet point under 20 words, or return 'None'.",
             chat_history=[]
         )
         
         extracted_info = extracted_info.strip().strip('"').strip("'")
+        if extracted_info.startswith("Error:"):
+            print(f"⚠️ Warning: Context extraction failed with error: {extracted_info}")
+            return
+            
         if not extracted_info or extracted_info.lower() == "none" or "none." in extracted_info.lower():
             return
             
@@ -436,7 +454,7 @@ async def update_user_context_from_interaction(owner_id: str, user_message: str,
 
 
 @app.post("/api/generate_ai")
-async def generate_ai(payload: GenerateAiRequest, background_tasks: BackgroundTasks) -> dict[str, Any]:
+async def generate_ai(payload: GenerateAiRequest, request: Request, background_tasks: BackgroundTasks) -> dict[str, Any]:
     # 1. Gather Context
     chat_history = []
     system_prompt = payload.system_prompt or settings.default_system_prompt
@@ -449,6 +467,17 @@ async def generate_ai(payload: GenerateAiRequest, background_tasks: BackgroundTa
             owner_id = chat.get("owner_id")
     elif payload.messages is not None:
         chat_history = payload.messages
+
+    # Try to extract user_id from Authorization header if owner_id is still None
+    if not owner_id:
+        auth_header = request.headers.get("Authorization")
+        if auth_header and auth_header.startswith("Bearer "):
+            try:
+                token = auth_header.split(" ")[1]
+                payload_data = jwt.decode(token, "my_super_secret_jwt_key_for_legalease", algorithms=["HS256"])
+                owner_id = payload_data.get("user_id")
+            except Exception as e:
+                print(f"Failed to decode token in generate_ai: {e}")
 
     # NEW: Fetch and inject user background context if requested and owner is present
     if payload.use_context and owner_id:
@@ -491,8 +520,8 @@ async def generate_ai(payload: GenerateAiRequest, background_tasks: BackgroundTa
         "created_at": now_iso(),
     }
     
-    # 4. If we have a valid owner and update_context is enabled, queue a background task
-    if owner_id and prompt and payload.update_context:
+    # 4. If we have a valid owner and update_context is enabled, queue a background task (skip on errors)
+    if owner_id and prompt and payload.update_context and not ai_content.startswith("Error:"):
         background_tasks.add_task(
             update_user_context_from_interaction,
             owner_id=owner_id,
@@ -519,16 +548,15 @@ async def generate_live(payload: GenerateLiveRequest) -> dict[str, Any]:
     """
     # Live call system prompt: keeps Gemini brief and natural, like a voice conversation
     live_system_prompt = (
-        "You are LegalEase, an intelligent AI legal assistant currently in a LIVE VOICE CALL with the user. "
-        "You must respond in a natural, conversational tone — like a knowledgeable friend speaking aloud, NOT a formal written document. "
-        "Rules you MUST follow:\n"
-        "- Keep your response SHORT. Ideally 1-3 sentences. Never more than 4.\n"
-        "- Do NOT use bullet points, numbered lists, headers, or markdown formatting of any kind.\n"
-        "- Do NOT start with filler phrases like 'Of course!', 'Great question!', 'Certainly!', etc.\n"
-        "- Speak directly and clearly. Get to the point immediately.\n"
-        "- You may provide brief legal guidance, but always mention consulting a qualified lawyer for jurisdiction-specific advice if relevant.\n"
-        "- If asked something unrelated to law, just answer naturally and briefly as a helpful assistant would.\n"
-        "The user is speaking to you with their voice, so your reply will be read aloud via text-to-speech. Write accordingly."
+        "You are LegalEase, a elite legal expert speaking directly with the user on a LIVE VOICE CALL.\n"
+        "Because your response will be read aloud instantly by a Text-to-Speech (TTS) engine, you must adhere "
+        "to these strict rules for oral delivery:\n"
+        "- Respond in a warm, professional, highly natural, and conversational speaking voice. Imagine you are talking over the phone.\n"
+        "- Keep it extremely brief: 1 to 3 short, easy-to-understand sentences. Never exceed 4 sentences.\n"
+        "- ABSOLUTELY NO MARKDOWN. Never use bullet points, numbered lists, headings, bold asterisks (**), dashes, or special characters. Use plain, flowing text.\n"
+        "- AVOID all introductory filler, transition words, or repetitious confirmations like 'Certainly!', 'That is a great question!', 'Sure, I can help with that.' Get straight to the substantive answer.\n"
+        "- State legal concepts simply and naturally, ending with a quick, soft reminder to consult local counsel if complex details are involved.\n"
+        "- If asked non-legal questions, respond naturally, warmly, and briefly."
     )
 
     # Resolve chat history from DB or from the payload directly
@@ -760,9 +788,20 @@ async def summarize(payload: SummarizeRequest) -> dict[str, str]:
         return {"summary": text[:50]}
     
     try:
-        # We use a very simple prompt to get a title
-        prompt = f"Generate a short, descriptive chat title (max 5 words) for this initial message: \"{text}\". Respond ONLY with the title."
-        title = await generate_ai_reply(prompt, "You are a title generator. Return only the title text, no quotes.", [])
+        prompt = (
+            f"Generate a professional, short, and highly descriptive chat title representing the core topic of this message: \"{text}\".\n\n"
+            "Format requirements:\n"
+            "- The title MUST be between 2 and 4 words (e.g., 'Trademark Application Guide', 'NDA Breach Analysis', 'Tenant Rights Query').\n"
+            "- Respond ONLY with the plain title text.\n"
+            "- Do NOT include any quotation marks, markdown wrappers, prefixes, or end punctuation."
+        )
+        title = await generate_ai_reply(
+            prompt,
+            "You are an expert legal title generator. Your sole function is to produce concise, elegant 2-to-4 word titles with absolutely no conversational filler, quotes, or markdown.",
+            []
+        )
+        if title.startswith("Error:"):
+            return {"summary": text[:50] + "..." if len(text) > 50 else text}
         return {"summary": title.strip().strip('"').strip()}
     except Exception as e:
         return {"summary": text[:50] + "..." if len(text) > 50 else text}

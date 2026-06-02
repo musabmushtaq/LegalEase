@@ -131,59 +131,55 @@ app/
 
 ---
 
-### 2.2 Web Application (Vanilla JavaScript)
+### 2.2 Web Application (Vanilla JavaScript & Vite)
 
-**Purpose**: Cross-platform web client providing full feature parity with mobile app.
+**Purpose**: Cross-platform web client providing full feature parity with the mobile app, optimized for touch-friendliness and high-performance rendering.
 
 **Key Features**:
-
-- Responsive design (mobile, tablet, desktop)
-- Dark theme with golden accents
-- Chat management and history
-- Real-time messaging
-- Auto-expanding text input
-- Collapsible sidebar navigation
-- Message persistence
+- Fully responsive design isolated within a mobile media query (`<1023px` for mobile/tablet, `>1024px` for persistent sidebar)
+- Dark mode theme matching Flutter app colors (`#131313` background, `#FCE566` accents)
+- Auto-scroll engine with requestAnimationFrame and delayed fallback offsets to support keyboard overlays
+- Touch-friendly controls: `52px` card-style hamburger menu, `60px` action buttons, and `18px` bubble scales
+- Pinned bottom-input layouts on empty chats and selective back-glow activations
+- Interactive sidebar context menus mapped to mobile long-press behaviors
 
 **Technology Stack**:
-
-- Frontend: HTML5, CSS3, Vanilla JavaScript
-- Architecture: Single Page Application (SPA)
-- Build Tool: None (vanilla, no transpilation)
-- HTTP Server: Python/Node.js for local development
+- Frontend: HTML5, CSS3 (Vanilla), Vanilla ES6 Modules
+- Build Tool: Vite 5+ (for asset bundling, environment management, and hot module replacement)
+- Deployment: Containerized or static hosting (npm script-driven)
 
 **Project Structure**:
 
 ```
 web/
-├── index.html          # Main HTML template (single page)
-├── styles.css          # Global styles & responsive layout
-├── index.js            # Application bootstrapping
-├── js/
-│   ├── api.js          # Backend API wrapper
-│   ├── chat.js         # Chat logic & message handling
-│   ├── auth.js         # User authentication
-│   ├── ui.js           # DOM manipulation & rendering
-│   ├── config.js       # Runtime configuration
-│   └── utils.js        # Helper functions
-├── test.py             # API endpoint testing script
-├── run.bat             # Windows startup script
-└── README.md           # Component documentation
+├── index.html            # Main HTML document template
+├── package.json          # Node dependency configuration & Vite scripts
+├── vite.config.js        # Vite compiler and development configuration
+├── run.bat               # Interactive dependency installer and launcher script
+└── src/
+    ├── main.js           # Main application entry point & Event listeners
+    ├── app.js            # Core orchestration and application state managers
+    ├── styles.css        # Premium style declarations and media queries
+    └── js/
+        ├── api.js        # HTTP client wrapper & request handler
+        ├── auth.js       # JWT login/signup controller
+        ├── chat.js       # Message mutation and active thread hooks
+        ├── config.js     # Default settings and global state objects
+        ├── ui.js         # Dynamic DOM renderer, scroll handlers, & context actions
+        └── utils.js      # Text formatting, escaping, and validation functions
 ```
 
 **UI Components**:
-
-- Header with title and menu
-- Sidebar with chat history
-- Main chat area with message bubbles
-- Input area with auto-expanding textarea
-- Responsive drawer for mobile
+- Glassmorphic card-style header menu button for mobile
+- Slide-out responsive sidebar drawer for conversation navigation
+- Contextual chat lists with pin/rename/delete long-press support
+- Chat container with progressive-rendering bubbles and thinking dots
+- Bottom message compose panel with file attachment pills and quick triggers
 
 **Configuration**:
-
-- API endpoint: Set in `js/config.js`
-- Runtime override via query parameter: `?api_base_url=http://127.0.0.1:8002`
-- CORS: Required for API communication
+- Base API URL: Configured in `src/js/config.js` (`API_BASE_URL`) or overridden at runtime
+- Runtime override: Query parameters (`?api_base_url=http://127.0.0.1:8000`)
+- Authorization: Implicitly attached to `Authorization: Bearer <token>` requests via central `apiCall` wrapper
 
 ---
 
@@ -192,90 +188,71 @@ web/
 **Purpose**: Core server handling all business logic, user management, and AI integration.
 
 **Key Features**:
-
-- User authentication and session management
-- Chat CRUD operations
-- Message processing and storage
-- File upload and metadata management
-- AI response generation via Google Gemini API
-- WebSocket support for real-time communication
-- Share tokens for chat sharing
-- Health checks and monitoring
+- JWT Authentication & Session tokens
+- Background User-Context Extractor (Gemini-driven fact extractor executed as an asynchronous background task on message turns)
+- Gemini API generation `/api/generate_ai` with rotating keys and context injection
+- Live Call conversational voice optimizations (`/api/generate_live`)
+- Local Whisper-based Speech-To-Text GPU pipeline (`/api/transcribe_raw`)
+- Local Kokoro-82M-based Text-To-Speech stream pipeline (`/api/tts`)
+- Auto-indexes creator for unique lookups on MongoDB collections startup
 
 **Technology Stack**:
-
 - Framework: FastAPI (Python 3.11+)
 - Database Driver: Motor (async MongoDB)
-- AI Integration: Google Generative AI SDK
-- Async Runtime: asyncio
-- Validation: Pydantic
-- HTTP Middleware: CORS support
+- AI SDKs: Google Generative AI SDK (Gemini Flash)
+- Speech-to-Text: `faster-whisper` (CTranslate2 CUDA-accelerated, `int8` quantized)
+- Text-to-Speech: `kokoro` (Kokoro-82M ONNX model)
+- Quantization/GPU Support: NVIDIA CUDA dll linking on Windows host startup
+- Async: asyncio and FastAPI BackgroundTasks
 
 **Project Structure**:
 
 ```
 api/
-├── main.py             # FastAPI application and route handlers
-├── requirements.txt    # Python dependencies
-├── api_keys.csv        # Google Gemini API keys (secure)
-├── .env.example        # Environment variables template
-├── .env                # Local environment configuration
-├── uploads/            # Temporary file uploads
-├── run.py              # Development runner
-└── README.md           # API documentation
+├── main.py             # FastAPI entrypoint, router, and AI Pipelines loaders
+├── requirements.txt    # Python module dependencies
+├── api_keys.csv        # Gemini API keys list (for automatic rate-limit rotation)
+├── .env                # Port, URL, and system prompt configurations
+├── uploads/            # Temporary attachment files storage
+└── run.py              # Uvicorn startup utility script
 ```
 
 **API Endpoints**:
 
 #### Health & Status
+- `GET /health` - API server diagnostic check
+- `GET /api/ping` - Silent diagnostic connectivity check
 
-- `GET /health` - Health check
-- `GET /api/ping` - Ping endpoint
+#### Authentication & Profiles
+- `POST /auth/register` - Create user profile and store optional context
+- `POST /auth/login` - Authenticate credentials and return signed JWT token
+- `GET /users/{user_id}` - Retrieve username, email, and running personal context
+- `PATCH /users/{user_id}/context` - Override/update personal context
+- `DELETE /users/{user_id}` - Purge user profile, files, and chats permanently
+- `DELETE /users/{user_id}/chats` - Clear user chat history only
 
-#### User Management
+#### Chat & AI Generation
+- `GET /users/{user_id}/chats` - List user chats
+- `POST /users/{user_id}/chats` - Create new empty chat
+- `GET /chats/{chat_id}` - Retrieve chat details and message list
+- `PATCH /chats/{chat_id}` - Rename or pin/unpin chat
+- `DELETE /chats/{chat_id}` - Delete chat and remove physical files
+- `POST /api/generate_ai` - Generate Gemini reply with context auto-updates
 
-- `POST /users` - Create user account
-- `GET /users/{user_id}` - Get user profile
-- `PATCH /users/{user_id}` - Update user profile
+#### Messages & File Management
+- `POST /chats/{chat_id}/messages` - Save message text to chat history
+- `POST /chats/{chat_id}/messages_with_file` - Multipart upload file + save message
+- `PATCH /chats/{chat_id}/messages/{message_id}` - Edit message content
+- `DELETE /chats/{chat_id}/messages/{message_id}` - Delete message (trims future messages)
+- `GET /api/files/{file_id}` - Stream download physical attachment file
 
-#### Chat Management
-
-- `GET /users/{user_id}/chats` - List user's chats
-- `POST /users/{user_id}/chats` - Create new chat
-- `GET /chats/{chat_id}` - Get chat details
-- `PATCH /chats/{chat_id}` - Update chat (title, pin status)
-- `DELETE /chats/{chat_id}` - Delete chat
-- `POST /chats/{chat_id}/share` - Generate share token
-
-#### Message Management
-
-- `POST /chats/{chat_id}/messages` - Add message to chat
-- `PATCH /chats/{chat_id}/messages/{message_id}` - Edit message
-- `DELETE /chats/{chat_id}/messages/{message_id}` - Delete message
-
-#### File Management
-
-- `POST /files/upload` - Upload document
-- `GET /files/{file_id}` - Get file metadata
-- `DELETE /files/{file_id}` - Delete file
-
-#### Sharing
-
-- `GET /share/{share_token}` - Access shared chat
-
-#### AI Features
-
-- `POST /summarize` - Summarize text
-- `WebSocket /ws/{chat_id}` - Real-time chat connection
-
-**Authentication**:
-
-- Method: User ID based (expandable to JWT)
-- Session Management: In-memory (ready for session storage)
-- API Keys: Secure environment variables for Gemini API
+#### Voice Call & Live Pipelines
+- `POST /api/generate_live` - Specialized brief voice-optimized conversational reply
+- `POST /api/transcribe_raw` - Transcribe PCM audio bytes to text (Whisper GPU)
+- `POST /api/tts` - Stream human-like speech from text (Kokoro WAV stream)
+- `POST /api/summarize` - Generate concise chat titles (from user query)
 
 **CORS Configuration**:
-
 - Allow origins: All (`*`)
 - Allow methods: All
 - Allow headers: All

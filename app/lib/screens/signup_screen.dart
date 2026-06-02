@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import '../services/chat_service.dart';
 import '../theme/app_theme.dart';
@@ -146,7 +147,10 @@ class _SignupScreenState extends State<SignupScreen> {
 
                     Center(
                       child: GestureDetector(
-                        onTap: _pickImage,
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          _pickImage();
+                        },
                         child: Container(
                           width: 100,
                           height: 100,
@@ -201,7 +205,10 @@ class _SignupScreenState extends State<SignupScreen> {
                             ),
                           )
                         : ElevatedButton(
-                            onPressed: _signup,
+                            onPressed: () {
+                              HapticFeedback.mediumImpact();
+                              _signup();
+                            },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: AppTheme.highlight,
                               foregroundColor: AppTheme.background,
@@ -233,6 +240,7 @@ class _SignupScreenState extends State<SignupScreen> {
                           ),
                           GestureDetector(
                             onTap: () {
+                              HapticFeedback.selectionClick();
                               Navigator.pushReplacement(
                                 context,
                                 MaterialPageRoute(

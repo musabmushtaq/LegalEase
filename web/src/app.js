@@ -554,12 +554,7 @@ function renderMessages() {
                     <div class="message-text" contenteditable="false" data-message-id="${msg.id}">${msg.sender === 'ai' && isNew ? `<span class="typewriter">${escapeHtml(msg.content)}</span>` : escapeHtml(msg.content)}</div>
                     ${isEdited ? '<div class="edited-indicator">(edited)</div>' : ''}
                 </div>
-                ${isUser ? `
-                    <div class="message-actions">
-                        <button class="message-action-btn" onclick="event.stopPropagation(); editMessage('${msg.id}')" title="Edit">✎</button>
-                        <button class="message-action-btn delete" onclick="event.stopPropagation(); deleteMessage('${msg.id}')" title="Delete">🗑</button>
-                    </div>
-                ` : ''}
+
             </div>
         `;
     }).join('');

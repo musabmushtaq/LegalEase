@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:open_file/open_file.dart';
@@ -239,7 +240,10 @@ class _ChatScreenState extends State<ChatScreen> {
               top: 2,
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
-                onTap: onClearPressed,
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  onClearPressed();
+                },
                 child: Container(
                   width: 36,
                   height: 36,
@@ -282,7 +286,10 @@ class _ChatScreenState extends State<ChatScreen> {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: onTap,
+          onTap: () {
+            HapticFeedback.selectionClick();
+            onTap();
+          },
           child: Center(
             child: Icon(icon, color: Colors.white, size: 24),
           ),
@@ -761,20 +768,61 @@ class _ChatScreenState extends State<ChatScreen> {
     final messages = _chatService.currentMessages;
 
     if (messages.isEmpty) {
-      return Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Center(
-            child: Text(
-              "Ask me something...",
-              style: TextStyle(
-                color: Colors.white.withOpacity(0.4),
-                fontSize: 18,
-                letterSpacing: 1.2,
+      final username = _chatService.isTemporaryChat ? 'Stranger' : (_chatService.username ?? 'Guest');
+      
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              RichText(
+                textAlign: TextAlign.center,
+                text: TextSpan(
+                  style: (Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ) ?? const TextStyle(
+                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
+                    fontFamily: 'Lexend',
+                    color: Colors.white,
+                  )),
+                  children: [
+                    const TextSpan(
+                      text: "Hello, ",
+                    ),
+                    TextSpan(
+                      text: username,
+                      style: TextStyle(
+                        color: AppTheme.highlight,
+                        shadows: [
+                          Shadow(
+                            color: AppTheme.highlight.withValues(alpha: 0.35),
+                            blurRadius: 16,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
+              const SizedBox(height: 12),
+              Text(
+                "How can I help you today?",
+                style: TextStyle(
+                  fontSize: 18,
+                  color: Colors.white.withValues(alpha: 0.4),
+                  fontWeight: FontWeight.w400,
+                  letterSpacing: 0.2,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
           ),
-        ],
+        ),
       );
     }
 
@@ -904,7 +952,10 @@ class _ChatScreenState extends State<ChatScreen> {
             child: Material(
               color: Colors.transparent,
               child: InkWell(
-                onTap: onPressed,
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  onPressed();
+                },
                 customBorder: const CircleBorder(),
                 splashColor: AppTheme.highlight.withValues(alpha: 0.2),
                 child: Padding(

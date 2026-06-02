@@ -18,6 +18,7 @@ class ChatService extends ChangeNotifier {
 
   String? _userId;
   String? _authToken;
+  String? _username;
 
   String? _currentChatId;
   final Map<String, Chat> _chats = {};
@@ -39,6 +40,7 @@ class ChatService extends ChangeNotifier {
   bool get isConnected => _isConnected;
   bool get isConnecting => _isConnecting;
   bool get isAuthenticated => _isAuthenticated;
+  String? get username => _username;
   bool get isTemporaryChat => _isTemporaryChat;
   String? get currentChatId => _currentChatId;
   Chat? get currentChat =>
@@ -128,6 +130,7 @@ class ChatService extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     _userId = prefs.getString('userId');
     _authToken = prefs.getString('authToken');
+    _username = prefs.getString('username');
     _isAuthenticated = _userId != null && _authToken != null;
   }
 
@@ -153,11 +156,13 @@ class ChatService extends ChangeNotifier {
         final decoded = jsonDecode(response.body);
         _userId = decoded['user_id'];
         _authToken = decoded['access_token'];
+        _username = username;
         _isAuthenticated = true;
 
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('userId', _userId!);
         await prefs.setString('authToken', _authToken!);
+        await prefs.setString('username', _username!);
 
         await _syncFromApi();
         notifyListeners();
@@ -197,6 +202,7 @@ class ChatService extends ChangeNotifier {
   Future<void> logout() async {
     _userId = null;
     _authToken = null;
+    _username = null;
     _isAuthenticated = false;
     _currentChatId = null;
     _chats.clear();
@@ -205,6 +211,7 @@ class ChatService extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('userId');
     await prefs.remove('authToken');
+    await prefs.remove('username');
     await prefs.remove('currentChatCache');
     await prefs.remove('currentChatIdCache');
 
@@ -700,8 +707,8 @@ class ChatService extends ChangeNotifier {
     await _saveCurrentChatToCache();
     notifyListeners();
 
-    // 8. Background sync AI message to server if online and NOT temporary
-    if (!_isTemporaryChat) {
+    // 8. Background sync AI message to server if online and NOT temporary (skip on error messages)
+    if (!_isTemporaryChat && !finalAiText.startsWith('Error:') && !finalAiText.startsWith("I'm sorry, I encountered an error")) {
       _syncMessageToServer(finalChatId, finalAiText, 'ai');
     }
 
@@ -914,8 +921,8 @@ class ChatService extends ChangeNotifier {
           await _saveCurrentChatToCache();
           notifyListeners();
 
-          // 3. Persistent Chat: App explicitly saves AI Message to DB
-          if (!_isTemporaryChat) {
+          // 3. Persistent Chat: App explicitly saves AI Message to DB (skip on API error pollution)
+          if (!_isTemporaryChat && !aiMsg.content.startsWith('Error:')) {
              try {
                final saveAiUri = Uri.parse('$_apiBaseUrl/chats/$currentId/messages');
                await http.post(
@@ -930,8 +937,9 @@ class ChatService extends ChangeNotifier {
              } catch (_) {}
           }
         }
-      } else if (_isTemporaryChat) {
-        addMessage('Error connecting to AI. Please try again.', 'ai');
+      } else {
+        // Show error message locally in UI
+        await addMessage('Error connecting to AI. Please try again.', 'ai');
       }
 
       // Auto-generate title from first message
@@ -957,9 +965,8 @@ class ChatService extends ChangeNotifier {
         debugPrint('ChatService: Title generation complete for $currentId. UI notified.');
       }
     } catch (_) {
-      if (_isTemporaryChat) {
-        addMessage('Error connecting to AI. Please try again.', 'ai');
-      }
+      // Always show error message locally in UI so we don't get stuck in thinking state
+      await addMessage('Error connecting to AI. Please try again.', 'ai');
     }
   }
 

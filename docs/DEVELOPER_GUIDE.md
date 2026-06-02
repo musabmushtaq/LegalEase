@@ -65,6 +65,10 @@ pip install -r requirements.txt
 copy .env.example .env
 ```
 
+*Note on GPU Acceleration (Windows):* To run local speech models (Whisper) on your NVIDIA GPU with CUDA acceleration, ensure the GPU drivers are installed. The API will dynamically resolve NVIDIA DLL paths (like `cublas64_12.dll` and `cudnn64_8.dll`) from your site-packages folder and mount them to the PATH on server start.
+
+*Gemini API Key Rotation:* For high-intensity use, create `api/api_keys.csv` and add your Gemini API keys (one key per line). The API automatically rotates keys on rate-limit triggers (429) to prevent interruption.
+
 3. **Setup MongoDB** (Database):
 
 ```bash
@@ -88,8 +92,8 @@ flutter pub get
 
 ```bash
 cd web
-# No installation needed - vanilla JS
-# Just run HTTP server when ready
+npm install
+# Ready to start Vite server!
 ```
 
 ### Environment Variables
@@ -104,7 +108,7 @@ DEFAULT_SYSTEM_PROMPT=You are LegalEase...
 GOOGLE_GEMINI_API_KEY=your_api_key_here
 ```
 
-**Web (js/config.js)**:
+**Web (src/js/config.js)**:
 
 ```javascript
 const DEFAULT_API_BASE_URL = "http://127.0.0.1:8000";
@@ -138,16 +142,20 @@ legalease/
 │
 ├── web/                   # Web application
 │   ├── index.html         # Main HTML file
-│   ├── styles.css         # Global styles
-│   ├── index.js           # App initialization
-│   ├── js/
-│   │   ├── api.js         # API client
-│   │   ├── chat.js        # Chat logic
-│   │   ├── auth.js        # Authentication
-│   │   ├── ui.js          # UI rendering
-│   │   ├── config.js      # Configuration
-│   │   └── utils.js       # Utilities
-│   └── test.py            # API testing
+│   ├── package.json       # NPM dependencies & scripts
+│   ├── vite.config.js     # Vite configuration
+│   ├── run.bat            # Windows startup script
+│   └── src/
+│       ├── main.js        # App entry point & event binders
+│       ├── app.js         # Core controller logic
+│       ├── styles.css     # Premium dark-mode style sheets
+│       └── js/
+│           ├── api.js     # API client request wrapper
+│           ├── chat.js    # Conversation logic
+│           ├── auth.js    # JWT authorization controller
+│           ├── ui.js      # DOM rendering & touch actions
+│           ├── config.js  # Settings & runtime configurations
+│           └── utils.js   # Escape & helper utilities
 │
 ├── db/                    # Database scripts
 │   ├── init_db.py         # Initialization script
@@ -213,8 +221,8 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 
 ```bash
 cd web
-python -m http.server 8080
-# Opens: http://localhost:8080
+npm run dev
+# Opens: http://localhost:8080 (or port reported by Vite)
 ```
 
 **Terminal 4 - Flutter/Mobile**:
@@ -737,30 +745,36 @@ In `android/app/src/main/AndroidManifest.xml`:
 
 ### Project Setup
 
-**No build tools needed** - vanilla JavaScript
+**Vite Build System**: The web app utilizes Vite for high-performance modular asset compilation, static bundling, and dev hot-reloads.
 
 **Development server**:
 
 ```bash
 cd web
-python -m http.server 8080
-# Access at http://localhost:8080
+npm install
+npm run dev
+# Access at http://localhost:8080 (or port reported by Vite)
 ```
 
 ### File Organization
 
 ```
 web/
-├── index.html     # DOM structure
-├── styles.css     # All styles
-├── index.js       # App startup
-└── js/
-    ├── api.js     # HTTP requests
-    ├── chat.js    # Chat logic
-    ├── auth.js    # Authentication
-    ├── ui.js      # DOM manipulation
-    ├── config.js  # Configuration
-    └── utils.js   # Helpers
+├── index.html            # Main HTML document template
+├── package.json          # Node dependency configuration & Vite scripts
+├── vite.config.js        # Vite compiler and development configuration
+├── run.bat               # Windows launcher script
+└── src/
+    ├── main.js           # App entry point & Event listeners
+    ├── app.js            # Core orchestration and application state managers
+    ├── styles.css        # Premium style declarations and media queries
+    └── js/
+        ├── api.js        # HTTP client wrapper & request handler
+        ├── auth.js       # JWT login/signup controller
+        ├── chat.js       # Message mutation and active thread hooks
+        ├── config.js     # Default settings and global state objects
+        ├── ui.js         # DOM rendering & touch actions
+        └── utils.js      # Text formatting, escaping, and validation functions
 ```
 
 ### Adding Features
