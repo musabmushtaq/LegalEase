@@ -206,6 +206,7 @@ def chat_to_response(chat: dict[str, Any]) -> dict[str, Any]:
     return {
         "id": chat["chat_id"],
         "user_id": chat["owner_id"],
+        "collaborators": chat.get("collaborators", []),
         "title": chat.get("title", "New Chat"),
         "created_at": chat["created_at"],
         "updated_at": chat["updated_at"],
@@ -278,7 +279,7 @@ async def ping() -> dict[str, str]:
 
 @app.get("/users/{user_id}/chats")
 async def list_user_chats(user_id: str) -> dict[str, list[dict[str, Any]]]:
-    cursor = db.chats.find({"owner_id": user_id}).sort("updated_at", -1)
+    cursor = db.chats.find({"$or": [{"owner_id": user_id}, {"collaborators": user_id}]}).sort("updated_at", -1)
     chats = [chat_to_response(chat) async for chat in cursor]
     return {"items": chats}
 
@@ -290,6 +291,7 @@ async def create_chat(user_id: str, payload: CreateChatRequest) -> dict[str, Any
     doc = {
         "chat_id": chat_id,
         "owner_id": user_id,
+        "collaborators": [],
         "title": payload.title.strip() or "New Chat",
         "is_pinned": False,
         "messages": [],
