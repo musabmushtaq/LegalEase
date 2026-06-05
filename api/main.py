@@ -105,6 +105,10 @@ class UpdateChatRequest(BaseModel):
     is_pinned: bool | None = None
 
 
+class InviteCollaboratorRequest(BaseModel):
+    username: str
+
+
 class AddMessageRequest(BaseModel):
     user_id: str | None = None
     sender: str = Field(default="user", pattern="^(user|ai)$")
@@ -327,6 +331,36 @@ async def update_chat(chat_id: str, payload: UpdateChatRequest) -> dict[str, Any
     if not updated:
         raise HTTPException(status_code=404, detail="Chat not found")
     return chat_to_response(updated)
+
+
+@app.post("/chats/{chat_id}/invite")
+async def invite_collaborator(chat_id: str, payload: InviteCollaboratorRequest) -> dict[str, Any]:
+    chat = await db.chats.find_one({"chat_id": chat_id})
+    if not chat:
+        raise HTTPException(status_code=404, detail="Chat not found")
+        
+    user = await db.users.find_one({"username": payload.username})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    user_id_to_add = user["user_id"]
+    
+    if user_id_to_add == chat.get("owner_id"):
+        return {"success": True, "message": "User is already the owner."}
+        
+    collaborators = chat.get("collaborators", [])
+    if user_id_to_add in collaborators:
+        return {"success": True, "message": "User is already a collaborator."}
+        
+    await db.chats.update_one(
+        {"chat_id": chat_id},
+        {
+            "$push": {"collaborators": user_id_to_add},
+            "$set": {"updated_at": now_iso()}
+        }
+    )
+    
+    return {"success": True, "message": f"User {payload.username} added as collaborator."}
 
 
 @app.delete("/chats/{chat_id}")
