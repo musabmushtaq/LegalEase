@@ -79,6 +79,34 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: dict[str, list[WebSocket]] = {}
+
+    async def connect(self, websocket: WebSocket, chat_id: str):
+        await websocket.accept()
+        if chat_id not in self.active_connections:
+            self.active_connections[chat_id] = []
+        self.active_connections[chat_id].append(websocket)
+
+    def disconnect(self, websocket: WebSocket, chat_id: str):
+        if chat_id in self.active_connections:
+            if websocket in self.active_connections[chat_id]:
+                self.active_connections[chat_id].remove(websocket)
+            if not self.active_connections[chat_id]:
+                del self.active_connections[chat_id]
+
+    async def broadcast(self, message: dict, chat_id: str):
+        if chat_id in self.active_connections:
+            for connection in self.active_connections[chat_id]:
+                try:
+                    await connection.send_json(message)
+                except Exception:
+                    pass
+
+manager = ConnectionManager()
+
 app = FastAPI(title="LegalEase API", version="0.1.0")
 app.add_middleware(
     CORSMiddleware,
@@ -409,10 +437,27 @@ async def add_message(chat_id: str, payload: AddMessageRequest) -> dict[str, Any
         },
     )
 
+    await manager.broadcast({
+        "type": "new_message",
+        "chat_id": chat_id,
+        "message": new_message
+    }, chat_id)
+
     return {
         "chat_id": chat_id,
         "message": new_message,
     }
+
+
+@app.websocket("/ws/chats/{chat_id}")
+async def websocket_endpoint(websocket: WebSocket, chat_id: str):
+    await manager.connect(websocket, chat_id)
+    try:
+        while True:
+            # We don't process incoming messages from WS, only broadcast
+            data = await websocket.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect(websocket, chat_id)
 
 
 class GenerateAiRequest(BaseModel):
@@ -566,6 +611,13 @@ async def generate_ai(payload: GenerateAiRequest, request: Request, background_t
         )
     
     # 5. Return without saving (App is responsible for persistence)
+    if payload.chat_id:
+        await manager.broadcast({
+            "type": "new_message",
+            "chat_id": payload.chat_id,
+            "message": assistant_message
+        }, payload.chat_id)
+        
     return {
         "assistant_message": assistant_message,
     }
