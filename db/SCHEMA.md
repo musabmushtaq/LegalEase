@@ -26,6 +26,7 @@ Stores individual chat conversations with messages embedded.
   "_id": ObjectId(),
   "chatId": "chat_abc123",
   "ownerId": "user_123",
+  "collaborators": ["user_456"],
   "title": "Contract Review - NDA Clause",
   "isPinned": false,
   "messages": [
@@ -76,6 +77,7 @@ users (1 owner) ──────> (many) chats
 
 chats (1 chat, many messages)
   ├── ownerId links to user
+  ├── collaborators links to array of users
   ├── contains messages array
   └── references files via fileId in attachments
 

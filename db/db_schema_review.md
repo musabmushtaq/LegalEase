@@ -62,6 +62,7 @@ The heart of LegalEase. It represents a single legal consultation session. Messa
   "_id": ObjectId("6a0c35f352680fd21fbcb9f2"),
   "chat_id": "chat_f82cc27847b4",
   "owner_id": "user_af748175fe85",
+  "collaborators": ["user_b28192cd44f1"],
   "title": "Hello.",
   "system_prompt": "You are LegalEase, a legal-focused assistant. Provide clear and practical guidance, mention limitations, and recommend consulting a qualified lawyer for jurisdiction-specific legal advice.",
   "is_pinned": false,
@@ -97,6 +98,7 @@ The heart of LegalEase. It represents a single legal consultation session. Messa
 | `_id` | `ObjectId` | Auto-generated unique document key. |
 | `chat_id` | `String` | Unique application-level ID for the chat session (prefixed with `chat_`). |
 | `owner_id` | `String` | References the `user_id` of the user who owns this chat. |
+| `collaborators` | `Array` | References `user_id`s of invited users who have access to this chat. |
 | `title` | `String` | The visible name of the chat in the sidebar (summarized automatically via Gemini). |
 | `system_prompt`| `String` | Custom instructions given to the AI for this specific chat context, allowing highly specialized legal personas. |
 | `is_pinned` | `Boolean` | Flag indicating if this chat is pinned to the top of the list for quick access. |
