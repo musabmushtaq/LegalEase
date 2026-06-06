@@ -100,18 +100,24 @@ class _ChatDrawerState extends State<ChatDrawer> {
       context: context,
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withValues(alpha: 0.5),
+      useSafeArea: true,
       builder: (context) => Padding(
-        padding: const EdgeInsets.all(20.0),
+        padding: const EdgeInsets.only(
+          left: 16.0,
+          right: 16.0,
+          top: 16.0,
+          bottom: 16.0, // Reduced bottom padding to prevent double spacing
+        ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(24.0),
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 15.0, sigmaY: 15.0),
             child: Container(
               decoration: BoxDecoration(
-                color: AppTheme.background.withValues(alpha: 0.8),
+                color: AppTheme.background.withValues(alpha: 0.85),
                 borderRadius: BorderRadius.circular(24.0),
                 border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.1),
+                  color: Colors.white.withValues(alpha: 0.08),
                   width: 1.0,
                 ),
               ),
@@ -127,53 +133,63 @@ class _ChatDrawerState extends State<ChatDrawer> {
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  _buildMenuItem(
-                    icon: Icons.edit,
-                    label: 'Rename',
-                    color: AppTheme.highlight,
-                    onTap: () {
-                      Navigator.pop(context);
-                      _renameChat(chat.id, chat.title);
-                    },
-                  ),
-                  _buildMenuItem(
-                    icon: chat.isPinned ? Icons.push_pin : Icons.push_pin_outlined,
-                    label: chat.isPinned ? 'Unpin' : 'Pin',
-                    color: AppTheme.highlight,
-                    onTap: () {
-                      Navigator.pop(context);
-                      _togglePin(chat.id);
-                    },
-                  ),
-                  _buildMenuItem(
-                    icon: chat.isShared ? Icons.people_outline : Icons.share_outlined,
-                    label: chat.isShared ? 'Manage Shared Access' : 'Share Chat',
-                    color: AppTheme.highlight,
-                    onTap: () {
-                      Navigator.pop(context);
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => ManageAccessScreen(
-                            chatService: widget.chatService,
-                            chat: chat,
-                          ),
+                  const SizedBox(height: 20),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _buildMenuItem(
+                          icon: Icons.edit,
+                          label: 'Rename',
+                          color: AppTheme.highlight,
+                          onTap: () {
+                            Navigator.pop(context);
+                            _renameChat(chat.id, chat.title);
+                          },
                         ),
-                      );
-                    },
+                        const SizedBox(height: 10),
+                        _buildMenuItem(
+                          icon: chat.isPinned ? Icons.push_pin : Icons.push_pin_outlined,
+                          label: chat.isPinned ? 'Unpin' : 'Pin',
+                          color: AppTheme.highlight,
+                          onTap: () {
+                            Navigator.pop(context);
+                            _togglePin(chat.id);
+                          },
+                        ),
+                        const SizedBox(height: 10),
+                        _buildMenuItem(
+                          icon: chat.isShared ? Icons.people_outline : Icons.share_outlined,
+                          label: chat.isShared ? 'Manage Shared Access' : 'Share Chat',
+                          color: AppTheme.highlight,
+                          onTap: () {
+                            Navigator.pop(context);
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => ManageAccessScreen(
+                                  chatService: widget.chatService,
+                                  chat: chat,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 10),
+                        _buildMenuItem(
+                          icon: Icons.delete,
+                          label: 'Delete',
+                          color: Colors.redAccent,
+                          onTap: () {
+                            Navigator.pop(context);
+                            _deleteChat(chat.id);
+                          },
+                        ),
+                      ],
+                    ),
                   ),
-                  const Divider(color: Colors.white10, height: 1),
-                  _buildMenuItem(
-                    icon: Icons.delete,
-                    label: 'Delete',
-                    color: Colors.redAccent,
-                    onTap: () {
-                      Navigator.pop(context);
-                      _deleteChat(chat.id);
-                    },
-                  ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 16), // Match horizontal padding (16.0)
                 ],
               ),
             ),
@@ -189,21 +205,50 @@ class _ChatDrawerState extends State<ChatDrawer> {
     required Color color,
     required VoidCallback onTap,
   }) {
-    return ListTile(
-      leading: Icon(icon, color: color, size: 22),
-      title: Text(
-        label,
-        style: TextStyle(
-          color: Colors.white.withValues(alpha: 0.9),
-          fontSize: 15,
-          fontWeight: FontWeight.w500,
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(16.0),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.06),
+          width: 1.0,
         ),
       ),
-      onTap: () {
-        HapticFeedback.lightImpact();
-        onTap();
-      },
-      contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 4),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16.0),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () {
+              HapticFeedback.lightImpact();
+              onTap();
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 16.0),
+              child: Row(
+                children: [
+                  Icon(
+                    icon,
+                    color: color,
+                    size: 22,
+                  ),
+                  const SizedBox(width: 16.0),
+                  Expanded(
+                    child: Text(
+                      label,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 
