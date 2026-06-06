@@ -376,40 +376,23 @@ class _ManageAccessScreenState extends State<ManageAccessScreen> {
               ],
             ),
           ),
-          if (isOwner)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: AppTheme.highlight.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: const Text(
-                'OWNER',
-                style: TextStyle(
-                  color: AppTheme.highlight,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 0.5,
-                ),
-              ),
-            ),
         ],
       ),
     );
   }
 
-  Widget _buildFloatingAddButton() {
+  Widget _buildAddCollaboratorButton() {
     return Container(
-      width: 48,
+      width: double.infinity,
       height: 48,
       decoration: BoxDecoration(
         color: AppTheme.highlight,
-        shape: BoxShape.circle,
+        borderRadius: BorderRadius.circular(12.0),
         boxShadow: [
           BoxShadow(
-            color: AppTheme.highlight.withValues(alpha: 0.3),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: AppTheme.highlight.withValues(alpha: 0.2),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
@@ -420,11 +403,26 @@ class _ManageAccessScreenState extends State<ManageAccessScreen> {
             HapticFeedback.mediumImpact();
             _showInviteDialog();
           },
-          customBorder: const CircleBorder(),
-          child: const Icon(
-            Icons.person_add_rounded,
-            color: AppTheme.background,
-            size: 22,
+          borderRadius: BorderRadius.circular(12.0),
+          child: const Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.person_add_rounded,
+                color: AppTheme.background,
+                size: 20,
+              ),
+              SizedBox(width: 8),
+              Text(
+                'Add Collaborator',
+                style: TextStyle(
+                  color: AppTheme.background,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -480,93 +478,86 @@ class _ManageAccessScreenState extends State<ManageAccessScreen> {
                         ),
                       ),
                       padding: const EdgeInsets.all(16.0),
-                      child: Stack(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                          Row(
                             children: [
-                              Row(
-                                children: [
-                                  const Icon(
-                                    Icons.people_outline,
-                                    color: AppTheme.highlight,
-                                    size: 22,
-                                  ),
-                                  const SizedBox(width: 12),
-                                  const Text(
-                                    'Collaborators',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ],
+                              const Icon(
+                                Icons.people_outline,
+                                color: AppTheme.highlight,
+                                size: 22,
                               ),
-                              const SizedBox(height: 16),
-                              Expanded(
-                                child: _isLoading
-                                    ? const Center(
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          valueColor: AlwaysStoppedAnimation<Color>(AppTheme.highlight),
-                                        ),
-                                      )
-                                    : ListView(
-                                        physics: const BouncingScrollPhysics(),
-                                        children: [
-                                          if (_ownerName != null)
-                                            _buildUserRow(
-                                              username: _ownerName!,
-                                              subtitle: 'Owner',
-                                              isOwner: true,
-                                            ),
-                                          const Divider(color: Colors.white10, height: 16),
-                                          if (_collaborators.isEmpty)
-                                            Padding(
-                                              padding: const EdgeInsets.symmetric(vertical: 40.0),
-                                              child: Center(
-                                                child: Opacity(
-                                                  opacity: 0.45,
-                                                  child: Column(
-                                                    mainAxisAlignment: MainAxisAlignment.center,
-                                                    children: [
-                                                      Icon(
-                                                        Icons.group_add_outlined,
-                                                        color: Colors.white.withValues(alpha: 0.3),
-                                                        size: 36,
-                                                      ),
-                                                      const SizedBox(height: 12),
-                                                      const Text(
-                                                        'No collaborators yet.\nInvite others to join!',
-                                                        textAlign: TextAlign.center,
-                                                        style: TextStyle(
-                                                          color: Colors.white,
-                                                          fontSize: 13,
-                                                          height: 1.4,
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ),
-                                              ),
-                                            )
-                                          else
-                                            ..._collaborators.map((c) => _buildUserRow(
-                                                  username: c['username'] ?? '',
-                                                  subtitle: c['email'] ?? '',
-                                                  isOwner: false,
-                                                )),
-                                        ],
-                                      ),
+                              const SizedBox(width: 12),
+                              const Text(
+                                'Collaborators',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ],
                           ),
-                          Positioned(
-                            bottom: 0,
-                            right: 0,
-                            child: _buildFloatingAddButton(),
+                          const SizedBox(height: 16),
+                          Expanded(
+                            child: _isLoading
+                                ? const Center(
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation<Color>(AppTheme.highlight),
+                                    ),
+                                  )
+                                : ListView(
+                                    physics: const BouncingScrollPhysics(),
+                                    children: [
+                                      if (_ownerName != null)
+                                        _buildUserRow(
+                                          username: _ownerName!,
+                                          subtitle: 'Owner',
+                                          isOwner: true,
+                                        ),
+                                      const Divider(color: Colors.white10, height: 16),
+                                      if (_collaborators.isEmpty)
+                                        Padding(
+                                          padding: const EdgeInsets.symmetric(vertical: 40.0),
+                                          child: Center(
+                                            child: Opacity(
+                                              opacity: 0.45,
+                                              child: Column(
+                                                mainAxisAlignment: MainAxisAlignment.center,
+                                                children: [
+                                                  Icon(
+                                                    Icons.group_add_outlined,
+                                                    color: Colors.white.withValues(alpha: 0.3),
+                                                    size: 36,
+                                                  ),
+                                                  const SizedBox(height: 12),
+                                                  const Text(
+                                                    'No collaborators yet.\nInvite others to join!',
+                                                    textAlign: TextAlign.center,
+                                                    style: TextStyle(
+                                                      color: Colors.white,
+                                                      fontSize: 13,
+                                                      height: 1.4,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                        )
+                                      else
+                                        ..._collaborators.map((c) => _buildUserRow(
+                                              username: c['username'] ?? '',
+                                              subtitle: c['email'] ?? '',
+                                              isOwner: false,
+                                            )),
+                                    ],
+                                  ),
                           ),
+                          const SizedBox(height: 16),
+                          _buildAddCollaboratorButton(),
                         ],
                       ),
                     ),
@@ -596,17 +587,10 @@ class _ManageAccessScreenState extends State<ManageAccessScreen> {
                             padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 14.0),
                             child: Row(
                               children: [
-                                Container(
-                                  padding: const EdgeInsets.all(8.0),
-                                  decoration: BoxDecoration(
-                                    color: Colors.redAccent.withValues(alpha: 0.08),
-                                    borderRadius: BorderRadius.circular(8.0),
-                                  ),
-                                  child: const Icon(
-                                    Icons.lock_reset_outlined,
-                                    color: Colors.redAccent,
-                                    size: 20,
-                                  ),
+                                const Icon(
+                                  Icons.lock_reset_outlined,
+                                  color: Colors.redAccent,
+                                  size: 22,
                                 ),
                                 const SizedBox(width: 16.0),
                                 const Expanded(
@@ -632,11 +616,6 @@ class _ManageAccessScreenState extends State<ManageAccessScreen> {
                                       ),
                                     ],
                                   ),
-                                ),
-                                const Icon(
-                                  Icons.chevron_right,
-                                  color: Colors.white30,
-                                  size: 20,
                                 ),
                               ],
                             ),

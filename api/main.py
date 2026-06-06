@@ -358,6 +358,8 @@ async def update_chat(chat_id: str, payload: UpdateChatRequest) -> dict[str, Any
         updates["is_pinned"] = payload.is_pinned
     if payload.is_shared is not None:
         updates["is_shared"] = payload.is_shared
+        if not payload.is_shared:
+            updates["collaborators"] = []
 
     await db.chats.update_one({"chat_id": chat_id}, {"$set": updates})
     updated = await db.chats.find_one({"chat_id": chat_id})

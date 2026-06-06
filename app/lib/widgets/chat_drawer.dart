@@ -158,25 +158,26 @@ class _ChatDrawerState extends State<ChatDrawer> {
                             _togglePin(chat.id);
                           },
                         ),
-                        const SizedBox(height: 10),
-                        _buildMenuItem(
-                          icon: chat.isShared ? Icons.people_outline : Icons.share_outlined,
-                          label: chat.isShared ? 'Manage Shared Access' : 'Share Chat',
-                          color: AppTheme.highlight,
-                          onTap: () {
-                            Navigator.pop(context);
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) => ManageAccessScreen(
-                                  chatService: widget.chatService,
-                                  chat: chat,
+                        if (chat.userId == widget.chatService.userId) ...[
+                          _buildMenuItem(
+                            icon: chat.isShared ? Icons.people_outline : Icons.share_outlined,
+                            label: chat.isShared ? 'Manage Shared Access' : 'Share Chat',
+                            color: AppTheme.highlight,
+                            onTap: () {
+                              Navigator.pop(context);
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => ManageAccessScreen(
+                                    chatService: widget.chatService,
+                                    chat: chat,
+                                  ),
                                 ),
-                              ),
-                            );
-                          },
-                        ),
-                        const SizedBox(height: 10),
+                              );
+                            },
+                          ),
+                          const SizedBox(height: 10),
+                        ],
                         _buildMenuItem(
                           icon: Icons.delete,
                           label: 'Delete',

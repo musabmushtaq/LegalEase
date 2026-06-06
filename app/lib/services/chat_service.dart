@@ -41,6 +41,7 @@ class ChatService extends ChangeNotifier {
   bool get isConnecting => _isConnecting;
   bool get isAuthenticated => _isAuthenticated;
   String? get username => _username;
+  String? get userId => _userId;
   bool get isTemporaryChat => _isTemporaryChat;
   String? get currentChatId => _currentChatId;
   Chat? get currentChat =>
@@ -1043,6 +1044,9 @@ class ChatService extends ChangeNotifier {
     debugPrint('ChatService: toggleShareChat called for $chatId with value $isShared');
     if (_chats[chatId] != null) {
       _chats[chatId]!.isShared = isShared;
+      if (!isShared) {
+        _chats[chatId]!.collaborators = [];
+      }
       // Update cache if this is the current chat
       if (_currentChatId == chatId) {
         await _saveCurrentChatToCache();
