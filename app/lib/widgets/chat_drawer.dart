@@ -358,8 +358,10 @@ class _ChatDrawerState extends State<ChatDrawer> {
                       listenable: widget.chatService,
                       builder: (context, _) {
                         final chats = widget.chatService.displayedChats;
-                        // Sort: Pinned chats float to the top of the single list, others sorted by updatedAt
+                        // Sort: Shared chats float above pinned chats, which float above others, sorted by updatedAt
                         final sortedChats = List<Chat>.from(chats)..sort((a, b) {
+                          if (a.isShared && !b.isShared) return -1;
+                          if (!a.isShared && b.isShared) return 1;
                           if (a.isPinned && !b.isPinned) return -1;
                           if (!a.isPinned && b.isPinned) return 1;
                           return b.updatedAt.compareTo(a.updatedAt);
@@ -523,7 +525,16 @@ class _ChatDrawerState extends State<ChatDrawer> {
                       overflow: TextOverflow.ellipsis,
                     ),
             ),
-            if (chat.isPinned)
+            if (chat.isShared)
+              const Padding(
+                padding: EdgeInsets.only(left: 8.0),
+                child: Icon(
+                  Icons.share_outlined,
+                  color: AppTheme.highlight,
+                  size: 16,
+                ),
+              )
+            else if (chat.isPinned)
               const Padding(
                 padding: EdgeInsets.only(left: 8.0),
                 child: Icon(
