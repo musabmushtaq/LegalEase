@@ -30,7 +30,7 @@ class _ManageAccessScreenState extends State<ManageAccessScreen> {
     }
   }
 
-  void _confirmRemoveAccess() {
+  void _confirmMakePrivate() {
     showDialog(
       context: context,
       barrierColor: Colors.black.withValues(alpha: 0.6),
@@ -45,7 +45,7 @@ class _ManageAccessScreenState extends State<ManageAccessScreen> {
             ),
           ),
           title: const Text(
-            'Remove Access?',
+            'Make Private?',
             style: TextStyle(
               color: Colors.white,
               fontSize: 18,
@@ -53,7 +53,7 @@ class _ManageAccessScreenState extends State<ManageAccessScreen> {
             ),
           ),
           content: const Text(
-            'Are you sure? All collaborators will lose access, and this chat will revert to private.',
+            'Are you sure? All collaborators will lose access, and this chat will become completely private.',
             style: TextStyle(
               color: Colors.white70,
               fontSize: 14,
@@ -70,10 +70,10 @@ class _ManageAccessScreenState extends State<ManageAccessScreen> {
             TextButton(
               onPressed: () {
                 Navigator.pop(context); // Close dialog
-                _removeAccessAll();
+                _makePrivate();
               },
               child: const Text(
-                'Remove',
+                'Make Private',
                 style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold),
               ),
             ),
@@ -83,7 +83,7 @@ class _ManageAccessScreenState extends State<ManageAccessScreen> {
     );
   }
 
-  Future<void> _removeAccessAll() async {
+  Future<void> _makePrivate() async {
     HapticFeedback.mediumImpact();
     // Revert is_shared to false on server and local cache
     await widget.chatService.toggleShareChat(widget.chat.id, false);
@@ -91,7 +91,7 @@ class _ManageAccessScreenState extends State<ManageAccessScreen> {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('✓ Shared access removed successfully.'),
+          content: Text('✓ Chat is now private.'),
           backgroundColor: AppTheme.background,
           duration: Duration(seconds: 2),
         ),
@@ -132,92 +132,140 @@ class _ManageAccessScreenState extends State<ManageAccessScreen> {
           ),
           
           SafeArea(
-            child: Center(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // Info Icon and Card
-                    Container(
-                      padding: const EdgeInsets.all(24.0),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // CARD 1: Upper Card (Collaborators List Placeholder) - Expanded to take up left space
+                  Expanded(
+                    child: Container(
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.03),
-                        borderRadius: BorderRadius.circular(24.0),
+                        color: Colors.white.withValues(alpha: 0.04),
+                        borderRadius: BorderRadius.circular(16.0),
                         border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.08),
+                          color: Colors.white.withValues(alpha: 0.06),
                           width: 1.0,
                         ),
                       ),
+                      padding: const EdgeInsets.all(16.0),
                       child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Icon(
-                            Icons.people_outline,
-                            color: AppTheme.highlight,
-                            size: 48,
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.people_outline,
+                                color: AppTheme.highlight,
+                                size: 22,
+                              ),
+                              const SizedBox(width: 12),
+                              const Text(
+                                'Collaborators',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
                           ),
                           const SizedBox(height: 16),
-                          const Text(
-                            'Shared Conversation',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            'This chat is currently collaborative. You can revoke access for all invited collaborators below.',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.6),
-                              fontSize: 14,
-                              height: 1.4,
+                          Expanded(
+                            child: Center(
+                              child: Opacity(
+                                opacity: 0.45,
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.group_add_outlined,
+                                      color: Colors.white.withValues(alpha: 0.3),
+                                      size: 36,
+                                    ),
+                                    const SizedBox(height: 12),
+                                    const Text(
+                                      'Collaborators list placeholder',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
                             ),
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(height: 32),
-                    
-                    // Revoke Access Button
-                    Container(
-                      height: 54,
-                      decoration: BoxDecoration(
-                        color: Colors.redAccent.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(27),
-                        border: Border.all(
-                          color: Colors.redAccent.withValues(alpha: 0.2),
-                          width: 1,
-                        ),
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // CARD 2: Bottom Card (No inner button - the entire card is the button itself)
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.04),
+                      borderRadius: BorderRadius.circular(16.0),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.06),
+                        width: 1.0,
                       ),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(16.0),
                       child: Material(
                         color: Colors.transparent,
                         child: InkWell(
                           onTap: () {
                             HapticFeedback.heavyImpact();
-                            _confirmRemoveAccess();
+                            _confirmMakePrivate();
                           },
-                          borderRadius: BorderRadius.circular(27),
-                          child: const Center(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 14.0),
                             child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(
-                                  Icons.lock_reset_outlined,
-                                  color: Colors.redAccent,
-                                  size: 20,
-                                ),
-                                SizedBox(width: 10),
-                                Text(
-                                  "Remove Access All",
-                                  style: TextStyle(
-                                    color: Colors.redAccent,
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w700,
-                                    letterSpacing: 0.3,
+                                Container(
+                                  padding: const EdgeInsets.all(8.0),
+                                  decoration: BoxDecoration(
+                                    color: Colors.redAccent.withValues(alpha: 0.08),
+                                    borderRadius: BorderRadius.circular(8.0),
                                   ),
+                                  child: const Icon(
+                                    Icons.lock_reset_outlined,
+                                    color: Colors.redAccent,
+                                    size: 20,
+                                  ),
+                                ),
+                                const SizedBox(width: 16.0),
+                                const Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        "Make Chat Private",
+                                        style: TextStyle(
+                                          color: Colors.redAccent,
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      SizedBox(height: 4.0),
+                                      Text(
+                                        "Revoke access for all collaborators.",
+                                        style: TextStyle(
+                                          color: Colors.white60,
+                                          fontSize: 12,
+                                          height: 1.3,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const Icon(
+                                  Icons.chevron_right,
+                                  color: Colors.white30,
+                                  size: 20,
                                 ),
                               ],
                             ),
@@ -225,8 +273,8 @@ class _ManageAccessScreenState extends State<ManageAccessScreen> {
                         ),
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),
