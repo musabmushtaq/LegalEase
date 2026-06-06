@@ -866,7 +866,7 @@ class ChatService extends ChangeNotifier {
             if (index != -1) {
               final oldMsg = _messages[currentId]![index];
               _messages[currentId]![index] = ChatMessage(
-                id: oldMsg.id,
+                id: msgData['id'] as String? ?? oldMsg.id,
                 chatId: oldMsg.chatId,
                 sender: oldMsg.sender,
                 content: oldMsg.content,
@@ -874,6 +874,7 @@ class ChatService extends ChangeNotifier {
                 localFilePath: oldMsg.localFilePath,
                 fileId: msgData['file_id'] as String?,
                 fileName: msgData['filename'] as String?,
+                userId: msgData['user_id'] as String? ?? oldMsg.userId,
               );
             }
           }
@@ -933,11 +934,16 @@ class ChatService extends ChangeNotifier {
           assistantMessage['chat_id'] = currentId;
           
           final aiMsg = ChatMessage.fromJson(assistantMessage);
-          aiMsg.isNew = true;
-          _messages[currentId]?.add(aiMsg);
-          _chats[currentId]?.updatedAt = DateTime.now();
-          await _saveCurrentChatToCache();
-          notifyListeners();
+          
+          final currentList = _messages[currentId] ?? [];
+          final exists = currentList.any((m) => m.id == aiMsg.id);
+          if (!exists) {
+            aiMsg.isNew = true;
+            currentList.add(aiMsg);
+            _chats[currentId]?.updatedAt = DateTime.now();
+            await _saveCurrentChatToCache();
+            notifyListeners();
+          }
 
           // 3. Persistent Chat: App explicitly saves AI Message to DB (skip on API error pollution)
           if (!_isTemporaryChat && !aiMsg.content.startsWith('Error:')) {
@@ -1181,17 +1187,35 @@ class ChatService extends ChangeNotifier {
           final incomingMsg = ChatMessage.fromJson(messageData);
           
           final currentList = _messages[_currentChatId] ?? [];
-          final exists = currentList.any((m) => m.id == incomingMsg.id);
-          if (!exists) {
+          final existsById = currentList.any((m) => m.id == incomingMsg.id);
+          if (existsById) return;
+
+          // Check if there is a matching message with same content and sender to replace/update
+          final tempIndex = currentList.indexWhere((m) {
+            if (m.sender != incomingMsg.sender || m.content != incomingMsg.content) {
+              return false;
+            }
+            if (incomingMsg.sender == 'user') {
+              // For user messages, only match if the local message is temporary (doesn't start with 'msg_')
+              return !m.id.startsWith('msg_');
+            } else {
+              // For AI messages, match any message with same content (handles double-broadcast ID change)
+              return true;
+            }
+          });
+
+          if (tempIndex != -1) {
+            currentList[tempIndex] = incomingMsg;
+          } else {
             incomingMsg.isNew = true;
             currentList.add(incomingMsg);
-            
-            if (_chats.containsKey(_currentChatId)) {
-              _chats[_currentChatId]!.updatedAt = DateTime.now();
-            }
-            _saveCurrentChatToCache();
-            notifyListeners();
           }
+          
+          if (_chats.containsKey(_currentChatId)) {
+            _chats[_currentChatId]!.updatedAt = DateTime.now();
+          }
+          _saveCurrentChatToCache();
+          notifyListeners();
         }
       }
     } catch (e) {
