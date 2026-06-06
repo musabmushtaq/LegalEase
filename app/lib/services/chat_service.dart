@@ -1065,6 +1065,70 @@ class ChatService extends ChangeNotifier {
     }
   }
 
+  Future<Map<String, dynamic>?> getUserProfile(String userId) async {
+    try {
+      final uri = Uri.parse('$_apiBaseUrl/users/$userId');
+      final response = await http
+          .get(uri, headers: _headers())
+          .timeout(const Duration(seconds: 5));
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+    } catch (e) {
+      debugPrint('ChatService: Error fetching profile for $userId: $e');
+    }
+    return null;
+  }
+
+  Future<void> _syncSingleChat(String chatId) async {
+    try {
+      final uri = Uri.parse('$_apiBaseUrl/chats/$chatId');
+      final response = await http
+          .get(uri, headers: _headers())
+          .timeout(const Duration(seconds: 5));
+      if (response.statusCode == 200) {
+        final chatJson = jsonDecode(response.body) as Map<String, dynamic>;
+        final chat = Chat.fromJson(chatJson);
+        _chats[chat.id] = chat;
+        
+        final rawMessages = (chatJson['messages'] as List<dynamic>? ?? [])
+            .whereType<Map<String, dynamic>>()
+            .toList();
+        if (rawMessages.isNotEmpty) {
+          _messages[chat.id] = rawMessages.map(ChatMessage.fromJson).toList();
+        }
+        
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('ChatService: Error syncing single chat: $e');
+    }
+  }
+
+  Future<bool> inviteCollaborator(String chatId, String usernameOrEmail) async {
+    try {
+      final uri = Uri.parse('$_apiBaseUrl/chats/$chatId/invite');
+      final response = await http
+          .post(
+            uri,
+            headers: _headers(),
+            body: jsonEncode({'username': usernameOrEmail}),
+          )
+          .timeout(const Duration(seconds: 8));
+
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+        if (decoded['success'] == true) {
+          await _syncSingleChat(chatId);
+          return true;
+        }
+      }
+    } catch (e) {
+      debugPrint('ChatService: Invite collaborator error: $e');
+    }
+    return false;
+  }
+
   Future<void> renameChat(String chatId, String newTitle) async {
     debugPrint('ChatService: renameChat called for $chatId with title: "$newTitle"');
     if (_chats[chatId] != null) {

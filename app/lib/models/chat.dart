@@ -6,6 +6,7 @@ class Chat {
   DateTime updatedAt;
   bool isPinned;
   bool isShared;
+  List<String> collaborators;
 
   Chat({
     required this.id,
@@ -15,6 +16,7 @@ class Chat {
     required this.updatedAt,
     this.isPinned = false,
     this.isShared = false,
+    this.collaborators = const [],
   });
 
   // Data mapping representing exactly how it looks in PostgreSQL
@@ -27,6 +29,10 @@ class Chat {
       updatedAt: DateTime.parse(json['updated_at'] as String),
       isPinned: json['is_pinned'] as bool? ?? false,
       isShared: json['is_shared'] as bool? ?? false,
+      collaborators: (json['collaborators'] as List<dynamic>?)
+              ?.map((e) => e as String)
+              .toList() ??
+          [],
     );
   }
 
@@ -39,6 +45,7 @@ class Chat {
       'updated_at': updatedAt.toIso8601String(),
       'is_pinned': isPinned,
       'is_shared': isShared,
+      'collaborators': collaborators,
     };
   }
 }

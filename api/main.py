@@ -372,7 +372,12 @@ async def invite_collaborator(chat_id: str, payload: InviteCollaboratorRequest) 
     if not chat:
         raise HTTPException(status_code=404, detail="Chat not found")
         
-    user = await db.users.find_one({"username": payload.username})
+    search_term = payload.username.strip()
+    if "@" in search_term:
+        user = await db.users.find_one({"email": {"$regex": f"^{search_term}$", "$options": "i"}})
+    else:
+        user = await db.users.find_one({"username": {"$regex": f"^{search_term}$", "$options": "i"}})
+        
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
         
