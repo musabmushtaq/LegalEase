@@ -28,11 +28,6 @@ class _ManageAccessScreenState extends State<ManageAccessScreen> {
   void initState() {
     super.initState();
     _fetchProfiles();
-    if (!widget.chat.isShared) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        widget.chatService.toggleShareChat(widget.chat.id, true);
-      });
-    }
   }
 
   Future<void> _fetchProfiles() async {
