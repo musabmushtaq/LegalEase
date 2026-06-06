@@ -152,19 +152,15 @@ class _ChatDrawerState extends State<ChatDrawer> {
                     color: AppTheme.highlight,
                     onTap: () {
                       Navigator.pop(context);
-                      if (chat.isShared) {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => ManageAccessScreen(
-                              chatService: widget.chatService,
-                              chat: chat,
-                            ),
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => ManageAccessScreen(
+                            chatService: widget.chatService,
+                            chat: chat,
                           ),
-                        );
-                      } else {
-                        widget.chatService.toggleShareChat(chat.id, true);
-                      }
+                        ),
+                      );
                     },
                   ),
                   const Divider(color: Colors.white10, height: 1),

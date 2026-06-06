@@ -20,6 +20,16 @@ class ManageAccessScreen extends StatefulWidget {
 }
 
 class _ManageAccessScreenState extends State<ManageAccessScreen> {
+  @override
+  void initState() {
+    super.initState();
+    if (!widget.chat.isShared) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        widget.chatService.toggleShareChat(widget.chat.id, true);
+      });
+    }
+  }
+
   void _confirmRemoveAccess() {
     showDialog(
       context: context,
