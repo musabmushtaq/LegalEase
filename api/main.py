@@ -1040,7 +1040,7 @@ async def clear_user_chats(user_id: str):
     return {"status": "success", "message": "All chat history cleared successfully."}
 
 @app.post("/chats/{chat_id}/messages_with_file")
-async def add_message_with_file(chat_id: str, content: str = Form(...), file: UploadFile = File(None)):
+async def add_message_with_file(chat_id: str, request: Request, content: str = Form(...), file: UploadFile = File(None)):
     # Replaces normal messages endpoint to also handle files
     chat = await db.chats.find_one({"chat_id": chat_id})
     if not chat:
@@ -1068,13 +1068,25 @@ async def add_message_with_file(chat_id: str, content: str = Form(...), file: Up
             "uploaded_at": created_at
         })
 
+    # Decode JWT to get user_id
+    user_id = None
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        try:
+            token = auth_header.split(" ")[1]
+            payload_data = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+            user_id = payload_data.get("user_id")
+        except Exception as e:
+            print(f"Failed to decode token in add_message_with_file: {e}")
+
     user_message = {
         "id": make_id("msg"),
         "sender": "user",
         "content": content,
         "file_id": file_id,
         "filename": file.filename if file else None,
-        "created_at": created_at
+        "created_at": created_at,
+        "user_id": user_id
     }
 
     await db.chats.update_one(
@@ -1084,6 +1096,13 @@ async def add_message_with_file(chat_id: str, content: str = Form(...), file: Up
             "$set": {"updated_at": now_iso()},
         },
     )
+
+    await manager.broadcast({
+        "type": "new_message",
+        "chat_id": chat_id,
+        "message": user_message
+    }, chat_id)
+
     return {"chat_id": chat_id, "message": user_message}
 
 @app.get("/users/{user_id}/search")

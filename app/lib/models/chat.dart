@@ -60,6 +60,7 @@ class ChatMessage {
   final String? localFilePath;
   final String? fileId;
   final String? fileName;
+  final String? userId;
 
   ChatMessage({
     required this.id,
@@ -71,6 +72,7 @@ class ChatMessage {
     this.localFilePath,
     this.fileId,
     this.fileName,
+    this.userId,
   });
 
   factory ChatMessage.fromJson(Map<String, dynamic> json) {
@@ -83,6 +85,7 @@ class ChatMessage {
       localFilePath: json['local_file_path'] as String?,
       fileId: json['file_id'] as String?,
       fileName: json['filename'] as String?,
+      userId: json['user_id'] as String?,
     );
   }
 
@@ -96,6 +99,7 @@ class ChatMessage {
       if (localFilePath != null) 'local_file_path': localFilePath,
       if (fileId != null) 'file_id': fileId,
       if (fileName != null) 'filename': fileName,
+      if (userId != null) 'user_id': userId,
     };
   }
 }
