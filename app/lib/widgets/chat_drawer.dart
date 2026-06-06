@@ -145,6 +145,24 @@ class _ChatDrawerState extends State<ChatDrawer> {
                       _togglePin(chat.id);
                     },
                   ),
+                  _buildMenuItem(
+                    icon: chat.isShared ? Icons.people_outline : Icons.share_outlined,
+                    label: chat.isShared ? 'Manage Shared Access' : 'Share Chat',
+                    color: AppTheme.highlight,
+                    onTap: () {
+                      Navigator.pop(context);
+                      if (chat.isShared) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Manage Shared Access coming soon...'),
+                            backgroundColor: AppTheme.highlight,
+                          ),
+                        );
+                      } else {
+                        widget.chatService.toggleShareChat(chat.id, true);
+                      }
+                    },
+                  ),
                   const Divider(color: Colors.white10, height: 1),
                   _buildMenuItem(
                     icon: Icons.delete,

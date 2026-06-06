@@ -1039,6 +1039,32 @@ class ChatService extends ChangeNotifier {
     }
   }
 
+  Future<void> toggleShareChat(String chatId, bool isShared) async {
+    debugPrint('ChatService: toggleShareChat called for $chatId with value $isShared');
+    if (_chats[chatId] != null) {
+      _chats[chatId]!.isShared = isShared;
+      // Update cache if this is the current chat
+      if (_currentChatId == chatId) {
+        await _saveCurrentChatToCache();
+      }
+      notifyListeners();
+
+      // Sync share state to backend database
+      try {
+        final uri = Uri.parse('$_apiBaseUrl/chats/$chatId');
+        await http
+            .patch(
+              uri,
+              headers: _headers(),
+              body: jsonEncode({'is_shared': isShared}),
+            )
+            .timeout(const Duration(seconds: 10));
+      } catch (e) {
+        debugPrint('ChatService: Error syncing share state: $e');
+      }
+    }
+  }
+
   Future<void> renameChat(String chatId, String newTitle) async {
     debugPrint('ChatService: renameChat called for $chatId with title: "$newTitle"');
     if (_chats[chatId] != null) {

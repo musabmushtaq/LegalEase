@@ -5,6 +5,7 @@ class Chat {
   final DateTime createdAt;
   DateTime updatedAt;
   bool isPinned;
+  bool isShared;
 
   Chat({
     required this.id,
@@ -13,6 +14,7 @@ class Chat {
     required this.createdAt,
     required this.updatedAt,
     this.isPinned = false,
+    this.isShared = false,
   });
 
   // Data mapping representing exactly how it looks in PostgreSQL
@@ -24,6 +26,7 @@ class Chat {
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
       isPinned: json['is_pinned'] as bool? ?? false,
+      isShared: json['is_shared'] as bool? ?? false,
     );
   }
 
@@ -35,6 +38,7 @@ class Chat {
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
       'is_pinned': isPinned,
+      'is_shared': isShared,
     };
   }
 }

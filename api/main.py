@@ -131,6 +131,7 @@ class CreateChatRequest(BaseModel):
 class UpdateChatRequest(BaseModel):
     title: str | None = None
     is_pinned: bool | None = None
+    is_shared: bool | None = None
 
 
 class InviteCollaboratorRequest(BaseModel):
@@ -355,6 +356,8 @@ async def update_chat(chat_id: str, payload: UpdateChatRequest) -> dict[str, Any
         updates["title"] = payload.title.strip() or chat.get("title", "New Chat")
     if payload.is_pinned is not None:
         updates["is_pinned"] = payload.is_pinned
+    if payload.is_shared is not None:
+        updates["is_shared"] = payload.is_shared
 
     await db.chats.update_one({"chat_id": chat_id}, {"$set": updates})
     updated = await db.chats.find_one({"chat_id": chat_id})
