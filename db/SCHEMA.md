@@ -8,12 +8,13 @@ Stores user account information, context, and authentication.
 
 ```json
 {
-  "_id": ObjectId(),
-  "userId": "user_123",
-  "email": "lawyer@example.com",
-  "username": "john_doe",
-  "passwordHash": "bcrypt_encrypted_hash",
-  "context": "I am a real estate attorney looking for landlord-tenant templates."
+  "_id": ObjectId("69da98d356c7c39e39d2dc16"),
+  "user_id": "user_3089ba2af7b8",
+  "email": "musabmushtaq952@gmail.com",
+  "username": "musab",
+  "password": "$2b$12$ncNxlwj5nc/SPP2Eft5UDOgXLqoHzGp9F2Jv/6hbIAbXerZyGB42S",
+  "context": "I am a real estate attorney looking for landlord-tenant templates.",
+  "created_at": "2026-04-11T18:54:11.380895+00:00"
 }
 ```
 
@@ -23,50 +24,47 @@ Stores individual chat conversations with messages embedded.
 
 ```json
 {
-  "_id": ObjectId(),
-  "chatId": "chat_abc123",
-  "ownerId": "user_123",
-  "collaborators": ["user_456"],
-  "title": "Contract Review - NDA Clause",
-  "isPinned": false,
+  "_id": ObjectId("6a0c35f352680fd21fbcb9f2"),
+  "chat_id": "chat_f82cc27847b4",
+  "owner_id": "user_af748175fe85",
+  "collaborators": ["user_b28192cd44f1"],
+  "title": "Contract Review",
+  "is_pinned": false,
+  "is_shared": false,
   "messages": [
     {
-      "messageId": "msg_001",
-      "userId": "user_123",
-      "role": "user",
+      "id": "msg_8d249f05a1ce",
+      "chat_id": "chat_f82cc27847b4",
+      "sender": "user",
       "content": "Please review this NDA clause",
-      "attachments": [
-        {
-          "fileId": "file_xyz",
-          "filename": "contract.pdf"
-        }
-      ],
-      "createdAt": ISODate("2026-03-22T10:05:00Z")
+      "file_id": "file_a7e937d10b9d",
+      "filename": "contract.pdf",
+      "created_at": "2026-05-19T10:05:39.980116+00:00"
     },
     {
-      "messageId": "msg_002",
-      "userId": null,
-      "role": "assistant",
+      "id": "msg_90e38bc2fa01",
+      "sender": "ai",
       "content": "I've analyzed the NDA clause. Here are my findings...",
-      "createdAt": ISODate("2026-03-22T10:06:00Z")
+      "created_at": "2026-05-19T10:06:00.284062+00:00"
     }
   ],
-  "createdAt": ISODate("2026-03-22T10:00:00Z"),
-  "updatedAt": ISODate("2026-03-22T10:06:00Z")
+  "created_at": "2026-05-19T10:05:39.980116+00:00",
+  "updated_at": "2026-05-19T10:06:00.284062+00:00"
 }
 ```
 
 # Files
 
-Stores metadata for uploaded documents (actual files stored locally at `C:\legalEaseDB`).
+Stores metadata for uploaded documents (actual files stored locally under the uploads directory).
 
 ```json
 {
-  "_id": ObjectId(),
-  "fileId": "file_xyz",
-  "userId": "user_123",
-  "filepath": "C:\\legalEaseDB\\user_123\\contract.pdf",
-  "uploadedAt": ISODate("2026-03-22T10:00:00Z")
+  "_id": ObjectId("6e0c12e847c21faef5d19a2e"),
+  "file_id": "file_a7e937d10b9d",
+  "filename": "contract.pdf",
+  "file_path": "C:\\repo\\LegalEase\\api\\uploads\\file_a7e937d10b9d_contract.pdf",
+  "chat_id": "chat_f82cc27847b4",
+  "uploaded_at": "2026-05-19T10:05:39.980116+00:00"
 }
 ```
 
@@ -74,13 +72,15 @@ Stores metadata for uploaded documents (actual files stored locally at `C:\legal
 
 ```
 users (1 owner) ──────> (many) chats
+                           └───> messages Array (Embedded)
+                                     └───> references files via file_id/filename
 
 chats (1 chat, many messages)
-  ├── ownerId links to user
+  ├── owner_id links to user
   ├── collaborators links to array of users
   ├── contains messages array
-  └── references files via fileId in attachments
+  └── messages reference files directly via file_id/filename if attachments exist
 
 files (1 file, many chats potentially)
-  └── stored at filepath in C:\legalEaseDB
+  └── stored at file_path on disk
 ```

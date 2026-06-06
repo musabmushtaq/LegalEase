@@ -243,6 +243,7 @@ def chat_to_response(chat: dict[str, Any]) -> dict[str, Any]:
         "created_at": chat["created_at"],
         "updated_at": chat["updated_at"],
         "is_pinned": chat.get("is_pinned", False),
+        "is_shared": chat.get("is_shared", False),
         "messages": chat.get("messages", []),
     }
 
@@ -326,6 +327,7 @@ async def create_chat(user_id: str, payload: CreateChatRequest) -> dict[str, Any
         "collaborators": [],
         "title": payload.title.strip() or "New Chat",
         "is_pinned": False,
+        "is_shared": False,
         "messages": [],
         "created_at": created_at,
         "updated_at": created_at,
@@ -384,7 +386,10 @@ async def invite_collaborator(chat_id: str, payload: InviteCollaboratorRequest) 
         {"chat_id": chat_id},
         {
             "$push": {"collaborators": user_id_to_add},
-            "$set": {"updated_at": now_iso()}
+            "$set": {
+                "is_shared": True,
+                "updated_at": now_iso()
+            }
         }
     )
     
