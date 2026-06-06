@@ -7,6 +7,7 @@ import '../models/chat.dart';
 import '../services/chat_service.dart';
 import '../screens/login_screen.dart';
 import '../screens/settings_screen.dart';
+import '../screens/manage_access_screen.dart';
 
 class ChatDrawer extends StatefulWidget {
   final ChatService chatService;
@@ -152,10 +153,13 @@ class _ChatDrawerState extends State<ChatDrawer> {
                     onTap: () {
                       Navigator.pop(context);
                       if (chat.isShared) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Manage Shared Access coming soon...'),
-                            backgroundColor: AppTheme.highlight,
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => ManageAccessScreen(
+                              chatService: widget.chatService,
+                              chat: chat,
+                            ),
                           ),
                         );
                       } else {
