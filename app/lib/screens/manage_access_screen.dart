@@ -148,6 +148,90 @@ class _ManageAccessScreenState extends State<ManageAccessScreen> {
     }
   }
 
+  Future<void> _confirmRemoveCollaborator(String usernameOrEmail) async {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black.withValues(alpha: 0.6),
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: Colors.black.withValues(alpha: 0.9),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20.0),
+            side: BorderSide(
+              color: Colors.white.withValues(alpha: 0.08),
+              width: 1.0,
+            ),
+          ),
+          title: const Text(
+            'Remove Collaborator',
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          content: Text(
+            'Are you sure you want to remove $usernameOrEmail from this chat?',
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 14,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text(
+                'Cancel',
+                style: TextStyle(color: Colors.grey),
+              ),
+            ),
+            TextButton(
+              onPressed: () async {
+                final messenger = ScaffoldMessenger.of(this.context);
+                Navigator.pop(context); // Close confirm dialog
+                
+                setState(() {
+                  _isLoading = true;
+                });
+                
+                final success = await widget.chatService.removeCollaborator(
+                  widget.chat.id,
+                  usernameOrEmail,
+                );
+                
+                if (mounted) {
+                  setState(() {
+                    _isLoading = false;
+                  });
+                  
+                  if (success) {
+                    _fetchProfiles(); // Refresh the list
+                    messenger.showSnackBar(
+                      SnackBar(
+                        content: Text('✓ Removed $usernameOrEmail.'),
+                        backgroundColor: AppTheme.background,
+                      ),
+                    );
+                  } else {
+                    messenger.showSnackBar(
+                      const SnackBar(
+                        content: Text('Failed to remove collaborator.'),
+                        backgroundColor: AppTheme.background,
+                      ),
+                    );
+                  }
+                }
+              },
+              child: const Text(
+                'Remove',
+                style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   void _showInviteDialog() {
     final controller = TextEditingController();
     bool isInviting = false;
@@ -376,6 +460,15 @@ class _ManageAccessScreenState extends State<ManageAccessScreen> {
               ],
             ),
           ),
+          if (!isOwner)
+            IconButton(
+              icon: const Icon(
+                Icons.delete_outline_rounded,
+                color: Colors.redAccent,
+                size: 20,
+              ),
+              onPressed: () => _confirmRemoveCollaborator(username),
+            ),
         ],
       ),
     );

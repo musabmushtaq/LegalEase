@@ -376,9 +376,9 @@ async def invite_collaborator(chat_id: str, payload: InviteCollaboratorRequest) 
         
     search_term = payload.username.strip()
     if "@" in search_term:
-        user = await db.users.find_one({"email": {"$regex": f"^{search_term}$", "$options": "i"}})
+        user = await db.users.find_one({"email": search_term})
     else:
-        user = await db.users.find_one({"username": {"$regex": f"^{search_term}$", "$options": "i"}})
+        user = await db.users.find_one({"username": search_term})
         
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -404,6 +404,44 @@ async def invite_collaborator(chat_id: str, payload: InviteCollaboratorRequest) 
     )
     
     return {"success": True, "message": f"User {payload.username} added as collaborator."}
+
+
+@app.post("/chats/{chat_id}/remove")
+async def remove_collaborator(chat_id: str, payload: InviteCollaboratorRequest) -> dict[str, Any]:
+    chat = await db.chats.find_one({"chat_id": chat_id})
+    if not chat:
+        raise HTTPException(status_code=404, detail="Chat not found")
+        
+    search_term = payload.username.strip()
+    if "@" in search_term:
+        user = await db.users.find_one({"email": search_term})
+    else:
+        user = await db.users.find_one({"username": search_term})
+        
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    user_id_to_remove = user["user_id"]
+    collaborators = chat.get("collaborators", [])
+    
+    if user_id_to_remove not in collaborators:
+        return {"success": True, "message": "User is not a collaborator."}
+        
+    new_collaborators = [c for c in collaborators if c != user_id_to_remove]
+    is_shared = len(new_collaborators) > 0
+    
+    await db.chats.update_one(
+        {"chat_id": chat_id},
+        {
+            "$pull": {"collaborators": user_id_to_remove},
+            "$set": {
+                "is_shared": is_shared,
+                "updated_at": now_iso()
+            }
+        }
+    )
+    
+    return {"success": True, "message": f"User {payload.username} removed from collaborators."}
 
 
 @app.delete("/chats/{chat_id}")

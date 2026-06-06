@@ -1133,6 +1133,30 @@ class ChatService extends ChangeNotifier {
     return false;
   }
 
+  Future<bool> removeCollaborator(String chatId, String usernameOrEmail) async {
+    try {
+      final uri = Uri.parse('$_apiBaseUrl/chats/$chatId/remove');
+      final response = await http
+          .post(
+            uri,
+            headers: _headers(),
+            body: jsonEncode({'username': usernameOrEmail}),
+          )
+          .timeout(const Duration(seconds: 8));
+
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+        if (decoded['success'] == true) {
+          await _syncSingleChat(chatId);
+          return true;
+        }
+      }
+    } catch (e) {
+      debugPrint('ChatService: Remove collaborator error: $e');
+    }
+    return false;
+  }
+
   Future<void> renameChat(String chatId, String newTitle) async {
     debugPrint('ChatService: renameChat called for $chatId with title: "$newTitle"');
     if (_chats[chatId] != null) {

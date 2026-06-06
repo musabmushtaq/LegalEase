@@ -158,6 +158,7 @@ class _ChatDrawerState extends State<ChatDrawer> {
                             _togglePin(chat.id);
                           },
                         ),
+                        const SizedBox(height: 10),
                         if (chat.userId == widget.chatService.userId) ...[
                           _buildMenuItem(
                             icon: chat.isShared ? Icons.people_outline : Icons.share_outlined,
