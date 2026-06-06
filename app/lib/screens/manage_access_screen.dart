@@ -132,13 +132,6 @@ class _ManageAccessScreenState extends State<ManageAccessScreen> {
     await widget.chatService.toggleShareChat(widget.chat.id, false);
     
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('✓ Chat is now private.'),
-          backgroundColor: AppTheme.background,
-          duration: Duration(seconds: 2),
-        ),
-      );
       Navigator.pop(context); // Go back to the chat screen
     }
   }
@@ -181,7 +174,6 @@ class _ManageAccessScreenState extends State<ManageAccessScreen> {
             ),
             TextButton(
               onPressed: () async {
-                final messenger = ScaffoldMessenger.of(this.context);
                 Navigator.pop(context); // Close confirm dialog
                 
                 setState(() {
@@ -200,19 +192,6 @@ class _ManageAccessScreenState extends State<ManageAccessScreen> {
                   
                   if (success) {
                     _fetchProfiles(); // Refresh the list
-                    messenger.showSnackBar(
-                      SnackBar(
-                        content: Text('✓ Removed $usernameOrEmail.'),
-                        backgroundColor: AppTheme.background,
-                      ),
-                    );
-                  } else {
-                    messenger.showSnackBar(
-                      const SnackBar(
-                        content: Text('Failed to remove collaborator.'),
-                        backgroundColor: AppTheme.background,
-                      ),
-                    );
                   }
                 }
               },
@@ -353,7 +332,6 @@ class _ManageAccessScreenState extends State<ManageAccessScreen> {
                           }
 
                           final navigator = Navigator.of(context);
-                          final messenger = ScaffoldMessenger.of(this.context);
 
                           setState(() {
                             isInviting = true;
@@ -368,14 +346,6 @@ class _ManageAccessScreenState extends State<ManageAccessScreen> {
                           if (success) {
                             navigator.pop(); // Close dialog
                             _fetchProfiles(); // Refresh the list
-                            if (mounted) {
-                              messenger.showSnackBar(
-                                SnackBar(
-                                  content: Text('✓ Successfully added $value to chat.'),
-                                  backgroundColor: AppTheme.background,
-                                ),
-                              );
-                            }
                           } else {
                             setState(() {
                               isInviting = false;
@@ -605,7 +575,6 @@ class _ManageAccessScreenState extends State<ManageAccessScreen> {
                                           subtitle: 'Owner',
                                           isOwner: true,
                                         ),
-                                      const Divider(color: Colors.white10, height: 16),
                                       if (_collaborators.isEmpty)
                                         Padding(
                                           padding: const EdgeInsets.symmetric(vertical: 40.0),
