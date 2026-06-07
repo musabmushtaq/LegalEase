@@ -1000,17 +1000,6 @@ class ChatService extends ChangeNotifier {
     return [];
   }
 
-  List<Chat> localSearchChats(String query) {
-    if (query.isEmpty) return [];
-    final lowerQuery = query.toLowerCase();
-    return _chats.values.where((chat) {
-      final titleMatch = chat.title.toLowerCase().contains(lowerQuery);
-      final messages = _messages[chat.id] ?? [];
-      final messageMatch = messages.any((msg) => msg.content.toLowerCase().contains(lowerQuery));
-      return titleMatch || messageMatch;
-    }).toList();
-  }
-
   Future<void> setSearchQuery(String query) async {
     final trimmed = query.trim();
     if (_searchQuery == trimmed) return;
@@ -1022,11 +1011,7 @@ class ChatService extends ChangeNotifier {
       return;
     }
 
-    // Quick local search first for instant UI responsiveness
-    _searchResults = localSearchChats(_searchQuery);
-    notifyListeners();
-
-    // If online, query the server for comprehensive search
+    // Purely online search
     final isOnline = await checkInitialAndInstantNetwork();
     if (isOnline && _userId != null) {
       try {
@@ -1037,7 +1022,15 @@ class ChatService extends ChangeNotifier {
           notifyListeners();
         }
       } catch (_) {
-        // If server fails, we keep local search results
+        if (_searchQuery == trimmed) {
+          _searchResults = [];
+          notifyListeners();
+        }
+      }
+    } else {
+      if (_searchQuery == trimmed) {
+        _searchResults = [];
+        notifyListeners();
       }
     }
   }
