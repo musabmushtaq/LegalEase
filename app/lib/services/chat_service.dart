@@ -614,6 +614,10 @@ class ChatService extends ChangeNotifier {
       _cleanupSessionTempChat();
     }
     _currentChatId = null;
+    SharedPreferences.getInstance().then((prefs) {
+      prefs.remove('currentChatCache');
+      prefs.remove('currentChatIdCache');
+    }).catchError((_) {});
     notifyListeners();
   }
 

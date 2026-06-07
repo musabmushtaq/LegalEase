@@ -313,9 +313,9 @@ class _ChatDrawerState extends State<ChatDrawer> {
                           child: Material(
                             color: Colors.transparent,
                             child: InkWell(
-                              onTap: () async {
+                              onTap: () {
                                 HapticFeedback.mediumImpact();
-                                await widget.chatService.createNewChat();
+                                widget.chatService.clearCurrentChat();
                                 _searchController.clear();
                                 widget.chatService.setSearchQuery('');
                                 if (!context.mounted) return;
