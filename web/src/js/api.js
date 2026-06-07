@@ -247,6 +247,20 @@ export async function shareChat(chatId, enabled = true) {
     });
 }
 
+export async function inviteCollaborator(chatId, username) {
+    return apiCall(`/chats/${chatId}/invite`, {
+        method: 'POST',
+        body: JSON.stringify({ username }),
+    });
+}
+
+export async function removeCollaborator(chatId, username) {
+    return apiCall(`/chats/${chatId}/remove`, {
+        method: 'POST',
+        body: JSON.stringify({ username }),
+    });
+}
+
 export async function searchChats(userId, query) {
     return apiCall(`/users/${userId}/search?query=${encodeURIComponent(query)}`);
 }

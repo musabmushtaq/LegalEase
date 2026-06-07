@@ -1,5 +1,5 @@
 // Chat management module
-import { state, CHAT_CACHE_KEY } from './config.js';
+import { state, CHAT_CACHE_KEY, API_BASE_URL } from './config.js';
 import { 
     loadChats as apiLoadChats, 
     createChat as apiCreateChat, 
@@ -49,6 +49,8 @@ export async function loadChatsFromServer(userId) {
                 isPinned: item.is_pinned || false,
                 isShared: item.is_shared || false,
                 shareLink: item.share_link || null,
+                userId: item.user_id || null,
+                collaborators: item.collaborators || [],
             };
             state.messages[item.id] = (item.messages || []).map(msg => ({
                 id: msg.id,
@@ -83,6 +85,8 @@ export async function createNewChat(userId) {
             isPinned: response.is_pinned || false,
             isShared: response.is_shared || false,
             shareLink: response.share_link || null,
+            userId: response.user_id || userId,
+            collaborators: response.collaborators || [],
         };
         state.messages[response.id] = [];
         state.currentChatId = response.id;
@@ -111,6 +115,7 @@ export function createLocalChat() {
 export function selectChat(chatId) {
     state.currentChatId = chatId;
     saveChatCache();
+    connectChatWebSocket(chatId);
 }
 
 function isServerBackedChat(chatId) {
@@ -218,4 +223,82 @@ export function getCurrentChat() {
 
 export function getCurrentMessages() {
     return state.currentChatId ? (state.messages[state.currentChatId] || []) : [];
+}
+
+export function disconnectChatWebSocket() {
+    if (state.wsConnection) {
+        try {
+            state.wsConnection.close();
+        } catch (_) {}
+        state.wsConnection = null;
+    }
+}
+
+export function connectChatWebSocket(chatId) {
+    disconnectChatWebSocket();
+    if (!chatId || state.isTemporaryChat || String(chatId).startsWith('local_')) {
+        return;
+    }
+
+    const base = (window.API_BASE_URL) ? window.API_BASE_URL : API_BASE_URL;
+    const wsScheme = base.startsWith('https') ? 'wss' : 'ws';
+    const urlWithoutScheme = base.replace(/^https?:\/\//, '');
+    const wsUrl = `${wsScheme}://${urlWithoutScheme}/ws/chats/${chatId}`;
+
+    try {
+        const ws = new WebSocket(wsUrl);
+        state.wsConnection = ws;
+
+        ws.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                if (data.type === 'new_message' && data.chat_id === chatId) {
+                    const msg = data.message;
+                    if (!msg || !msg.id) return;
+
+                    // Initialize array if undefined
+                    if (!state.messages[chatId]) {
+                        state.messages[chatId] = [];
+                    }
+
+                    // Check if message already exists
+                    const exists = state.messages[chatId].some(m => m.id === msg.id);
+                    if (!exists) {
+                        state.messages[chatId].push({
+                            id: msg.id,
+                            sender: msg.sender,
+                            content: msg.content,
+                            createdAt: msg.created_at,
+                            edited_at: msg.edited_at,
+                            fileId: msg.file_id || null,
+                            fileName: msg.filename || null,
+                            isNew: true,
+                        });
+                        
+                        // Save cache
+                        saveChatCache();
+
+                        // Call renderMessages if this is the active chat
+                        if (state.currentChatId === chatId && typeof window.renderMessages === 'function') {
+                            window.renderMessages();
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error('Error parsing WebSocket message:', err);
+            }
+        };
+
+        ws.onclose = () => {
+            if (state.wsConnection === ws) {
+                state.wsConnection = null;
+            }
+        };
+
+        ws.onerror = (err) => {
+            console.error('WebSocket error:', err);
+        };
+    } catch (e) {
+        console.error('Failed to connect WebSocket:', e);
+    }
 }

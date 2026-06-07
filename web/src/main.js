@@ -1,9 +1,9 @@
 // Main application entry point
 import { API_BASE_URL, state, CONNECTIVITY_CHECK_INTERVAL, DEFAULT_USER_ID } from './js/config.js';
 import { loadAuthState, saveAuthState, clearAuthState, handleLogin, handleRegister, handleLogout, toggleTemporaryMode, ensureUserId } from './js/auth.js';
-import { loadChatCache, saveChatCache, loadChatsFromServer, createNewChat, createLocalChat, selectChat, renameChat, togglePinChat, removeChat, searchChatsServer, searchChatsLocal } from './js/chat.js';
-import { initializeDOM, toggleDrawer, closeDrawer, renderUserState, renderTemporaryToggle, renderConnectionBanner, openAuthModal, closeAuthModal, renderDrawer, renderMessages, getUIElements, updateAttachmentPreview, openSettingsModal, closeSettingsModal, renderThinkingIndicator, removeThinkingIndicator, renderContextPill, updatePersonaBtn, showPrivacySections } from './js/ui.js';
-import { checkHealth, saveUserMessage, generateAiReply, saveAiMessage, summarizeText, updateMessage as apiUpdateMessage, deleteMessage as apiDeleteMessage, downloadFile as apiDownloadFile, clearPersonalContext, clearAllHistory, deleteUserAccount, getUserProfile } from './js/api.js';
+import { loadChatCache, saveChatCache, loadChatsFromServer, createNewChat, createLocalChat, selectChat, renameChat, togglePinChat, removeChat, searchChatsServer, searchChatsLocal, disconnectChatWebSocket, connectChatWebSocket } from './js/chat.js';
+import { initializeDOM, toggleDrawer, closeDrawer, renderUserState, renderTemporaryToggle, renderConnectionBanner, openAuthModal, closeAuthModal, renderDrawer, renderMessages, getUIElements, updateAttachmentPreview, openSettingsModal, closeSettingsModal, renderThinkingIndicator, removeThinkingIndicator, renderContextPill, updatePersonaBtn, showPrivacySections, openManageAccessModal, closeManageAccessModal } from './js/ui.js';
+import { checkHealth, saveUserMessage, generateAiReply, saveAiMessage, summarizeText, updateMessage as apiUpdateMessage, deleteMessage as apiDeleteMessage, downloadFile as apiDownloadFile, clearPersonalContext, clearAllHistory, deleteUserAccount, getUserProfile, inviteCollaborator, removeCollaborator, updateChat } from './js/api.js';
 import { debounce, showMessage, logError, showCustomConfirm, showCustomPrompt } from './js/utils.js';
 
 let connectivityInterval = null;
@@ -25,6 +25,11 @@ window.tryReconnect = ensureConnectivity;
 window.showChatMenuUI = showChatMenuUI;
 window.hideChatMenuUI = hideChatMenuUI;
 window.clearAttachmentUI = clearAttachment;
+window.renderMessages = renderMessages;
+window.renderDrawer = renderDrawer;
+window.removeCollaboratorUI = removeCollaboratorUI;
+window.openManageAccessModalUI = openManageAccessModal;
+window.closeManageAccessModalUI = closeManageAccessModal;
 window.openSettingsModalUI = () => {
     console.log("Global openSettingsModalUI called");
     const uiEls = getUIElements();
@@ -85,6 +90,10 @@ async function initializeApp() {
         }
         if (!state.currentChatId && (!state.authToken || state.isTemporaryChat)) {
             createLocalChat();
+        }
+
+        if (state.currentChatId) {
+            connectChatWebSocket(state.currentChatId);
         }
 
         renderDrawer();
@@ -188,6 +197,16 @@ function setupEventListeners() {
         closeSettingsModal();
         handleAuthAction();
     });
+
+    // Collaboration
+    document.getElementById('shareBtn')?.addEventListener('click', () => {
+        openManageAccessModal();
+    });
+    document.getElementById('manageAccessCloseBtn')?.addEventListener('click', () => {
+        closeManageAccessModal();
+    });
+    document.getElementById('inviteForm')?.addEventListener('submit', handleInviteSubmit);
+    document.getElementById('revokeAccessBtn')?.addEventListener('click', handleRevokeAccess);
 
     // Sidebar custom actions
     const sidebarNewChatBtn = document.getElementById('sidebarNewChatBtn');
@@ -644,6 +663,7 @@ function clearAttachment() {
 // ─── Auth ──────────────────────────────────────────────────────────────────────
 async function handleAuthAction() {
     if (state.authToken) {
+        disconnectChatWebSocket();
         handleLogout();
         state.chats = {};
         state.messages = {};
@@ -686,6 +706,9 @@ async function handleAuthSubmit(event) {
         if (state.userId) {
             await loadChatsFromServer(state.userId);
         }
+        if (state.currentChatId) {
+            connectChatWebSocket(state.currentChatId);
+        }
         renderDrawer();
         renderMessages();
     } catch (error) {
@@ -695,10 +718,93 @@ async function handleAuthSubmit(event) {
 }
 
 function toggleTemporaryChatMode() {
+    disconnectChatWebSocket();
     toggleTemporaryMode();
     renderUserState();
     renderTemporaryToggle();
     saveChatCache();
+}
+
+// ─── Collaboration ─────────────────────────────────────────────────────────────
+async function handleInviteSubmit(event) {
+    event.preventDefault();
+    const input = document.getElementById('inviteUsername');
+    if (!input) return;
+    const value = input.value.trim();
+    if (!value) return;
+
+    const chatId = state.currentChatId;
+    if (!chatId) return;
+
+    try {
+        const inviteBtn = document.getElementById('inviteSubmitBtn');
+        if (inviteBtn) inviteBtn.disabled = true;
+        
+        const res = await inviteCollaborator(chatId, value);
+        if (res && res.success) {
+            showMessage(`Successfully invited ${value}.`);
+            input.value = '';
+            
+            // Reload chat details and update UI
+            await loadChatsFromServer(state.userId);
+            // Refresh modal
+            await openManageAccessModal();
+            renderDrawer();
+        } else {
+            showMessage(res?.message || 'Could not invite collaborator.');
+        }
+    } catch (err) {
+        logError('handleInviteSubmit', err);
+        showMessage(err.message || 'Error inviting collaborator.');
+    } finally {
+        const inviteBtn = document.getElementById('inviteSubmitBtn');
+        if (inviteBtn) inviteBtn.disabled = false;
+    }
+}
+
+async function handleRevokeAccess() {
+    const chatId = state.currentChatId;
+    if (!chatId) return;
+
+    const confirmed = await showCustomConfirm('Are you sure you want to revoke access? All collaborators will lose access, and this chat will become private.');
+    if (!confirmed) return;
+
+    try {
+        // PATCH updateChat with is_shared: false
+        await updateChat(chatId, { is_shared: false });
+        showMessage('Chat access revoked.');
+        
+        closeManageAccessModal();
+        await loadChatsFromServer(state.userId);
+        renderDrawer();
+        renderMessages();
+    } catch (err) {
+        logError('handleRevokeAccess', err);
+        showMessage('Error revoking access.');
+    }
+}
+
+async function removeCollaboratorUI(username) {
+    const chatId = state.currentChatId;
+    if (!chatId) return;
+
+    const confirmed = await showCustomConfirm(`Remove collaborator ${username} from this chat?`);
+    if (!confirmed) return;
+
+    try {
+        const res = await removeCollaborator(chatId, username);
+        if (res && res.success) {
+            showMessage(`Removed ${username}.`);
+            await loadChatsFromServer(state.userId);
+            await openManageAccessModal();
+            renderDrawer();
+        } else {
+            showMessage(res?.message || 'Could not remove collaborator.');
+        }
+    } catch (err) {
+        logError('removeCollaboratorUI', err);
+        showMessage(err.message || 'Error removing collaborator.');
+    }
 }
 
 // ─── Search ────────────────────────────────────────────────────────────────────

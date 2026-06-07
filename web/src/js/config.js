@@ -38,6 +38,7 @@ const state = {
     sharedView: false,
     useContext: false,       // persona/context mode toggle
     isAiThinking: false,     // true while waiting for AI response
+    wsConnection: null,      // active WebSocket connection
 };
 
 export {
