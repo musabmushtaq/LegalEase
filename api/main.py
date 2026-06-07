@@ -947,8 +947,14 @@ async def add_message_with_file(chat_id: str, content: str = Form(...), file: Up
 
 @app.get("/users/{user_id}/search")
 async def search_chats(user_id: str, query: str):
-    # Searches chats where user messages contain the query
-    cursor = db.chats.find({"owner_id": user_id, "messages.content": {"$regex": query, "$options": "i"}})
+    # Searches chats where chat title or messages contain the query
+    cursor = db.chats.find({
+        "owner_id": user_id,
+        "$or": [
+            {"title": {"$regex": query, "$options": "i"}},
+            {"messages.content": {"$regex": query, "$options": "i"}}
+        ]
+    })
     chats = [chat_to_response(chat) async for chat in cursor]
     return {"items": chats}
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:ui';
+import 'dart:async';
 import 'package:dotted_border/dotted_border.dart';
 import '../theme/app_theme.dart';
 import '../models/chat.dart';
@@ -23,6 +24,32 @@ class ChatDrawer extends StatefulWidget {
 }
 
 class _ChatDrawerState extends State<ChatDrawer> {
+  final TextEditingController _searchController = TextEditingController();
+  Timer? _debounce;
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController.text = widget.chatService.searchQuery;
+    _searchController.addListener(_onSearchChanged);
+  }
+
+  @override
+  void dispose() {
+    _searchController.removeListener(_onSearchChanged);
+    _searchController.dispose();
+    _debounce?.cancel();
+    super.dispose();
+  }
+
+  void _onSearchChanged() {
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
+    _debounce = Timer(const Duration(milliseconds: 300), () {
+      widget.chatService.setSearchQuery(_searchController.text);
+    });
+    setState(() {});
+  }
+
   Future<void> _togglePin(String id) async {
     await widget.chatService.togglePinChat(id);
     // Don't call setState - ChatService notifies listeners
@@ -232,13 +259,14 @@ class _ChatDrawerState extends State<ChatDrawer> {
                              color: Colors.white.withValues(alpha: 0.3), 
                              size: 20),
                         const SizedBox(width: 12),
-                        const Expanded(
+                        Expanded(
                           child: TextField(
-                            style: TextStyle(
+                            controller: _searchController,
+                            style: const TextStyle(
                               color: Colors.white,
                               fontSize: 14,
                             ),
-                            decoration: InputDecoration(
+                            decoration: const InputDecoration(
                               hintText: "Search conversations",
                               hintStyle: TextStyle(
                                 color: Color(0xFF69676C),
@@ -250,6 +278,19 @@ class _ChatDrawerState extends State<ChatDrawer> {
                             ),
                           ),
                         ),
+                        if (_searchController.text.isNotEmpty)
+                          GestureDetector(
+                            onTap: () {
+                              _searchController.clear();
+                              widget.chatService.setSearchQuery('');
+                              FocusScope.of(context).unfocus();
+                            },
+                            child: Icon(
+                              Icons.clear_rounded,
+                              color: Colors.white.withValues(alpha: 0.5),
+                              size: 20,
+                            ),
+                          ),
                       ],
                     ),
                   ),
@@ -275,6 +316,8 @@ class _ChatDrawerState extends State<ChatDrawer> {
                               onTap: () async {
                                 HapticFeedback.mediumImpact();
                                 await widget.chatService.createNewChat();
+                                _searchController.clear();
+                                widget.chatService.setSearchQuery('');
                                 if (!context.mounted) return;
                                 widget.onChatSelected();
                                 Navigator.pop(context);
@@ -310,6 +353,8 @@ class _ChatDrawerState extends State<ChatDrawer> {
                         isActive: widget.chatService.isTemporaryChat,
                         onTap: () {
                           widget.chatService.toggleTemporaryChat();
+                          _searchController.clear();
+                          widget.chatService.setSearchQuery('');
                           if (context.mounted) {
                             widget.onChatSelected();
                             Navigator.pop(context);
@@ -357,19 +402,22 @@ class _ChatDrawerState extends State<ChatDrawer> {
                         }
                         
                         if (chats.isEmpty) {
+                          final isSearching = widget.chatService.searchQuery.isNotEmpty;
                           return Center(
                             child: Opacity(
                               opacity: 0.4,
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Icon(Icons.chat_bubble_outline_rounded, 
-                                       color: Colors.white.withValues(alpha: 0.2), 
-                                       size: 40),
+                                  Icon(
+                                    isSearching ? Icons.search_off_rounded : Icons.chat_bubble_outline_rounded, 
+                                    color: Colors.white.withValues(alpha: 0.2), 
+                                    size: 40,
+                                  ),
                                   const SizedBox(height: 16),
-                                  const Text(
-                                    "No chats yet",
-                                    style: TextStyle(
+                                  Text(
+                                    isSearching ? "No matching chats found" : "No chats yet",
+                                    style: const TextStyle(
                                       color: Colors.white,
                                       fontSize: 13,
                                       letterSpacing: 0.5,
@@ -467,6 +515,8 @@ class _ChatDrawerState extends State<ChatDrawer> {
       onTap: () {
         HapticFeedback.selectionClick();
         widget.chatService.selectChat(chat.id);
+        _searchController.clear();
+        widget.chatService.setSearchQuery('');
         widget.onChatSelected();
         Navigator.pop(context);
       },

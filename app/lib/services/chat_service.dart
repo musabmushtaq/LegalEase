@@ -37,12 +37,17 @@ class ChatService extends ChangeNotifier {
   Timer? _recoveryTimer;
   ConnectivityResult? _lastConnectivityResult;
 
+  String _searchQuery = '';
+  List<Chat>? _searchResults;
+
   bool get isConnected => _isConnected;
   bool get isConnecting => _isConnecting;
   bool get isAuthenticated => _isAuthenticated;
   String? get username => _username;
   bool get isTemporaryChat => _isTemporaryChat;
   String? get currentChatId => _currentChatId;
+  String get searchQuery => _searchQuery;
+  List<Chat>? get searchResults => _searchResults;
   Chat? get currentChat =>
       _currentChatId != null ? _chats[_currentChatId] : null;
   List<ChatMessage> get currentMessages =>
@@ -54,6 +59,10 @@ class ChatService extends ChangeNotifier {
   bool isTitleGenerating(String chatId) => _generatingTitles.contains(chatId);
 
   List<Chat> get displayedChats {
+    if (_searchQuery.isNotEmpty) {
+      return _searchResults ?? [];
+    }
+
     // History list is strictly network-driven. 
     // If we are offline or not authenticated, we don't show the history.
     if (!_isConnected || !_isAuthenticated) return [];
@@ -989,6 +998,48 @@ class ChatService extends ChangeNotifier {
       }
     } catch (_) {}
     return [];
+  }
+
+  List<Chat> localSearchChats(String query) {
+    if (query.isEmpty) return [];
+    final lowerQuery = query.toLowerCase();
+    return _chats.values.where((chat) {
+      final titleMatch = chat.title.toLowerCase().contains(lowerQuery);
+      final messages = _messages[chat.id] ?? [];
+      final messageMatch = messages.any((msg) => msg.content.toLowerCase().contains(lowerQuery));
+      return titleMatch || messageMatch;
+    }).toList();
+  }
+
+  Future<void> setSearchQuery(String query) async {
+    final trimmed = query.trim();
+    if (_searchQuery == trimmed) return;
+    _searchQuery = trimmed;
+
+    if (_searchQuery.isEmpty) {
+      _searchResults = null;
+      notifyListeners();
+      return;
+    }
+
+    // Quick local search first for instant UI responsiveness
+    _searchResults = localSearchChats(_searchQuery);
+    notifyListeners();
+
+    // If online, query the server for comprehensive search
+    final isOnline = await checkInitialAndInstantNetwork();
+    if (isOnline && _userId != null) {
+      try {
+        final serverResults = await searchChats(_searchQuery);
+        // Only apply if the query hasn't changed while we were waiting for the network
+        if (_searchQuery == trimmed) {
+          _searchResults = serverResults;
+          notifyListeners();
+        }
+      } catch (_) {
+        // If server fails, we keep local search results
+      }
+    }
   }
 
   Future<void> deleteChat(String chatId) async {
