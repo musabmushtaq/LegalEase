@@ -185,7 +185,6 @@ class ChatService extends ChangeNotifier {
     required String username,
     required String email,
     required String password,
-    File? profilePic,
   }) async {
     try {
       final uri = Uri.parse('$_apiBaseUrl/auth/register');
