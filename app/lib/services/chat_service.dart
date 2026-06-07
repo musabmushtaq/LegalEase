@@ -43,6 +43,9 @@ class ChatService extends ChangeNotifier {
   Timer? _recoveryTimer;
   ConnectivityResult? _lastConnectivityResult;
 
+  String _searchQuery = '';
+  List<Chat>? _searchResults;
+
   bool get isConnected => _isConnected;
   bool get isConnecting => _isConnecting;
   bool get isAuthenticated => _isAuthenticated;
@@ -50,6 +53,8 @@ class ChatService extends ChangeNotifier {
   String? get userId => _userId;
   bool get isTemporaryChat => _isTemporaryChat;
   String? get currentChatId => _currentChatId;
+  String get searchQuery => _searchQuery;
+  List<Chat>? get searchResults => _searchResults;
   Chat? get currentChat =>
       _currentChatId != null ? _chats[_currentChatId] : null;
   List<ChatMessage> get currentMessages =>
@@ -61,6 +66,10 @@ class ChatService extends ChangeNotifier {
   bool isTitleGenerating(String chatId) => _generatingTitles.contains(chatId);
 
   List<Chat> get displayedChats {
+    if (_searchQuery.isNotEmpty) {
+      return _searchResults ?? [];
+    }
+
     // History list is strictly network-driven. 
     // If we are offline or not authenticated, we don't show the history.
     if (!_isConnected || !_isAuthenticated) return [];
@@ -186,7 +195,6 @@ class ChatService extends ChangeNotifier {
     required String username,
     required String email,
     required String password,
-    File? profilePic,
   }) async {
     try {
       final uri = Uri.parse('$_apiBaseUrl/auth/register');
@@ -622,6 +630,10 @@ class ChatService extends ChangeNotifier {
     }
     _currentChatId = null;
     _updateWebSocketConnection();
+    SharedPreferences.getInstance().then((prefs) {
+      prefs.remove('currentChatCache');
+      prefs.remove('currentChatIdCache');
+    }).catchError((_) {});
     notifyListeners();
   }
 
@@ -1013,6 +1025,41 @@ class ChatService extends ChangeNotifier {
       }
     } catch (_) {}
     return [];
+  }
+
+  Future<void> setSearchQuery(String query) async {
+    final trimmed = query.trim();
+    if (_searchQuery == trimmed) return;
+    _searchQuery = trimmed;
+
+    if (_searchQuery.isEmpty) {
+      _searchResults = null;
+      notifyListeners();
+      return;
+    }
+
+    // Purely online search
+    final isOnline = await checkInitialAndInstantNetwork();
+    if (isOnline && _userId != null) {
+      try {
+        final serverResults = await searchChats(_searchQuery);
+        // Only apply if the query hasn't changed while we were waiting for the network
+        if (_searchQuery == trimmed) {
+          _searchResults = serverResults;
+          notifyListeners();
+        }
+      } catch (_) {
+        if (_searchQuery == trimmed) {
+          _searchResults = [];
+          notifyListeners();
+        }
+      }
+    } else {
+      if (_searchQuery == trimmed) {
+        _searchResults = [];
+        notifyListeners();
+      }
+    }
   }
 
   Future<void> deleteChat(String chatId) async {
