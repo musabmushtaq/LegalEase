@@ -943,11 +943,31 @@ function showChatMenuUI(event, chatId) {
         ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="transform: rotate(45deg);"><path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/></svg>`
         : `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/></svg>`;
         
+    const isOwner = chat.userId === state.userId;
+    const isServerChat = !String(chatId).startsWith('local_');
+    const showShare = state.authToken && isOwner && isServerChat && !state.isTemporaryChat;
+
+    let shareItem = '';
+    if (showShare) {
+        const shareText = chat.isShared ? 'Manage Shared Access' : 'Share';
+        const shareIcon = chat.isShared
+            ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`
+            : `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>`;
+            
+        shareItem = `
+            <button class="chat-context-menu-item" onclick="window.selectChatUI('${chatId}'); window.openManageAccessModalUI(); hideChatMenuUI();">
+                ${shareIcon}
+                <span>${shareText}</span>
+            </button>
+        `;
+    }
+
     menu.innerHTML = `
         <button class="chat-context-menu-item" onclick="window.togglePinChatUI('${chatId}'); hideChatMenuUI();">
             ${pinIcon}
             <span>${pinText}</span>
         </button>
+        ${shareItem}
         <button class="chat-context-menu-item" onclick="window.renameChatUI('${chatId}'); hideChatMenuUI();">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
             <span>Rename</span>
