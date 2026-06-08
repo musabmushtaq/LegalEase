@@ -237,22 +237,33 @@ function chatItemHtml(chat) {
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
            </span>`
         : '';
+
+    // Only allow context menu / actions if user is the owner (admin) of the chat
+    const isOwner = !state.authToken || !chat.userId || chat.userId === state.userId;
+    const contextMenuAttr = isOwner 
+        ? `oncontextmenu="event.preventDefault(); event.stopPropagation(); window.showChatMenuUI(event, '${chat.id}')"`
+        : `oncontextmenu="event.preventDefault();"`;
+
+    const menuTrigger = isOwner
+        ? `<button class="chat-menu-trigger"
+                   onclick="event.stopPropagation(); window.showChatMenuUI(event, '${chat.id}')"
+                   title="Chat actions" aria-label="Chat actions">
+               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+           </button>`
+        : '';
+
     return `
         <div class="chat-item ${isActive ? 'active' : ''}"
              data-chat-id="${chat.id}"
              onclick="window.selectChatUI('${chat.id}')"
-             oncontextmenu="event.preventDefault(); event.stopPropagation(); window.showChatMenuUI(event, '${chat.id}')"
+             ${contextMenuAttr}
              role="button" tabindex="0"
              aria-label="Chat: ${escapeHtml(chat.title)}">
             <div class="chat-title">${escapeHtml(chat.title)}</div>
             <div class="chat-item-right-row">
                 ${pinIndicator}
                 ${sharedIndicator}
-                <button class="chat-menu-trigger"
-                        onclick="event.stopPropagation(); window.showChatMenuUI(event, '${chat.id}')"
-                        title="Chat actions" aria-label="Chat actions">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
-                </button>
+                ${menuTrigger}
             </div>
         </div>
     `;

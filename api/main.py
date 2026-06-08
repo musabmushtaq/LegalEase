@@ -471,13 +471,28 @@ async def remove_collaborator(chat_id: str, payload: InviteCollaboratorRequest) 
 
 
 @app.delete("/chats/{chat_id}")
-async def delete_chat(chat_id: str) -> dict[str, bool]:
+async def delete_chat(chat_id: str, request: Request) -> dict[str, bool]:
     # Fetch chat details to know who to notify before we delete
     chat = await db.chats.find_one({"chat_id": chat_id})
-    user_ids = []
-    if chat:
-        user_ids = [chat.get("owner_id")] + chat.get("collaborators", [])
+    if not chat:
+        raise HTTPException(status_code=404, detail="Chat not found")
 
+    # Validate that request is made by the owner
+    auth_header = request.headers.get("Authorization")
+    user_id = None
+    if auth_header and auth_header.startswith("Bearer "):
+        try:
+            token = auth_header.split(" ")[1]
+            payload_data = jwt.decode(token, "my_super_secret_jwt_key_for_legalease", algorithms=["HS256"])
+            user_id = payload_data.get("user_id")
+        except Exception as e:
+            print(f"Failed to decode token in delete_chat: {e}")
+
+    if user_id != chat.get("owner_id"):
+        raise HTTPException(status_code=403, detail="Only the chat owner can delete this chat")
+
+    user_ids = [chat.get("owner_id")] + chat.get("collaborators", [])
+    
     # 1. Find and delete files from disk
     files_cursor = db.files.find({"chat_id": chat_id})
     async for file_doc in files_cursor:
