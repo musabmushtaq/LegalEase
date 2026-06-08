@@ -1,5 +1,5 @@
 // UI rendering module
-import { state, DEFAULT_USERNAME } from './config.js';
+import { state, DEFAULT_USERNAME, DEFAULT_USER_ID } from './config.js';
 import { escapeHtml } from './utils.js';
 import { getUserProfile } from './api.js';
 
@@ -269,6 +269,30 @@ function chatItemHtml(chat) {
     `;
 }
 
+const usernamesCache = {};
+
+function getUsername(userId) {
+    if (!userId) return '...';
+    if (userId === state.userId && state.username) {
+        return state.username;
+    }
+    if (userId === DEFAULT_USER_ID || userId === 'default_user') {
+        return DEFAULT_USERNAME;
+    }
+    if (usernamesCache[userId]) {
+        return usernamesCache[userId];
+    }
+    usernamesCache[userId] = 'loading';
+    getUserProfile(userId).then(profile => {
+        usernamesCache[userId] = profile.username || 'Unknown';
+        renderMessages();
+    }).catch(() => {
+        usernamesCache[userId] = 'Unknown';
+        renderMessages();
+    });
+    return '...';
+}
+
 // ─── Messages ──────────────────────────────────────────────────────────────────
 export function renderMessages() {
     if (!messagesContainer) return;
@@ -331,6 +355,16 @@ function userBubbleHtml(msg, isEdited, canEdit) {
     const hasAttachment = msg.fileName && (msg.fileId || msg.localFileUrl);
     const cleanContent = msg.content.trim();
 
+    const activeChat = state.currentChatId ? state.chats[state.currentChatId] : null;
+    const isShared = activeChat ? activeChat.isShared : false;
+    const isOwnMessage = !isShared || !msg.userId || msg.userId === state.userId;
+
+    let usernameLabel = '';
+    if (isShared && msg.userId) {
+        const username = getUsername(msg.userId);
+        usernameLabel = `<div class="message-username">${escapeHtml(username)}</div>`;
+    }
+
     let attachmentCard = '';
     if (hasAttachment) {
         const isPersona = msg.fileName === "Persona Attached" || msg.fileName === "Persona Attached.txt";
@@ -358,12 +392,13 @@ function userBubbleHtml(msg, isEdited, canEdit) {
     }
 
     return `
-        <div class="message-bubble user" data-message-id="${msg.id}" role="article">
+        <div class="message-bubble user ${isOwnMessage ? '' : 'other'}" data-message-id="${msg.id}" role="article">
             <div class="user-bubble-glass">
                 ${cleanContent ? `<div class="user-bubble-text">${escapeHtml(cleanContent)}</div>` : ''}
                 ${attachmentCard}
                 ${isEdited ? '<div class="edited-indicator">(edited)</div>' : ''}
             </div>
+            ${usernameLabel}
         </div>
     `;
 }

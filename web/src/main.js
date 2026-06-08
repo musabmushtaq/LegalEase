@@ -406,6 +406,7 @@ async function sendMessageUI() {
         isNew: true,
         fileName: file?.name || null,
         localFileUrl: file ? URL.createObjectURL(file) : null,
+        userId: state.userId || DEFAULT_USER_ID,
     };
     state.messages[chatId].push(userMsg);
 
@@ -433,6 +434,7 @@ async function sendMessageUI() {
                         id: saved.message.id || userMsgId,
                         fileId: saved.message.file_id || null,
                         fileName: saved.message.filename || file?.name || null,
+                        userId: saved.message.user_id || state.userId || DEFAULT_USER_ID,
                         isNew: false,
                     };
                 }

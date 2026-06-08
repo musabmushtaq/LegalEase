@@ -60,6 +60,7 @@ export async function loadChatsFromServer(userId) {
                 edited_at: msg.edited_at,
                 fileId: msg.file_id || null,
                 fileName: msg.filename || null,
+                userId: msg.user_id || null,
                 isNew: false,
             }));
         });
@@ -284,6 +285,7 @@ export function connectChatWebSocket(chatId) {
                             state.messages[chatId][tempIndex].fileName = msg.filename || null;
                             state.messages[chatId][tempIndex].createdAt = msg.created_at;
                             state.messages[chatId][tempIndex].edited_at = msg.edited_at;
+                            state.messages[chatId][tempIndex].userId = msg.user_id || null;
                         } else {
                             // Add as new message
                             state.messages[chatId].push({
@@ -294,6 +296,7 @@ export function connectChatWebSocket(chatId) {
                                 edited_at: msg.edited_at,
                                 fileId: msg.file_id || null,
                                 fileName: msg.filename || null,
+                                userId: msg.user_id || null,
                                 isNew: true,
                             });
                         }

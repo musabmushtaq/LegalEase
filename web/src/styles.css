@@ -606,6 +606,24 @@ html.is-unauthenticated #authModal.modal-overlay {
   align-items: flex-end;
 }
 
+.message-bubble.user.other {
+  align-items: flex-start;
+}
+
+.message-bubble.user.other .user-bubble-glass {
+  border-radius: var(--radius-lg) var(--radius-lg) var(--radius-lg) 6px;
+}
+
+.message-username {
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.45);
+  margin-top: 4px;
+  margin-bottom: 6px;
+  user-select: none;
+  padding: 0 4px;
+}
+
 .message-bubble.ai {
   align-items: flex-start;
   max-width: 100%;
