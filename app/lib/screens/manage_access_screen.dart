@@ -621,7 +621,7 @@ class _ManageAccessScreenState extends State<ManageAccessScreen> {
                   ),
                   const SizedBox(height: 16),
                   
-                  // CARD 2: Bottom Card (No inner button - the entire card is the button itself)
+                  // CARD 2: Bottom Card
                   Container(
                     decoration: BoxDecoration(
                       color: Colors.white.withValues(alpha: 0.04),
@@ -633,52 +633,90 @@ class _ManageAccessScreenState extends State<ManageAccessScreen> {
                     ),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(16.0),
-                      child: Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          onTap: () {
-                            HapticFeedback.heavyImpact();
-                            _confirmMakePrivate();
-                          },
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 14.0),
-                            child: Row(
-                              children: [
-                                const Icon(
-                                  Icons.lock_reset_outlined,
-                                  color: Colors.redAccent,
-                                  size: 22,
-                                ),
-                                const SizedBox(width: 16.0),
-                                const Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        "Make Chat Private",
-                                        style: TextStyle(
-                                          color: Colors.redAccent,
-                                          fontSize: 15,
-                                          fontWeight: FontWeight.w600,
+                      child: _collaborators.isEmpty
+                          ? Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 14.0),
+                              child: Row(
+                                children: [
+                                  const Icon(
+                                    Icons.lock_outline,
+                                    color: AppTheme.highlight,
+                                    size: 22,
+                                  ),
+                                  const SizedBox(width: 16.0),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        const Text(
+                                          "Private Chat",
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w600,
+                                          ),
                                         ),
+                                        const SizedBox(height: 4.0),
+                                        Text(
+                                          "Only you have access to this conversation.",
+                                          style: TextStyle(
+                                            color: Colors.white.withValues(alpha: 0.5),
+                                            fontSize: 12,
+                                            height: 1.3,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                          : Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                onTap: () {
+                                  HapticFeedback.heavyImpact();
+                                  _confirmMakePrivate();
+                                },
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 14.0),
+                                  child: Row(
+                                    children: [
+                                      const Icon(
+                                        Icons.lock_reset_outlined,
+                                        color: Colors.redAccent,
+                                        size: 22,
                                       ),
-                                      SizedBox(height: 4.0),
-                                      Text(
-                                        "Revoke access for all collaborators.",
-                                        style: TextStyle(
-                                          color: Colors.white60,
-                                          fontSize: 12,
-                                          height: 1.3,
+                                      const SizedBox(width: 16.0),
+                                      const Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              "Make Chat Private",
+                                              style: TextStyle(
+                                                color: Colors.redAccent,
+                                                fontSize: 15,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                            SizedBox(height: 4.0),
+                                            Text(
+                                              "Revoke access for all collaborators.",
+                                              style: TextStyle(
+                                                color: Colors.white60,
+                                                fontSize: 12,
+                                                height: 1.3,
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                       ),
                                     ],
                                   ),
                                 ),
-                              ],
+                              ),
                             ),
-                          ),
-                        ),
-                      ),
                     ),
                   ),
                 ],
