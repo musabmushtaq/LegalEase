@@ -2536,19 +2536,60 @@ html.is-unauthenticated #authModal.modal-overlay {
 }
 
 .collaborator-remove-btn {
-  background: transparent;
-  border: none;
+  background: rgba(239, 83, 80, 0.1);
+  border: 1px solid rgba(239, 83, 80, 0.25);
   color: var(--danger);
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
-  padding: 4px 8px;
-  border-radius: 4px;
-  transition: background var(--transition);
+  padding: 4px 10px;
+  border-radius: 6px;
+  transition: all var(--transition);
 }
 
 .collaborator-remove-btn:hover {
-  background: var(--danger-dim);
+  background: var(--danger);
+  color: white;
+  border-color: var(--danger);
+}
+
+.settings-row-btn {
+  background: var(--highlight);
+  color: #131313;
+  border: none;
+  padding: 8px 16px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.settings-row-btn:hover {
+  opacity: 0.95;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(252, 229, 102, 0.15);
+}
+
+.settings-row-btn:active {
+  transform: translateY(0);
+}
+
+.settings-row-btn.destructive-btn {
+  background: rgba(239, 83, 80, 0.1);
+  border: 1px solid rgba(239, 83, 80, 0.25);
+  color: var(--danger);
+}
+
+.settings-row-btn.destructive-btn:hover {
+  background: var(--danger);
+  color: white;
+  border-color: var(--danger);
+  box-shadow: 0 4px 12px rgba(239, 83, 80, 0.2);
+}
+
+.settings-row-btn.hidden {
+  display: none;
 }
 
 .chat-header-share-btn {
