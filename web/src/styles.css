@@ -1189,9 +1189,7 @@ html.is-unauthenticated #authModal.modal-overlay {
   position: fixed;
   inset: 0;
   z-index: 400;
-  background: rgba(0, 0, 0, 0.65);
-  backdrop-filter: var(--blur-sm);
-  -webkit-backdrop-filter: var(--blur-sm);
+  background: rgba(0, 0, 0, 0.75);
   display: flex;
   align-items: center;
   justify-content: center;
