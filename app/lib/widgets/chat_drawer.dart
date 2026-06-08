@@ -582,8 +582,11 @@ class _ChatDrawerState extends State<ChatDrawer> {
     return GestureDetector(
       key: ValueKey(chat.id),
       onLongPress: () {
-        HapticFeedback.heavyImpact();
-        _showChatMenu(chat);
+        final isOwner = !widget.chatService.isAuthenticated || chat.userId == widget.chatService.userId;
+        if (isOwner) {
+          HapticFeedback.heavyImpact();
+          _showChatMenu(chat);
+        }
       },
       onTap: () {
         HapticFeedback.selectionClick();
