@@ -272,7 +272,8 @@ export function connectChatWebSocket(chatId) {
                             if (msg.sender === 'user') {
                                 return String(m.id).startsWith('local_');
                             } else {
-                                return true;
+                                // For AI messages, match temporary local IDs or the last message in the list
+                                return String(m.id).startsWith('local_ai_') || m.id === state.messages[chatId][state.messages[chatId].length - 1]?.id;
                             }
                         });
 

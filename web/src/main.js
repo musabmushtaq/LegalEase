@@ -459,16 +459,19 @@ async function sendMessageUI() {
 
         const aiContent = aiResp?.assistant_message?.content || "I'm sorry, I encountered an error. Please try again.";
 
-        // 5. Add AI message locally
-        const aiMsgId = `local_ai_${Date.now()}`;
-        const aiMsg = {
-            id: aiMsgId,
-            sender: 'ai',
-            content: aiContent,
-            createdAt: new Date().toISOString(),
-            isNew: true,
-        };
-        state.messages[chatId].push(aiMsg);
+        // 5. Add AI message locally (only if it doesn't already exist from WebSocket broadcast)
+        const exists = state.messages[chatId].some(m => m.sender === 'ai' && m.content === aiContent);
+        if (!exists) {
+            const aiMsgId = `local_ai_${Date.now()}`;
+            const aiMsg = {
+                id: aiMsgId,
+                sender: 'ai',
+                content: aiContent,
+                createdAt: new Date().toISOString(),
+                isNew: true,
+            };
+            state.messages[chatId].push(aiMsg);
+        }
 
         // Update chat timestamp
         if (state.chats[chatId]) state.chats[chatId].updatedAt = new Date().toISOString();
