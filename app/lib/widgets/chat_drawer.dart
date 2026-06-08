@@ -33,6 +33,12 @@ class _ChatDrawerState extends State<ChatDrawer> {
     super.initState();
     _searchController.text = widget.chatService.searchQuery;
     _searchController.addListener(_onSearchChanged);
+    
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (widget.chatService.isAuthenticated) {
+        widget.chatService.syncChats();
+      }
+    });
   }
 
   @override
