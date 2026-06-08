@@ -12,7 +12,7 @@ let userStatus, authModal, authForm, authTitle, authSwitchBtn, authSwitchText;
 let authCloseBtn, authUsername, authEmailLabel, authEmail, authPassword;
 let authConfirmLabel, authConfirmPassword, authSubmitBtn;
 let settingsBtn, settingsModal, settingsApiPrefix, settingsApiSuffix, settingsApiIp, settingsCloseBtn;
-let personaBtn, contextPill, attachmentMenu;
+let personaBtn, contextPill, attachmentMenu, newMessagesPill;
 let shareBtn, manageAccessModal, manageAccessCloseBtn, chatPrivacyStateText, revokeAccessBtn;
 let inviteSection, inviteForm, inviteUsername, inviteSubmitBtn, collaboratorsListCard;
 
@@ -68,6 +68,24 @@ export function initializeDOM() {
     inviteUsername = document.getElementById('inviteUsername');
     inviteSubmitBtn = document.getElementById('inviteSubmitBtn');
     collaboratorsListCard = document.getElementById('collaboratorsListCard');
+    newMessagesPill = document.getElementById('newMessagesPill');
+
+    if (newMessagesPill) {
+        newMessagesPill.addEventListener('click', () => {
+            scrollToBottom();
+            hideNewMessagesPill();
+        });
+    }
+
+    if (messagesContainer) {
+        messagesContainer.addEventListener('scroll', () => {
+            const threshold = 35; // px
+            const isAtBottom = (messagesContainer.scrollHeight - messagesContainer.scrollTop - messagesContainer.clientHeight) <= threshold;
+            if (isAtBottom) {
+                hideNewMessagesPill();
+            }
+        });
+    }
 }
 
 export function toggleDrawer() {
@@ -293,9 +311,26 @@ function getUsername(userId) {
     return '...';
 }
 
+function showNewMessagesPill() {
+    if (newMessagesPill) {
+        newMessagesPill.classList.remove('hidden');
+    }
+}
+
+function hideNewMessagesPill() {
+    if (newMessagesPill) {
+        newMessagesPill.classList.add('hidden');
+    }
+}
+
 // ─── Messages ──────────────────────────────────────────────────────────────────
-export function renderMessages() {
+export function renderMessages(forceScroll = false) {
     if (!messagesContainer) return;
+
+    // Check if we were at the bottom before updating HTML
+    const threshold = 35; // px
+    const wasAtBottom = (messagesContainer.scrollHeight - messagesContainer.scrollTop - messagesContainer.clientHeight) <= threshold;
+    const prevScrollTop = messagesContainer.scrollTop;
 
     // Update shareBtn visibility
     const shareBtn = document.getElementById('shareBtn');
@@ -321,6 +356,7 @@ export function renderMessages() {
 
     if (isEmpty) {
         messagesContainer.innerHTML = '';
+        hideNewMessagesPill();
         return;
     }
 
@@ -334,8 +370,19 @@ export function renderMessages() {
     }
 
     messagesContainer.innerHTML = msgList.map(msg => messageBubbleHtml(msg, lastAiMsgId)).join('');
-    scrollToBottom();
 
+    // Determine if we should scroll to bottom
+    const lastMsg = msgList[msgList.length - 1];
+    const isOwnMessage = lastMsg && lastMsg.sender === 'user' && (lastMsg.userId === state.userId || String(lastMsg.id).startsWith('local_'));
+
+    if (forceScroll || isOwnMessage || wasAtBottom) {
+        scrollToBottom();
+        hideNewMessagesPill();
+    } else {
+        // Keep scroll position and show new messages pill
+        messagesContainer.scrollTop = prevScrollTop;
+        showNewMessagesPill();
+    }
 }
 
 function messageBubbleHtml(msg, lastAiMsgId) {

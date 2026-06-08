@@ -98,7 +98,7 @@ async function initializeApp() {
         }
 
         renderDrawer();
-        renderMessages();
+        renderMessages(true);
         renderUserState();
         showPrivacySections(!!state.authToken);
 
@@ -285,7 +285,7 @@ async function createNewChatUI() {
     
     clearAttachment();
     renderDrawer();
-    renderMessages();
+    renderMessages(true);
     renderUserState();
     document.getElementById('messageInput')?.focus();
 }
@@ -293,7 +293,7 @@ async function createNewChatUI() {
 // ─── Select / Pin / Rename / Delete chat ──────────────────────────────────────
 function selectChatUI(chatId) {
     selectChat(chatId);
-    renderMessages();
+    renderMessages(true);
     renderDrawer();
     closeDrawer();
     document.getElementById('messageInput')?.focus();
@@ -330,7 +330,7 @@ async function deleteChatUI(chatId) {
     try {
         await removeChat(chatId);
         renderDrawer();
-        renderMessages();
+        renderMessages(true);
     } catch (error) {
         logError('deleteChatUI', error);
         showMessage('Could not delete chat.');
@@ -682,7 +682,7 @@ async function handleAuthAction() {
         renderUserState();
         renderTemporaryToggle();
         renderDrawer();
-        renderMessages();
+        renderMessages(true);
         showPrivacySections(false);
         saveChatCache();
         openAuthModal('login');
@@ -721,7 +721,7 @@ async function handleAuthSubmit(event) {
             connectChatWebSocket(state.currentChatId);
         }
         renderDrawer();
-        renderMessages();
+        renderMessages(true);
     } catch (error) {
         logError('handleAuthSubmit', error);
         showMessage(error.message || 'Authentication failed.');
@@ -905,7 +905,7 @@ async function handleClearHistory() {
         createLocalChat();
         saveChatCache();
         renderDrawer();
-        renderMessages();
+        renderMessages(true);
         showMessage('All chat history cleared.');
     } catch {
         showMessage('Failed to clear history. Check connection.');
@@ -925,7 +925,7 @@ async function handleDeleteAccount() {
         createLocalChat();
         renderUserState();
         renderDrawer();
-        renderMessages();
+        renderMessages(true);
         closeSettingsModal();
         showMessage('Account deleted.');
         openAuthModal('login');
