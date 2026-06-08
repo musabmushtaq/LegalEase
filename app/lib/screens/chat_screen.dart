@@ -978,10 +978,10 @@ class _ChatScreenState extends State<ChatScreen> {
           height: 48.0,
           padding: const EdgeInsets.symmetric(horizontal: 24),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.12),
+            color: const Color(0xFF2E2E2E).withValues(alpha: 0.85),
             borderRadius: BorderRadius.circular(28.0),
             border: Border.all(
-              color: Colors.white.withValues(alpha: 0.15),
+              color: Colors.white.withValues(alpha: 0.12),
               width: 1.0,
             ),
             boxShadow: [
