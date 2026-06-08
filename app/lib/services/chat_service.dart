@@ -482,6 +482,10 @@ class ChatService extends ChangeNotifier {
     }
   }
 
+  Future<void> syncChats() async {
+    await _syncFromApi();
+  }
+
   /// Sync chats from backend API
   /// Only caches the current chat to shared preferences for speed
   Future<void> _syncFromApi() async {

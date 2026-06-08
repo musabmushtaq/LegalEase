@@ -33,6 +33,12 @@ class _ChatDrawerState extends State<ChatDrawer> {
     super.initState();
     _searchController.text = widget.chatService.searchQuery;
     _searchController.addListener(_onSearchChanged);
+    
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (widget.chatService.isAuthenticated) {
+        widget.chatService.syncChats();
+      }
+    });
   }
 
   @override
@@ -576,8 +582,11 @@ class _ChatDrawerState extends State<ChatDrawer> {
     return GestureDetector(
       key: ValueKey(chat.id),
       onLongPress: () {
-        HapticFeedback.heavyImpact();
-        _showChatMenu(chat);
+        final isOwner = !widget.chatService.isAuthenticated || chat.userId == widget.chatService.userId;
+        if (isOwner) {
+          HapticFeedback.heavyImpact();
+          _showChatMenu(chat);
+        }
       },
       onTap: () {
         HapticFeedback.selectionClick();
