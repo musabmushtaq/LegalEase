@@ -39,6 +39,7 @@ const state = {
     useContext: false,       // persona/context mode toggle
     isAiThinking: false,     // true while waiting for AI response
     wsConnection: null,      // active WebSocket connection
+    userWsConnection: null,  // active user-level WebSocket connection for real-time drawer updates
 };
 
 export {

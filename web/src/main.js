@@ -1,7 +1,7 @@
 // Main application entry point
 import { API_BASE_URL, state, CONNECTIVITY_CHECK_INTERVAL, DEFAULT_USER_ID } from './js/config.js';
 import { loadAuthState, saveAuthState, clearAuthState, handleLogin, handleRegister, handleLogout, toggleTemporaryMode, ensureUserId } from './js/auth.js';
-import { loadChatCache, saveChatCache, loadChatsFromServer, createNewChat, createLocalChat, selectChat, renameChat, togglePinChat, removeChat, searchChatsServer, searchChatsLocal, disconnectChatWebSocket, connectChatWebSocket } from './js/chat.js';
+import { loadChatCache, saveChatCache, loadChatsFromServer, createNewChat, createLocalChat, selectChat, renameChat, togglePinChat, removeChat, searchChatsServer, searchChatsLocal, disconnectChatWebSocket, connectChatWebSocket, connectUserWebSocket, disconnectUserWebSocket } from './js/chat.js';
 import { initializeDOM, toggleDrawer, closeDrawer, renderUserState, renderTemporaryToggle, renderConnectionBanner, openAuthModal, closeAuthModal, renderDrawer, renderMessages, getUIElements, updateAttachmentPreview, openSettingsModal, closeSettingsModal, renderThinkingIndicator, removeThinkingIndicator, renderContextPill, updatePersonaBtn, showPrivacySections, openManageAccessModal, closeManageAccessModal } from './js/ui.js';
 import { checkHealth, saveUserMessage, generateAiReply, saveAiMessage, summarizeText, updateMessage as apiUpdateMessage, deleteMessage as apiDeleteMessage, downloadFile as apiDownloadFile, clearPersonalContext, clearAllHistory, deleteUserAccount, getUserProfile, inviteCollaborator, removeCollaborator, updateChat } from './js/api.js';
 import { debounce, showMessage, logError, showCustomConfirm, showCustomPrompt } from './js/utils.js';
@@ -79,6 +79,7 @@ async function initializeApp() {
         if (state.isConnected && !state.isTemporaryChat && state.userId) {
             try {
                 await loadChatsFromServer(state.userId);
+                connectUserWebSocket(state.userId);
             } catch (error) {
                 logError('initializeApp - loadChatsFromServer', error);
             }
@@ -126,6 +127,9 @@ async function checkConnectivity() {
     if (state.isConnected && !state.isTemporaryChat && state.userId) {
         try {
             await loadChatsFromServer(state.userId);
+            if (!state.userWsConnection) {
+                connectUserWebSocket(state.userId);
+            }
             renderDrawer();
             renderUserState();
         } catch (error) {
@@ -664,6 +668,7 @@ function clearAttachment() {
 async function handleAuthAction() {
     if (state.authToken) {
         disconnectChatWebSocket();
+        disconnectUserWebSocket();
         handleLogout();
         state.chats = {};
         state.messages = {};
@@ -705,6 +710,7 @@ async function handleAuthSubmit(event) {
         showPrivacySections(true);
         if (state.userId) {
             await loadChatsFromServer(state.userId);
+            connectUserWebSocket(state.userId);
         }
         if (state.currentChatId) {
             connectChatWebSocket(state.currentChatId);

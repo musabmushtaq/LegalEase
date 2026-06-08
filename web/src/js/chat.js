@@ -302,3 +302,79 @@ export function connectChatWebSocket(chatId) {
         console.error('Failed to connect WebSocket:', e);
     }
 }
+
+export function disconnectUserWebSocket() {
+    if (state.userWsConnection) {
+        try {
+            state.userWsConnection.close();
+        } catch (_) {}
+        state.userWsConnection = null;
+    }
+}
+
+export function connectUserWebSocket(userId) {
+    disconnectUserWebSocket();
+    if (!userId || state.isTemporaryChat) {
+        return;
+    }
+
+    const base = (window.API_BASE_URL) ? window.API_BASE_URL : API_BASE_URL;
+    const wsScheme = base.startsWith('https') ? 'wss' : 'ws';
+    const urlWithoutScheme = base.replace(/^https?:\/\//, '');
+    const wsUrl = `${wsScheme}://${urlWithoutScheme}/ws/users/${userId}`;
+
+    try {
+        const ws = new WebSocket(wsUrl);
+        state.userWsConnection = ws;
+
+        ws.onmessage = async (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                if (data.type === 'chat_list_updated') {
+                    console.log('User WebSocket: chat_list_updated event received, reloading chats...');
+                    await loadChatsFromServer(userId);
+                    
+                    if (typeof window.renderDrawer === 'function') {
+                        window.renderDrawer();
+                    }
+                    
+                    // If the currently selected chat is deleted (or no longer available to B), switch chats safely
+                    if (state.currentChatId && !state.chats[state.currentChatId]) {
+                        console.log('Currently active chat was deleted or revoked. Selecting a new active chat...');
+                        const firstChatId = Object.keys(state.chats)[0] || null;
+                        state.currentChatId = firstChatId;
+                        if (firstChatId) {
+                            connectChatWebSocket(firstChatId);
+                        } else {
+                            disconnectChatWebSocket();
+                        }
+                        if (typeof window.renderMessages === 'function') {
+                            window.renderMessages();
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error('Error handling User WebSocket message:', err);
+            }
+        };
+
+        ws.onclose = () => {
+            if (state.userWsConnection === ws) {
+                state.userWsConnection = null;
+                // Reconnect after 3 seconds if user is still logged in
+                setTimeout(() => {
+                    if (state.userId === userId && !state.userWsConnection && !state.isTemporaryChat) {
+                        console.log('Reconnecting User WebSocket...');
+                        connectUserWebSocket(userId);
+                    }
+                }, 3000);
+            }
+        };
+
+        ws.onerror = (err) => {
+            console.error('User WebSocket error:', err);
+        };
+    } catch (e) {
+        console.error('Failed to connect User WebSocket:', e);
+    }
+}
