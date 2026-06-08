@@ -264,16 +264,38 @@ export function connectChatWebSocket(chatId) {
                     // Check if message already exists
                     const exists = state.messages[chatId].some(m => m.id === msg.id);
                     if (!exists) {
-                        state.messages[chatId].push({
-                            id: msg.id,
-                            sender: msg.sender,
-                            content: msg.content,
-                            createdAt: msg.created_at,
-                            edited_at: msg.edited_at,
-                            fileId: msg.file_id || null,
-                            fileName: msg.filename || null,
-                            isNew: true,
+                        // Check if there is a matching message with same content and sender to replace/update (handles double-broadcast and local optimistic states)
+                        const tempIndex = state.messages[chatId].findIndex(m => {
+                            if (m.sender !== msg.sender || m.content !== msg.content) {
+                                return false;
+                            }
+                            if (msg.sender === 'user') {
+                                return String(m.id).startsWith('local_');
+                            } else {
+                                return true;
+                            }
                         });
+
+                        if (tempIndex !== -1) {
+                            // Update the existing message's ID and properties instead of duplicating it
+                            state.messages[chatId][tempIndex].id = msg.id;
+                            state.messages[chatId][tempIndex].fileId = msg.file_id || null;
+                            state.messages[chatId][tempIndex].fileName = msg.filename || null;
+                            state.messages[chatId][tempIndex].createdAt = msg.created_at;
+                            state.messages[chatId][tempIndex].edited_at = msg.edited_at;
+                        } else {
+                            // Add as new message
+                            state.messages[chatId].push({
+                                id: msg.id,
+                                sender: msg.sender,
+                                content: msg.content,
+                                createdAt: msg.created_at,
+                                edited_at: msg.edited_at,
+                                fileId: msg.file_id || null,
+                                fileName: msg.filename || null,
+                                isNew: true,
+                            });
+                        }
                         
                         // Save cache
                         saveChatCache();
