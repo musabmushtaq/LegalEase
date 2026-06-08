@@ -341,7 +341,9 @@ html.is-unauthenticated #authModal.modal-overlay {
 }
 
 .chat-item:hover .chat-pinned-indicator,
-.chat-item:has(.chat-menu-trigger.active) .chat-pinned-indicator {
+.chat-item:has(.chat-menu-trigger.active) .chat-pinned-indicator,
+.chat-item:hover .sidebar-shared-icon,
+.chat-item:has(.chat-menu-trigger.active) .sidebar-shared-icon {
   display: none !important;
 }
 
