@@ -419,14 +419,69 @@ export function renderMessages(forceScroll = false) {
         }
     }
 
-    messagesContainer.innerHTML = msgList.map(msg => messageBubbleHtml(msg, lastAiMsgId)).join('');
+    const isChatSwitch = state.currentChatId !== lastChatId;
+    if (isChatSwitch) {
+        messagesContainer.innerHTML = '';
+    }
 
-    if (state.currentChatId !== lastChatId) {
+    const existingBubbles = Array.from(messagesContainer.querySelectorAll('.message-bubble'));
+    const existingIds = existingBubbles.map(el => el.getAttribute('data-message-id'));
+    const newIds = msgList.map(msg => String(msg.id));
+
+    // 1. Remove elements that are no longer in the list (or if chat changed)
+    existingBubbles.forEach(el => {
+        const id = el.getAttribute('data-message-id');
+        if (!newIds.includes(id)) {
+            el.remove();
+        }
+    });
+
+    // 2. Insert or update elements
+    msgList.forEach((msg) => {
+        const msgIdStr = String(msg.id);
+        let el = messagesContainer.querySelector(`.message-bubble[data-message-id="${msgIdStr}"]`);
+        const html = messageBubbleHtml(msg, lastAiMsgId);
+        
+        if (el) {
+            // Update in-place to avoid re-triggering animations on existing elements
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = html;
+            const newInner = tempDiv.firstElementChild.innerHTML;
+            
+            if (el.innerHTML !== newInner) {
+                el.innerHTML = newInner;
+            }
+            
+            // Sync class names except for 'newly-added'
+            const currentClasses = Array.from(el.classList);
+            const targetClasses = Array.from(tempDiv.firstElementChild.classList);
+            targetClasses.forEach(c => {
+                if (!el.classList.contains(c)) el.classList.add(c);
+            });
+            currentClasses.forEach(c => {
+                if (c !== 'newly-added' && !targetClasses.includes(c)) el.classList.remove(c);
+            });
+        } else {
+            // Create and append the new element
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = html;
+            const newEl = tempDiv.firstElementChild;
+            
+            // Run entry slide-up animation only if it's NOT a full chat switch/load
+            if (!isChatSwitch) {
+                newEl.classList.add('newly-added');
+            }
+            
+            messagesContainer.appendChild(newEl);
+        }
+    });
+
+    if (isChatSwitch) {
         lastChatId = state.currentChatId;
         lastMessageCount = messageCount;
         isAtBottom = true;
         hasNewUnreadMessages = false;
-        scrollToBottom();
+        scrollToBottom(false); // Instant snap on chat switch
         updatePillTextAndVisibility();
     } else {
         if (lastMessageCount !== 0 && messageCount > lastMessageCount) {
@@ -434,13 +489,13 @@ export function renderMessages(forceScroll = false) {
             const isOwnMsg = lastMsg.sender === 'user' && (lastMsg.userId === state.userId || String(lastMsg.id).startsWith('local_'));
 
             if (isOwnMsg) {
-                scrollToBottom();
+                scrollToBottom(true); // Smooth scroll when you send a message
                 isAtBottom = true;
                 hasNewUnreadMessages = false;
                 updatePillTextAndVisibility();
             } else {
                 if (wasAtBottom) {
-                    scrollToBottom();
+                    scrollToBottom(true); // Smooth scroll when AI responds
                     isAtBottom = true;
                     hasNewUnreadMessages = false;
                     updatePillTextAndVisibility();
@@ -453,7 +508,7 @@ export function renderMessages(forceScroll = false) {
             }
         } else {
             if (forceScroll) {
-                scrollToBottom();
+                scrollToBottom(true);
                 isAtBottom = true;
                 hasNewUnreadMessages = false;
                 updatePillTextAndVisibility();
@@ -591,7 +646,7 @@ export function removeThinkingIndicator() {
     document.getElementById('thinkingIndicator')?.remove();
 }
 
-function scrollToBottom() {
+function scrollToBottom(smooth = false) {
     isAtBottom = true;
     hasNewUnreadMessages = false;
     updatePillTextAndVisibility();
@@ -599,13 +654,11 @@ function scrollToBottom() {
     const performScroll = () => {
         if (!messagesContainer) return;
         
-        // Scroll the container scrollTop
-        messagesContainer.scrollTop = messagesContainer.scrollHeight;
-        
-        // Also scroll the last element into view as a backup for mobile devices
-        if (messagesContainer.lastElementChild) {
-            messagesContainer.lastElementChild.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        }
+        const maxScroll = messagesContainer.scrollHeight - messagesContainer.clientHeight;
+        messagesContainer.scrollTo({
+            top: maxScroll,
+            behavior: smooth ? 'smooth' : 'auto'
+        });
     };
 
     requestAnimationFrame(performScroll);

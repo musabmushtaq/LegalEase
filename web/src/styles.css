@@ -600,6 +600,11 @@ html.is-unauthenticated #authModal.modal-overlay {
   display: flex;
   flex-direction: column;
   padding: 6px 20px;
+  will-change: transform, opacity;
+}
+
+.message-bubble.newly-added {
+  animation: msgSlideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 .message-bubble.user {
@@ -1708,6 +1713,17 @@ html.is-unauthenticated #authModal.modal-overlay {
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes msgSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(40px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
