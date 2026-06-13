@@ -36,6 +36,7 @@ class ChatService extends ChangeNotifier {
   Timer? _connectivityTimer;
   bool _isAuthenticated = false;
   bool _isTemporaryChat = false;
+  bool _isInitialStartup = true;
   int _consecutiveFailures = 0;
 
   StreamSubscription? _connectivitySubscription;
@@ -94,12 +95,14 @@ class ChatService extends ChangeNotifier {
     await _loadSettings();
     await _loadAuth();
     if (_isAuthenticated) {
-      await _restoreCurrentChatFromCache();
       _updateWebSocketConnection();
-      // Reactive check on startup - skip restoring from cache for fresh start
-      checkInitialAndInstantNetwork();
+      // Start network check on startup - skip restoring from cache for fresh start
+      checkInitialAndInstantNetwork().then((_) {
+        _isInitialStartup = false;
+      });
     } else {
       _isConnecting = false;
+      _isInitialStartup = false;
       notifyListeners();
     }
     _listenToConnectivityChanges();
@@ -343,7 +346,9 @@ class ChatService extends ChangeNotifier {
       _chats.clear();
       _messages.clear();
       // Restore the one cached chat so the user can still see their active conversation
-      _restoreCurrentChatFromCache();
+      if (!_isInitialStartup) {
+        _restoreCurrentChatFromCache();
+      }
       _updateWebSocketConnection();
       notifyListeners();
       
