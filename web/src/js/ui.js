@@ -353,13 +353,6 @@ function acceleratedScrollToBottom() {
     updatePillTextAndVisibility();
 
     const maxScroll = messagesContainer.scrollHeight - messagesContainer.clientHeight;
-    const currentScroll = messagesContainer.scrollTop;
-    const distance = maxScroll - currentScroll;
-    
-    const maxAnimateDistance = 1500;
-    if (distance > maxAnimateDistance) {
-        messagesContainer.scrollTop = maxScroll - maxAnimateDistance;
-    }
     
     messagesContainer.scrollTo({
         top: maxScroll,
