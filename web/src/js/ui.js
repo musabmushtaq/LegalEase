@@ -16,6 +16,12 @@ let personaBtn, contextPill, attachmentMenu, newMessagesPill;
 let shareBtn, manageAccessModal, manageAccessCloseBtn, chatPrivacyStateText, revokeAccessBtn;
 let inviteSection, inviteForm, inviteUsername, inviteSubmitBtn, collaboratorsListCard;
 
+// Scroll and unread message states
+let isAtBottom = true;
+let hasNewUnreadMessages = false;
+let lastChatId = null;
+let lastMessageCount = 0;
+
 export function initializeDOM() {
     menuBtn = document.getElementById('menuBtn');
     newChatBtn = document.getElementById('newChatBtn');
@@ -72,17 +78,20 @@ export function initializeDOM() {
 
     if (newMessagesPill) {
         newMessagesPill.addEventListener('click', () => {
-            scrollToBottom();
-            hideNewMessagesPill();
+            acceleratedScrollToBottom();
         });
     }
 
     if (messagesContainer) {
         messagesContainer.addEventListener('scroll', () => {
-            const threshold = 35; // px
-            const isAtBottom = (messagesContainer.scrollHeight - messagesContainer.scrollTop - messagesContainer.clientHeight) <= threshold;
-            if (isAtBottom) {
-                hideNewMessagesPill();
+            const threshold = 40; // px
+            const atBottom = (messagesContainer.scrollHeight - messagesContainer.scrollTop - messagesContainer.clientHeight) <= threshold;
+            if (atBottom !== isAtBottom) {
+                isAtBottom = atBottom;
+                if (isAtBottom) {
+                    hasNewUnreadMessages = false;
+                }
+                updatePillTextAndVisibility();
             }
         });
     }
@@ -311,16 +320,51 @@ function getUsername(userId) {
     return '...';
 }
 
-function showNewMessagesPill() {
-    if (newMessagesPill) {
+function updatePillTextAndVisibility() {
+    if (!newMessagesPill) return;
+    const textSpan = document.getElementById('newMessagesPillText');
+    if (isAtBottom) {
+        newMessagesPill.classList.add('hidden');
+        hasNewUnreadMessages = false;
+    } else {
+        if (textSpan) {
+            textSpan.textContent = hasNewUnreadMessages ? 'New messages' : 'Scroll to bottom';
+        }
         newMessagesPill.classList.remove('hidden');
     }
 }
 
+function showNewMessagesPill() {
+    isAtBottom = false;
+    updatePillTextAndVisibility();
+}
+
 function hideNewMessagesPill() {
-    if (newMessagesPill) {
-        newMessagesPill.classList.add('hidden');
+    isAtBottom = true;
+    hasNewUnreadMessages = false;
+    updatePillTextAndVisibility();
+}
+
+function acceleratedScrollToBottom() {
+    if (!messagesContainer) return;
+    
+    isAtBottom = true;
+    hasNewUnreadMessages = false;
+    updatePillTextAndVisibility();
+
+    const maxScroll = messagesContainer.scrollHeight - messagesContainer.clientHeight;
+    const currentScroll = messagesContainer.scrollTop;
+    const distance = maxScroll - currentScroll;
+    
+    const maxAnimateDistance = 1500;
+    if (distance > maxAnimateDistance) {
+        messagesContainer.scrollTop = maxScroll - maxAnimateDistance;
     }
+    
+    messagesContainer.scrollTo({
+        top: maxScroll,
+        behavior: 'smooth'
+    });
 }
 
 // ─── Messages ──────────────────────────────────────────────────────────────────
@@ -328,7 +372,7 @@ export function renderMessages(forceScroll = false) {
     if (!messagesContainer) return;
 
     // Check if we were at the bottom before updating HTML
-    const threshold = 35; // px
+    const threshold = 40; // px
     const wasAtBottom = (messagesContainer.scrollHeight - messagesContainer.scrollTop - messagesContainer.clientHeight) <= threshold;
     const prevScrollTop = messagesContainer.scrollTop;
 
@@ -354,9 +398,15 @@ export function renderMessages(forceScroll = false) {
     const isEmpty = msgList.length === 0;
     chatContainer?.classList.toggle('no-messages', isEmpty);
 
+    const messageCount = msgList.length;
+
     if (isEmpty) {
         messagesContainer.innerHTML = '';
-        hideNewMessagesPill();
+        isAtBottom = true;
+        hasNewUnreadMessages = false;
+        updatePillTextAndVisibility();
+        lastChatId = state.currentChatId;
+        lastMessageCount = 0;
         return;
     }
 
@@ -371,17 +421,50 @@ export function renderMessages(forceScroll = false) {
 
     messagesContainer.innerHTML = msgList.map(msg => messageBubbleHtml(msg, lastAiMsgId)).join('');
 
-    // Determine if we should scroll to bottom
-    const lastMsg = msgList[msgList.length - 1];
-    const isOwnMessage = lastMsg && lastMsg.sender === 'user' && (lastMsg.userId === state.userId || String(lastMsg.id).startsWith('local_'));
-
-    if (forceScroll || isOwnMessage || wasAtBottom) {
+    if (state.currentChatId !== lastChatId) {
+        lastChatId = state.currentChatId;
+        lastMessageCount = messageCount;
+        isAtBottom = true;
+        hasNewUnreadMessages = false;
         scrollToBottom();
-        hideNewMessagesPill();
+        updatePillTextAndVisibility();
     } else {
-        // Keep scroll position and show new messages pill
-        messagesContainer.scrollTop = prevScrollTop;
-        showNewMessagesPill();
+        if (lastMessageCount !== 0 && messageCount > lastMessageCount) {
+            const lastMsg = msgList[msgList.length - 1];
+            const isOwnMsg = lastMsg.sender === 'user' && (lastMsg.userId === state.userId || String(lastMsg.id).startsWith('local_'));
+
+            if (isOwnMsg) {
+                scrollToBottom();
+                isAtBottom = true;
+                hasNewUnreadMessages = false;
+                updatePillTextAndVisibility();
+            } else {
+                if (wasAtBottom) {
+                    scrollToBottom();
+                    isAtBottom = true;
+                    hasNewUnreadMessages = false;
+                    updatePillTextAndVisibility();
+                } else {
+                    messagesContainer.scrollTop = prevScrollTop;
+                    isAtBottom = false;
+                    hasNewUnreadMessages = true;
+                    updatePillTextAndVisibility();
+                }
+            }
+        } else {
+            if (forceScroll) {
+                scrollToBottom();
+                isAtBottom = true;
+                hasNewUnreadMessages = false;
+                updatePillTextAndVisibility();
+            } else {
+                messagesContainer.scrollTop = prevScrollTop;
+                const currentAtBottom = (messagesContainer.scrollHeight - messagesContainer.scrollTop - messagesContainer.clientHeight) <= threshold;
+                isAtBottom = currentAtBottom;
+                updatePillTextAndVisibility();
+            }
+        }
+        lastMessageCount = messageCount;
     }
 }
 
@@ -509,6 +592,10 @@ export function removeThinkingIndicator() {
 }
 
 function scrollToBottom() {
+    isAtBottom = true;
+    hasNewUnreadMessages = false;
+    updatePillTextAndVisibility();
+
     const performScroll = () => {
         if (!messagesContainer) return;
         
