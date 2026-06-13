@@ -79,6 +79,56 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: dict[str, list[WebSocket]] = {}
+        self.active_user_connections: dict[str, list[WebSocket]] = {}
+
+    async def connect(self, websocket: WebSocket, chat_id: str):
+        await websocket.accept()
+        if chat_id not in self.active_connections:
+            self.active_connections[chat_id] = []
+        self.active_connections[chat_id].append(websocket)
+
+    def disconnect(self, websocket: WebSocket, chat_id: str):
+        if chat_id in self.active_connections:
+            if websocket in self.active_connections[chat_id]:
+                self.active_connections[chat_id].remove(websocket)
+            if not self.active_connections[chat_id]:
+                del self.active_connections[chat_id]
+
+    async def broadcast(self, message: dict, chat_id: str):
+        if chat_id in self.active_connections:
+            for connection in self.active_connections[chat_id]:
+                try:
+                    await connection.send_json(message)
+                except Exception:
+                    pass
+
+    async def connect_user(self, websocket: WebSocket, user_id: str):
+        await websocket.accept()
+        if user_id not in self.active_user_connections:
+            self.active_user_connections[user_id] = []
+        self.active_user_connections[user_id].append(websocket)
+
+    def disconnect_user(self, websocket: WebSocket, user_id: str):
+        if user_id in self.active_user_connections:
+            if websocket in self.active_user_connections[user_id]:
+                self.active_user_connections[user_id].remove(websocket)
+            if not self.active_user_connections[user_id]:
+                del self.active_user_connections[user_id]
+
+    async def broadcast_to_user(self, message: dict, user_id: str):
+        if user_id in self.active_user_connections:
+            for connection in self.active_user_connections[user_id]:
+                try:
+                    await connection.send_json(message)
+                except Exception:
+                    pass
+
+manager = ConnectionManager()
+
 app = FastAPI(title="LegalEase API", version="0.1.0")
 app.add_middleware(
     CORSMiddleware,
@@ -103,6 +153,11 @@ class CreateChatRequest(BaseModel):
 class UpdateChatRequest(BaseModel):
     title: str | None = None
     is_pinned: bool | None = None
+    is_shared: bool | None = None
+
+
+class InviteCollaboratorRequest(BaseModel):
+    username: str
 
 
 class AddMessageRequest(BaseModel):
@@ -206,10 +261,12 @@ def chat_to_response(chat: dict[str, Any]) -> dict[str, Any]:
     return {
         "id": chat["chat_id"],
         "user_id": chat["owner_id"],
+        "collaborators": chat.get("collaborators", []),
         "title": chat.get("title", "New Chat"),
         "created_at": chat["created_at"],
         "updated_at": chat["updated_at"],
         "is_pinned": chat.get("is_pinned", False),
+        "is_shared": chat.get("is_shared", False),
         "messages": chat.get("messages", []),
     }
 
@@ -278,7 +335,7 @@ async def ping() -> dict[str, str]:
 
 @app.get("/users/{user_id}/chats")
 async def list_user_chats(user_id: str) -> dict[str, list[dict[str, Any]]]:
-    cursor = db.chats.find({"owner_id": user_id}).sort("updated_at", -1)
+    cursor = db.chats.find({"$or": [{"owner_id": user_id}, {"collaborators": user_id}]}).sort("updated_at", -1)
     chats = [chat_to_response(chat) async for chat in cursor]
     return {"items": chats}
 
@@ -290,13 +347,16 @@ async def create_chat(user_id: str, payload: CreateChatRequest) -> dict[str, Any
     doc = {
         "chat_id": chat_id,
         "owner_id": user_id,
+        "collaborators": [],
         "title": payload.title.strip() or "New Chat",
         "is_pinned": False,
+        "is_shared": False,
         "messages": [],
         "created_at": created_at,
         "updated_at": created_at,
     }
     await db.chats.insert_one(doc)
+    await notify_chat_list_changed([user_id])
     return chat_to_response(doc)
 
 
@@ -319,16 +379,120 @@ async def update_chat(chat_id: str, payload: UpdateChatRequest) -> dict[str, Any
         updates["title"] = payload.title.strip() or chat.get("title", "New Chat")
     if payload.is_pinned is not None:
         updates["is_pinned"] = payload.is_pinned
+    if payload.is_shared is not None:
+        updates["is_shared"] = payload.is_shared
+        if not payload.is_shared:
+            updates["collaborators"] = []
 
     await db.chats.update_one({"chat_id": chat_id}, {"$set": updates})
     updated = await db.chats.find_one({"chat_id": chat_id})
     if not updated:
         raise HTTPException(status_code=404, detail="Chat not found")
+    await notify_chat_participants_changed(chat_id)
     return chat_to_response(updated)
 
 
+@app.post("/chats/{chat_id}/invite")
+async def invite_collaborator(chat_id: str, payload: InviteCollaboratorRequest) -> dict[str, Any]:
+    chat = await db.chats.find_one({"chat_id": chat_id})
+    if not chat:
+        raise HTTPException(status_code=404, detail="Chat not found")
+        
+    search_term = payload.username.strip()
+    if "@" in search_term:
+        user = await db.users.find_one({"email": search_term})
+    else:
+        user = await db.users.find_one({"username": search_term})
+        
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    user_id_to_add = user["user_id"]
+    
+    if user_id_to_add == chat.get("owner_id"):
+        return {"success": True, "message": "User is already the owner."}
+        
+    collaborators = chat.get("collaborators", [])
+    if user_id_to_add in collaborators:
+        return {"success": True, "message": "User is already a collaborator."}
+        
+    await db.chats.update_one(
+        {"chat_id": chat_id},
+        {
+            "$push": {"collaborators": user_id_to_add},
+            "$set": {
+                "is_shared": True,
+                "updated_at": now_iso()
+            }
+        }
+    )
+    await notify_chat_participants_changed(chat_id)
+    
+    return {"success": True, "message": f"User {payload.username} added as collaborator."}
+
+
+@app.post("/chats/{chat_id}/remove")
+async def remove_collaborator(chat_id: str, payload: InviteCollaboratorRequest) -> dict[str, Any]:
+    chat = await db.chats.find_one({"chat_id": chat_id})
+    if not chat:
+        raise HTTPException(status_code=404, detail="Chat not found")
+        
+    search_term = payload.username.strip()
+    if "@" in search_term:
+        user = await db.users.find_one({"email": search_term})
+    else:
+        user = await db.users.find_one({"username": search_term})
+        
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    user_id_to_remove = user["user_id"]
+    collaborators = chat.get("collaborators", [])
+    
+    if user_id_to_remove not in collaborators:
+        return {"success": True, "message": "User is not a collaborator."}
+        
+    new_collaborators = [c for c in collaborators if c != user_id_to_remove]
+    is_shared = len(new_collaborators) > 0
+    
+    await db.chats.update_one(
+        {"chat_id": chat_id},
+        {
+            "$pull": {"collaborators": user_id_to_remove},
+            "$set": {
+                "is_shared": is_shared,
+                "updated_at": now_iso()
+            }
+        }
+    )
+    await notify_chat_participants_changed(chat_id, extra_user_ids=[user_id_to_remove])
+    
+    return {"success": True, "message": f"User {payload.username} removed from collaborators."}
+
+
 @app.delete("/chats/{chat_id}")
-async def delete_chat(chat_id: str) -> dict[str, bool]:
+async def delete_chat(chat_id: str, request: Request) -> dict[str, bool]:
+    # Fetch chat details to know who to notify before we delete
+    chat = await db.chats.find_one({"chat_id": chat_id})
+    if not chat:
+        raise HTTPException(status_code=404, detail="Chat not found")
+
+    # Validate that request is made by the owner
+    auth_header = request.headers.get("Authorization")
+    user_id = None
+    if auth_header and auth_header.startswith("Bearer "):
+        try:
+            token = auth_header.split(" ")[1]
+            payload_data = jwt.decode(token, "my_super_secret_jwt_key_for_legalease", algorithms=["HS256"])
+            user_id = payload_data.get("user_id")
+        except Exception as e:
+            print(f"Failed to decode token in delete_chat: {e}")
+
+    if user_id != chat.get("owner_id"):
+        raise HTTPException(status_code=403, detail="Only the chat owner can delete this chat")
+
+    user_ids = [chat.get("owner_id")] + chat.get("collaborators", [])
+    
     # 1. Find and delete files from disk
     files_cursor = db.files.find({"chat_id": chat_id})
     async for file_doc in files_cursor:
@@ -346,6 +510,11 @@ async def delete_chat(chat_id: str) -> dict[str, bool]:
     result = await db.chats.delete_one({"chat_id": chat_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Chat not found")
+
+    # Notify participants that the chat was deleted
+    if user_ids:
+        await notify_chat_list_changed(user_ids)
+
     return {"deleted": True}
 
 
@@ -373,10 +542,57 @@ async def add_message(chat_id: str, payload: AddMessageRequest) -> dict[str, Any
         },
     )
 
+    await manager.broadcast({
+        "type": "new_message",
+        "chat_id": chat_id,
+        "message": new_message
+    }, chat_id)
+
+    await notify_chat_participants_changed(chat_id)
+
     return {
         "chat_id": chat_id,
         "message": new_message,
     }
+
+
+@app.websocket("/ws/chats/{chat_id}")
+async def websocket_endpoint(websocket: WebSocket, chat_id: str):
+    await manager.connect(websocket, chat_id)
+    try:
+        while True:
+            # We don't process incoming messages from WS, only broadcast
+            data = await websocket.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect(websocket, chat_id)
+
+
+@app.websocket("/ws/users/{user_id}")
+async def user_websocket_endpoint(websocket: WebSocket, user_id: str):
+    await manager.connect_user(websocket, user_id)
+    try:
+        while True:
+            # We don't process incoming messages from WS, only broadcast
+            data = await websocket.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect_user(websocket, user_id)
+
+
+async def notify_chat_list_changed(user_ids: list[str]):
+    for user_id in user_ids:
+        if user_id:
+            await manager.broadcast_to_user({"type": "chat_list_updated"}, user_id)
+
+
+async def notify_chat_participants_changed(chat_id: str, extra_user_ids: list[str] = None):
+    chat = await db.chats.find_one({"chat_id": chat_id})
+    user_ids = []
+    if chat:
+        user_ids = [chat.get("owner_id")] + chat.get("collaborators", [])
+    if extra_user_ids:
+        user_ids.extend(extra_user_ids)
+    unique_users = list(filter(None, set(user_ids)))
+    await notify_chat_list_changed(unique_users)
 
 
 class GenerateAiRequest(BaseModel):
@@ -530,6 +746,13 @@ async def generate_ai(payload: GenerateAiRequest, request: Request, background_t
         )
     
     # 5. Return without saving (App is responsible for persistence)
+    if payload.chat_id:
+        await manager.broadcast({
+            "type": "new_message",
+            "chat_id": payload.chat_id,
+            "message": assistant_message
+        }, payload.chat_id)
+        
     return {
         "assistant_message": assistant_message,
     }
@@ -625,6 +848,8 @@ async def update_message(chat_id: str, message_id: str, payload: UpdateMessageRe
         },
     )
 
+    await notify_chat_participants_changed(chat_id)
+
     return {
         "chat_id": chat_id,
         "message_id": message_id,
@@ -665,6 +890,8 @@ async def delete_message(chat_id: str, message_id: str) -> dict[str, bool]:
             }
         },
     )
+
+    await notify_chat_participants_changed(chat_id)
 
     return {"deleted": True}
 
@@ -896,10 +1123,11 @@ async def clear_user_chats(user_id: str):
     
     # Delete all chats belonging to this user
     await db.chats.delete_many({"owner_id": user_id})
+    await notify_chat_list_changed([user_id])
     return {"status": "success", "message": "All chat history cleared successfully."}
 
 @app.post("/chats/{chat_id}/messages_with_file")
-async def add_message_with_file(chat_id: str, content: str = Form(...), file: UploadFile = File(None)):
+async def add_message_with_file(chat_id: str, request: Request, content: str = Form(...), file: UploadFile = File(None)):
     # Replaces normal messages endpoint to also handle files
     chat = await db.chats.find_one({"chat_id": chat_id})
     if not chat:
@@ -927,13 +1155,25 @@ async def add_message_with_file(chat_id: str, content: str = Form(...), file: Up
             "uploaded_at": created_at
         })
 
+    # Decode JWT to get user_id
+    user_id = None
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        try:
+            token = auth_header.split(" ")[1]
+            payload_data = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+            user_id = payload_data.get("user_id")
+        except Exception as e:
+            print(f"Failed to decode token in add_message_with_file: {e}")
+
     user_message = {
         "id": make_id("msg"),
         "sender": "user",
         "content": content,
         "file_id": file_id,
         "filename": file.filename if file else None,
-        "created_at": created_at
+        "created_at": created_at,
+        "user_id": user_id
     }
 
     await db.chats.update_one(
@@ -943,12 +1183,27 @@ async def add_message_with_file(chat_id: str, content: str = Form(...), file: Up
             "$set": {"updated_at": now_iso()},
         },
     )
+
+    await manager.broadcast({
+        "type": "new_message",
+        "chat_id": chat_id,
+        "message": user_message
+    }, chat_id)
+
+    await notify_chat_participants_changed(chat_id)
+
     return {"chat_id": chat_id, "message": user_message}
 
 @app.get("/users/{user_id}/search")
 async def search_chats(user_id: str, query: str):
-    # Searches chats where user messages contain the query
-    cursor = db.chats.find({"owner_id": user_id, "messages.content": {"$regex": query, "$options": "i"}})
+    # Searches chats where chat title or messages contain the query
+    cursor = db.chats.find({
+        "owner_id": user_id,
+        "$or": [
+            {"title": {"$regex": query, "$options": "i"}},
+            {"messages.content": {"$regex": query, "$options": "i"}}
+        ]
+    })
     chats = [chat_to_response(chat) async for chat in cursor]
     return {"items": chats}
 

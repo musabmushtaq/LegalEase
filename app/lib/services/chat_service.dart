@@ -6,6 +6,7 @@ import 'dart:async';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:web_socket_channel/web_socket_channel.dart';
 import '../models/chat.dart';
 
 class ChatService extends ChangeNotifier {
@@ -24,6 +25,11 @@ class ChatService extends ChangeNotifier {
   final Map<String, Chat> _chats = {};
   final Map<String, List<ChatMessage>> _messages = {};
   final Set<String> _generatingTitles = {}; // Track chats generating titles
+  final Map<String, String> _usernamesCache = {}; // Cache resolved usernames
+
+  WebSocketChannel? _webSocketChannel;
+  StreamSubscription? _webSocketSubscription;
+  String? _webSocketConnectedChatId;
 
   bool _isConnected = false;
   bool _isConnecting = true;
@@ -37,12 +43,18 @@ class ChatService extends ChangeNotifier {
   Timer? _recoveryTimer;
   ConnectivityResult? _lastConnectivityResult;
 
+  String _searchQuery = '';
+  List<Chat>? _searchResults;
+
   bool get isConnected => _isConnected;
   bool get isConnecting => _isConnecting;
   bool get isAuthenticated => _isAuthenticated;
   String? get username => _username;
+  String? get userId => _userId;
   bool get isTemporaryChat => _isTemporaryChat;
   String? get currentChatId => _currentChatId;
+  String get searchQuery => _searchQuery;
+  List<Chat>? get searchResults => _searchResults;
   Chat? get currentChat =>
       _currentChatId != null ? _chats[_currentChatId] : null;
   List<ChatMessage> get currentMessages =>
@@ -54,6 +66,10 @@ class ChatService extends ChangeNotifier {
   bool isTitleGenerating(String chatId) => _generatingTitles.contains(chatId);
 
   List<Chat> get displayedChats {
+    if (_searchQuery.isNotEmpty) {
+      return _searchResults ?? [];
+    }
+
     // History list is strictly network-driven. 
     // If we are offline or not authenticated, we don't show the history.
     if (!_isConnected || !_isAuthenticated) return [];
@@ -78,6 +94,8 @@ class ChatService extends ChangeNotifier {
     await _loadSettings();
     await _loadAuth();
     if (_isAuthenticated) {
+      await _restoreCurrentChatFromCache();
+      _updateWebSocketConnection();
       // Reactive check on startup - skip restoring from cache for fresh start
       checkInitialAndInstantNetwork();
     } else {
@@ -106,6 +124,7 @@ class ChatService extends ChangeNotifier {
       // Clear out the current selected chat so we just start a "temporary" session view.
       _currentChatId = null;
     }
+    _updateWebSocketConnection();
     notifyListeners();
   }
 
@@ -176,7 +195,6 @@ class ChatService extends ChangeNotifier {
     required String username,
     required String email,
     required String password,
-    File? profilePic,
   }) async {
     try {
       final uri = Uri.parse('$_apiBaseUrl/auth/register');
@@ -207,6 +225,7 @@ class ChatService extends ChangeNotifier {
     _currentChatId = null;
     _chats.clear();
     _messages.clear();
+    _disconnectWebSocket();
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('userId');
@@ -325,6 +344,7 @@ class ChatService extends ChangeNotifier {
       _messages.clear();
       // Restore the one cached chat so the user can still see their active conversation
       _restoreCurrentChatFromCache();
+      _updateWebSocketConnection();
       notifyListeners();
       
       // Start aggressive recovery loop to detect when server is back
@@ -462,6 +482,10 @@ class ChatService extends ChangeNotifier {
     }
   }
 
+  Future<void> syncChats() async {
+    await _syncFromApi();
+  }
+
   /// Sync chats from backend API
   /// Only caches the current chat to shared preferences for speed
   Future<void> _syncFromApi() async {
@@ -510,6 +534,7 @@ class ChatService extends ChangeNotifier {
         if (_currentChatId != null && _chats.containsKey(_currentChatId)) {
           await _saveCurrentChatToCache();
         }
+        _updateWebSocketConnection();
         _isConnected = true; // Confirm we are online
         _isConnecting = false;
         notifyListeners();
@@ -568,6 +593,7 @@ class ChatService extends ChangeNotifier {
             _chats[chat.id] = chat;
             _messages[chat.id] = [];
             await _saveCurrentChatToCache();
+            _updateWebSocketConnection();
             notifyListeners();
             return;
           }
@@ -586,6 +612,7 @@ class ChatService extends ChangeNotifier {
     );
     _messages[chatId] = [];
     await _saveCurrentChatToCache();
+    _updateWebSocketConnection();
     notifyListeners();
   }
 
@@ -597,6 +624,7 @@ class ChatService extends ChangeNotifier {
     _isTemporaryChat = false;
     // Cache the newly selected chat for fast restoration
     _saveCurrentChatToCache();
+    _updateWebSocketConnection();
     notifyListeners();
   }
 
@@ -605,6 +633,11 @@ class ChatService extends ChangeNotifier {
       _cleanupSessionTempChat();
     }
     _currentChatId = null;
+    _updateWebSocketConnection();
+    SharedPreferences.getInstance().then((prefs) {
+      prefs.remove('currentChatCache');
+      prefs.remove('currentChatIdCache');
+    }).catchError((_) {});
     notifyListeners();
   }
 
@@ -737,7 +770,7 @@ class ChatService extends ChangeNotifier {
       final response = await http.post(
         uri,
         headers: _headers(),
-        body: jsonEncode({'content': content, 'sender': sender, 'user_id': _userId}),
+        body: jsonEncode({'content': content, 'sender': sender, 'user_id': sender == 'user' ? _userId : null}),
       ).timeout(const Duration(seconds: 10));
       
       if (response.statusCode == 200) {
@@ -780,6 +813,7 @@ class ChatService extends ChangeNotifier {
       content: content,
       createdAt: DateTime.now(),
       localFilePath: localFilePath,
+      userId: sender == 'user' ? _userId : null,
     );
 
     _messages[_currentChatId]?.add(message);
@@ -848,7 +882,7 @@ class ChatService extends ChangeNotifier {
             if (index != -1) {
               final oldMsg = _messages[currentId]![index];
               _messages[currentId]![index] = ChatMessage(
-                id: oldMsg.id,
+                id: msgData['id'] as String? ?? oldMsg.id,
                 chatId: oldMsg.chatId,
                 sender: oldMsg.sender,
                 content: oldMsg.content,
@@ -856,6 +890,7 @@ class ChatService extends ChangeNotifier {
                 localFilePath: oldMsg.localFilePath,
                 fileId: msgData['file_id'] as String?,
                 fileName: msgData['filename'] as String?,
+                userId: msgData['user_id'] as String? ?? oldMsg.userId,
               );
             }
           }
@@ -915,11 +950,16 @@ class ChatService extends ChangeNotifier {
           assistantMessage['chat_id'] = currentId;
           
           final aiMsg = ChatMessage.fromJson(assistantMessage);
-          aiMsg.isNew = true;
-          _messages[currentId]?.add(aiMsg);
-          _chats[currentId]?.updatedAt = DateTime.now();
-          await _saveCurrentChatToCache();
-          notifyListeners();
+          
+          final currentList = _messages[currentId] ?? [];
+          final exists = currentList.any((m) => m.id == aiMsg.id);
+          if (!exists) {
+            aiMsg.isNew = true;
+            currentList.add(aiMsg);
+            _chats[currentId]?.updatedAt = DateTime.now();
+            await _saveCurrentChatToCache();
+            notifyListeners();
+          }
 
           // 3. Persistent Chat: App explicitly saves AI Message to DB (skip on API error pollution)
           if (!_isTemporaryChat && !aiMsg.content.startsWith('Error:')) {
@@ -931,7 +971,7 @@ class ChatService extends ChangeNotifier {
                  body: jsonEncode({
                    'content': aiMsg.content,
                    'sender': 'ai',
-                   'user_id': _userId,
+                   'user_id': null,
                  }),
                );
              } catch (_) {}
@@ -991,6 +1031,41 @@ class ChatService extends ChangeNotifier {
     return [];
   }
 
+  Future<void> setSearchQuery(String query) async {
+    final trimmed = query.trim();
+    if (_searchQuery == trimmed) return;
+    _searchQuery = trimmed;
+
+    if (_searchQuery.isEmpty) {
+      _searchResults = null;
+      notifyListeners();
+      return;
+    }
+
+    // Purely online search
+    final isOnline = await checkInitialAndInstantNetwork();
+    if (isOnline && _userId != null) {
+      try {
+        final serverResults = await searchChats(_searchQuery);
+        // Only apply if the query hasn't changed while we were waiting for the network
+        if (_searchQuery == trimmed) {
+          _searchResults = serverResults;
+          notifyListeners();
+        }
+      } catch (_) {
+        if (_searchQuery == trimmed) {
+          _searchResults = [];
+          notifyListeners();
+        }
+      }
+    } else {
+      if (_searchQuery == trimmed) {
+        _searchResults = [];
+        notifyListeners();
+      }
+    }
+  }
+
   Future<void> deleteChat(String chatId) async {
     final isOnline = await checkInitialAndInstantNetwork();
     if (!isOnline) return;
@@ -1003,6 +1078,7 @@ class ChatService extends ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove('currentChatCache');
       await prefs.remove('currentChatIdCache');
+      _updateWebSocketConnection();
     }
     notifyListeners();
 
@@ -1037,6 +1113,238 @@ class ChatService extends ChangeNotifier {
         debugPrint('ChatService: Error syncing pin state: $e');
       }
     }
+  }
+
+  Future<void> toggleShareChat(String chatId, bool isShared) async {
+    debugPrint('ChatService: toggleShareChat called for $chatId with value $isShared');
+    if (_chats[chatId] != null) {
+      _chats[chatId]!.isShared = isShared;
+      if (!isShared) {
+        _chats[chatId]!.collaborators = [];
+      }
+      // Update cache if this is the current chat
+      if (_currentChatId == chatId) {
+        await _saveCurrentChatToCache();
+      }
+      notifyListeners();
+
+      // Sync share state to backend database
+      try {
+        final uri = Uri.parse('$_apiBaseUrl/chats/$chatId');
+        await http
+            .patch(
+              uri,
+              headers: _headers(),
+              body: jsonEncode({'is_shared': isShared}),
+            )
+            .timeout(const Duration(seconds: 10));
+      } catch (e) {
+        debugPrint('ChatService: Error syncing share state: $e');
+      }
+    }
+  }
+
+  Future<Map<String, dynamic>?> getUserProfile(String userId) async {
+    try {
+      final uri = Uri.parse('$_apiBaseUrl/users/$userId');
+      final response = await http
+          .get(uri, headers: _headers())
+          .timeout(const Duration(seconds: 5));
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body) as Map<String, dynamic>;
+      }
+    } catch (e) {
+      debugPrint('ChatService: Error fetching profile for $userId: $e');
+    }
+    return null;
+  }
+
+  Future<String?> getUsernameOf(String userId) async {
+    if (_usernamesCache.containsKey(userId)) {
+      return _usernamesCache[userId];
+    }
+    final profile = await getUserProfile(userId);
+    if (profile != null) {
+      final username = profile['username'] as String?;
+      if (username != null) {
+        _usernamesCache[userId] = username;
+        return username;
+      }
+    }
+    return null;
+  }
+
+  void _updateWebSocketConnection() {
+    if (_currentChatId == null || _isTemporaryChat) {
+      _disconnectWebSocket();
+      return;
+    }
+
+    final httpUri = Uri.parse(_apiBaseUrl);
+    final wsScheme = httpUri.scheme == 'https' ? 'wss' : 'ws';
+    final wsUri = Uri(
+      scheme: wsScheme,
+      host: httpUri.host,
+      port: httpUri.port,
+      path: 'ws/chats/$_currentChatId',
+    );
+
+    if (_webSocketConnectedChatId == _currentChatId) {
+      return;
+    }
+
+    _disconnectWebSocket();
+
+    debugPrint('ChatService: Connecting to WebSocket at $wsUri');
+    _webSocketConnectedChatId = _currentChatId;
+    try {
+      _webSocketChannel = WebSocketChannel.connect(wsUri);
+      _webSocketSubscription = _webSocketChannel!.stream.listen(
+        (message) {
+          _handleWebSocketMessage(message);
+        },
+        onError: (error) {
+          debugPrint('ChatService: WebSocket error: $error');
+          _webSocketConnectedChatId = null;
+        },
+        onDone: () {
+          debugPrint('ChatService: WebSocket connection closed');
+          _webSocketConnectedChatId = null;
+        },
+      );
+    } catch (e) {
+      debugPrint('ChatService: Failed to connect to WebSocket: $e');
+      _webSocketConnectedChatId = null;
+    }
+  }
+
+  void _disconnectWebSocket() {
+    _webSocketSubscription?.cancel();
+    _webSocketSubscription = null;
+    _webSocketChannel?.sink.close();
+    _webSocketChannel = null;
+    _webSocketConnectedChatId = null;
+  }
+
+  void _handleWebSocketMessage(dynamic messageStr) {
+    try {
+      final data = jsonDecode(messageStr as String) as Map<String, dynamic>;
+      final type = data['type'] as String?;
+      final chatId = data['chat_id'] as String?;
+      
+      if (type == 'new_message' && chatId == _currentChatId) {
+        final messageData = data['message'] as Map<String, dynamic>?;
+        if (messageData != null) {
+          final incomingMsg = ChatMessage.fromJson(messageData);
+          
+          final currentList = _messages[_currentChatId] ?? [];
+          final existsById = currentList.any((m) => m.id == incomingMsg.id);
+          if (existsById) return;
+
+          // Check if there is a matching message with same content and sender to replace/update
+          final tempIndex = currentList.indexWhere((m) {
+            if (m.sender != incomingMsg.sender || m.content != incomingMsg.content) {
+              return false;
+            }
+            if (incomingMsg.sender == 'user') {
+              // For user messages, only match if the local message is temporary (doesn't start with 'msg_')
+              return !m.id.startsWith('msg_');
+            } else {
+              // For AI messages, match any message with same content (handles double-broadcast ID change)
+              return true;
+            }
+          });
+
+          if (tempIndex != -1) {
+            currentList[tempIndex] = incomingMsg;
+          } else {
+            incomingMsg.isNew = true;
+            currentList.add(incomingMsg);
+          }
+          
+          if (_chats.containsKey(_currentChatId)) {
+            _chats[_currentChatId]!.updatedAt = DateTime.now();
+          }
+          _saveCurrentChatToCache();
+          notifyListeners();
+        }
+      }
+    } catch (e) {
+      debugPrint('ChatService: Error parsing WebSocket message: $e');
+    }
+  }
+
+  Future<void> _syncSingleChat(String chatId) async {
+    try {
+      final uri = Uri.parse('$_apiBaseUrl/chats/$chatId');
+      final response = await http
+          .get(uri, headers: _headers())
+          .timeout(const Duration(seconds: 5));
+      if (response.statusCode == 200) {
+        final chatJson = jsonDecode(response.body) as Map<String, dynamic>;
+        final chat = Chat.fromJson(chatJson);
+        _chats[chat.id] = chat;
+        
+        final rawMessages = (chatJson['messages'] as List<dynamic>? ?? [])
+            .whereType<Map<String, dynamic>>()
+            .toList();
+        if (rawMessages.isNotEmpty) {
+          _messages[chat.id] = rawMessages.map(ChatMessage.fromJson).toList();
+        }
+        
+        notifyListeners();
+      }
+    } catch (e) {
+      debugPrint('ChatService: Error syncing single chat: $e');
+    }
+  }
+
+  Future<bool> inviteCollaborator(String chatId, String usernameOrEmail) async {
+    try {
+      final uri = Uri.parse('$_apiBaseUrl/chats/$chatId/invite');
+      final response = await http
+          .post(
+            uri,
+            headers: _headers(),
+            body: jsonEncode({'username': usernameOrEmail}),
+          )
+          .timeout(const Duration(seconds: 8));
+
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+        if (decoded['success'] == true) {
+          await _syncSingleChat(chatId);
+          return true;
+        }
+      }
+    } catch (e) {
+      debugPrint('ChatService: Invite collaborator error: $e');
+    }
+    return false;
+  }
+
+  Future<bool> removeCollaborator(String chatId, String usernameOrEmail) async {
+    try {
+      final uri = Uri.parse('$_apiBaseUrl/chats/$chatId/remove');
+      final response = await http
+          .post(
+            uri,
+            headers: _headers(),
+            body: jsonEncode({'username': usernameOrEmail}),
+          )
+          .timeout(const Duration(seconds: 8));
+
+      if (response.statusCode == 200) {
+        final decoded = jsonDecode(response.body);
+        if (decoded['success'] == true) {
+          await _syncSingleChat(chatId);
+          return true;
+        }
+      }
+    } catch (e) {
+      debugPrint('ChatService: Remove collaborator error: $e');
+    }
+    return false;
   }
 
   Future<void> renameChat(String chatId, String newTitle) async {

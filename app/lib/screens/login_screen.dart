@@ -85,50 +85,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     
                     const Spacer(flex: 1),
                     
-                    // Premium Glowing Balance Emblem
-                    Center(
-                      child: Container(
-                        width: 96,
-                        height: 96,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: AppTheme.highlight.withOpacity(0.03),
-                          border: Border.all(
-                            color: AppTheme.highlight.withOpacity(0.12),
-                            width: 1.5,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppTheme.highlight.withOpacity(0.06),
-                              blurRadius: 32,
-                              spreadRadius: 8,
-                            ),
-                          ],
-                        ),
-                        child: Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            Container(
-                              width: 76,
-                              height: 76,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: AppTheme.highlight.withOpacity(0.08),
-                                  width: 1.0,
-                                ),
-                              ),
-                            ),
-                            const Icon(
-                              Icons.balance_rounded,
-                              size: 42,
-                              color: AppTheme.highlight,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
                     const Text(
                       'Welcome to\nLegalEase',
                       textAlign: TextAlign.center,
@@ -155,6 +111,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     TextField(
                       controller: _usernameController,
                       style: const TextStyle(color: Colors.white),
+                      textInputAction: TextInputAction.next,
                       decoration: InputDecoration(
                         labelText: 'Username',
                         labelStyle: const TextStyle(color: Colors.grey),
@@ -176,6 +133,8 @@ class _LoginScreenState extends State<LoginScreen> {
                       controller: _passwordController,
                       obscureText: true,
                       style: const TextStyle(color: Colors.white),
+                      textInputAction: TextInputAction.done,
+                      onSubmitted: (_) => _login(),
                       decoration: InputDecoration(
                         labelText: 'Password',
                         labelStyle: const TextStyle(color: Colors.grey),

@@ -1,9 +1,9 @@
 // Main application entry point
 import { API_BASE_URL, state, CONNECTIVITY_CHECK_INTERVAL, DEFAULT_USER_ID } from './js/config.js';
 import { loadAuthState, saveAuthState, clearAuthState, handleLogin, handleRegister, handleLogout, toggleTemporaryMode, ensureUserId } from './js/auth.js';
-import { loadChatCache, saveChatCache, loadChatsFromServer, createNewChat, createLocalChat, selectChat, renameChat, togglePinChat, removeChat, searchChatsServer, searchChatsLocal } from './js/chat.js';
-import { initializeDOM, toggleDrawer, closeDrawer, renderUserState, renderTemporaryToggle, renderConnectionBanner, openAuthModal, closeAuthModal, renderDrawer, renderMessages, getUIElements, updateAttachmentPreview, openSettingsModal, closeSettingsModal, renderThinkingIndicator, removeThinkingIndicator, renderContextPill, updatePersonaBtn, showPrivacySections } from './js/ui.js';
-import { checkHealth, saveUserMessage, generateAiReply, saveAiMessage, summarizeText, updateMessage as apiUpdateMessage, deleteMessage as apiDeleteMessage, downloadFile as apiDownloadFile, clearPersonalContext, clearAllHistory, deleteUserAccount, getUserProfile } from './js/api.js';
+import { loadChatCache, saveChatCache, loadChatsFromServer, createNewChat, createLocalChat, selectChat, renameChat, togglePinChat, removeChat, searchChatsServer, searchChatsLocal, disconnectChatWebSocket, connectChatWebSocket, connectUserWebSocket, disconnectUserWebSocket } from './js/chat.js';
+import { initializeDOM, toggleDrawer, closeDrawer, renderUserState, renderTemporaryToggle, renderConnectionBanner, openAuthModal, closeAuthModal, renderDrawer, renderMessages, getUIElements, updateAttachmentPreview, openSettingsModal, closeSettingsModal, renderThinkingIndicator, removeThinkingIndicator, renderContextPill, updatePersonaBtn, showPrivacySections, openManageAccessModal, closeManageAccessModal } from './js/ui.js';
+import { checkHealth, saveUserMessage, generateAiReply, saveAiMessage, summarizeText, updateMessage as apiUpdateMessage, deleteMessage as apiDeleteMessage, downloadFile as apiDownloadFile, clearPersonalContext, clearAllHistory, deleteUserAccount, getUserProfile, inviteCollaborator, removeCollaborator, updateChat } from './js/api.js';
 import { debounce, showMessage, logError, showCustomConfirm, showCustomPrompt } from './js/utils.js';
 
 let connectivityInterval = null;
@@ -25,6 +25,11 @@ window.tryReconnect = ensureConnectivity;
 window.showChatMenuUI = showChatMenuUI;
 window.hideChatMenuUI = hideChatMenuUI;
 window.clearAttachmentUI = clearAttachment;
+window.renderMessages = renderMessages;
+window.renderDrawer = renderDrawer;
+window.removeCollaboratorUI = removeCollaboratorUI;
+window.openManageAccessModalUI = openManageAccessModal;
+window.closeManageAccessModalUI = closeManageAccessModal;
 window.openSettingsModalUI = () => {
     console.log("Global openSettingsModalUI called");
     const uiEls = getUIElements();
@@ -74,6 +79,7 @@ async function initializeApp() {
         if (state.isConnected && !state.isTemporaryChat && state.userId) {
             try {
                 await loadChatsFromServer(state.userId);
+                connectUserWebSocket(state.userId);
             } catch (error) {
                 logError('initializeApp - loadChatsFromServer', error);
             }
@@ -87,8 +93,12 @@ async function initializeApp() {
             createLocalChat();
         }
 
+        if (state.currentChatId) {
+            connectChatWebSocket(state.currentChatId);
+        }
+
         renderDrawer();
-        renderMessages();
+        renderMessages(true);
         renderUserState();
         showPrivacySections(!!state.authToken);
 
@@ -117,6 +127,9 @@ async function checkConnectivity() {
     if (state.isConnected && !state.isTemporaryChat && state.userId) {
         try {
             await loadChatsFromServer(state.userId);
+            if (!state.userWsConnection) {
+                connectUserWebSocket(state.userId);
+            }
             renderDrawer();
             renderUserState();
         } catch (error) {
@@ -188,6 +201,16 @@ function setupEventListeners() {
         closeSettingsModal();
         handleAuthAction();
     });
+
+    // Collaboration
+    document.getElementById('shareBtn')?.addEventListener('click', () => {
+        openManageAccessModal();
+    });
+    document.getElementById('manageAccessCloseBtn')?.addEventListener('click', () => {
+        closeManageAccessModal();
+    });
+    document.getElementById('inviteForm')?.addEventListener('submit', handleInviteSubmit);
+    document.getElementById('revokeAccessBtn')?.addEventListener('click', handleRevokeAccess);
 
     // Sidebar custom actions
     const sidebarNewChatBtn = document.getElementById('sidebarNewChatBtn');
@@ -262,7 +285,7 @@ async function createNewChatUI() {
     
     clearAttachment();
     renderDrawer();
-    renderMessages();
+    renderMessages(true);
     renderUserState();
     document.getElementById('messageInput')?.focus();
 }
@@ -270,7 +293,7 @@ async function createNewChatUI() {
 // ─── Select / Pin / Rename / Delete chat ──────────────────────────────────────
 function selectChatUI(chatId) {
     selectChat(chatId);
-    renderMessages();
+    renderMessages(true);
     renderDrawer();
     closeDrawer();
     document.getElementById('messageInput')?.focus();
@@ -307,7 +330,7 @@ async function deleteChatUI(chatId) {
     try {
         await removeChat(chatId);
         renderDrawer();
-        renderMessages();
+        renderMessages(true);
     } catch (error) {
         logError('deleteChatUI', error);
         showMessage('Could not delete chat.');
@@ -383,6 +406,7 @@ async function sendMessageUI() {
         isNew: true,
         fileName: file?.name || null,
         localFileUrl: file ? URL.createObjectURL(file) : null,
+        userId: state.userId || DEFAULT_USER_ID,
     };
     state.messages[chatId].push(userMsg);
 
@@ -410,6 +434,7 @@ async function sendMessageUI() {
                         id: saved.message.id || userMsgId,
                         fileId: saved.message.file_id || null,
                         fileName: saved.message.filename || file?.name || null,
+                        userId: saved.message.user_id || state.userId || DEFAULT_USER_ID,
                         isNew: false,
                     };
                 }
@@ -436,16 +461,19 @@ async function sendMessageUI() {
 
         const aiContent = aiResp?.assistant_message?.content || "I'm sorry, I encountered an error. Please try again.";
 
-        // 5. Add AI message locally
-        const aiMsgId = `local_ai_${Date.now()}`;
-        const aiMsg = {
-            id: aiMsgId,
-            sender: 'ai',
-            content: aiContent,
-            createdAt: new Date().toISOString(),
-            isNew: true,
-        };
-        state.messages[chatId].push(aiMsg);
+        // 5. Add AI message locally (only if it doesn't already exist from WebSocket broadcast)
+        const exists = state.messages[chatId].some(m => m.sender === 'ai' && m.content === aiContent);
+        if (!exists) {
+            const aiMsgId = `local_ai_${Date.now()}`;
+            const aiMsg = {
+                id: aiMsgId,
+                sender: 'ai',
+                content: aiContent,
+                createdAt: new Date().toISOString(),
+                isNew: true,
+            };
+            state.messages[chatId].push(aiMsg);
+        }
 
         // Update chat timestamp
         if (state.chats[chatId]) state.chats[chatId].updatedAt = new Date().toISOString();
@@ -644,6 +672,8 @@ function clearAttachment() {
 // ─── Auth ──────────────────────────────────────────────────────────────────────
 async function handleAuthAction() {
     if (state.authToken) {
+        disconnectChatWebSocket();
+        disconnectUserWebSocket();
         handleLogout();
         state.chats = {};
         state.messages = {};
@@ -652,7 +682,7 @@ async function handleAuthAction() {
         renderUserState();
         renderTemporaryToggle();
         renderDrawer();
-        renderMessages();
+        renderMessages(true);
         showPrivacySections(false);
         saveChatCache();
         openAuthModal('login');
@@ -685,9 +715,13 @@ async function handleAuthSubmit(event) {
         showPrivacySections(true);
         if (state.userId) {
             await loadChatsFromServer(state.userId);
+            connectUserWebSocket(state.userId);
+        }
+        if (state.currentChatId) {
+            connectChatWebSocket(state.currentChatId);
         }
         renderDrawer();
-        renderMessages();
+        renderMessages(true);
     } catch (error) {
         logError('handleAuthSubmit', error);
         showMessage(error.message || 'Authentication failed.');
@@ -695,10 +729,93 @@ async function handleAuthSubmit(event) {
 }
 
 function toggleTemporaryChatMode() {
+    disconnectChatWebSocket();
     toggleTemporaryMode();
     renderUserState();
     renderTemporaryToggle();
     saveChatCache();
+}
+
+// ─── Collaboration ─────────────────────────────────────────────────────────────
+async function handleInviteSubmit(event) {
+    event.preventDefault();
+    const input = document.getElementById('inviteUsername');
+    if (!input) return;
+    const value = input.value.trim();
+    if (!value) return;
+
+    const chatId = state.currentChatId;
+    if (!chatId) return;
+
+    try {
+        const inviteBtn = document.getElementById('inviteSubmitBtn');
+        if (inviteBtn) inviteBtn.disabled = true;
+        
+        const res = await inviteCollaborator(chatId, value);
+        if (res && res.success) {
+            showMessage(`Successfully invited ${value}.`);
+            input.value = '';
+            
+            // Reload chat details and update UI
+            await loadChatsFromServer(state.userId);
+            // Refresh modal
+            await openManageAccessModal();
+            renderDrawer();
+        } else {
+            showMessage(res?.message || 'Could not invite collaborator.');
+        }
+    } catch (err) {
+        logError('handleInviteSubmit', err);
+        showMessage(err.message || 'Error inviting collaborator.');
+    } finally {
+        const inviteBtn = document.getElementById('inviteSubmitBtn');
+        if (inviteBtn) inviteBtn.disabled = false;
+    }
+}
+
+async function handleRevokeAccess() {
+    const chatId = state.currentChatId;
+    if (!chatId) return;
+
+    const confirmed = await showCustomConfirm('Are you sure you want to revoke access? All collaborators will lose access, and this chat will become private.');
+    if (!confirmed) return;
+
+    try {
+        // PATCH updateChat with is_shared: false
+        await updateChat(chatId, { is_shared: false });
+        showMessage('Chat access revoked.');
+        
+        closeManageAccessModal();
+        await loadChatsFromServer(state.userId);
+        renderDrawer();
+        renderMessages();
+    } catch (err) {
+        logError('handleRevokeAccess', err);
+        showMessage('Error revoking access.');
+    }
+}
+
+async function removeCollaboratorUI(username) {
+    const chatId = state.currentChatId;
+    if (!chatId) return;
+
+    const confirmed = await showCustomConfirm(`Remove collaborator ${username} from this chat?`);
+    if (!confirmed) return;
+
+    try {
+        const res = await removeCollaborator(chatId, username);
+        if (res && res.success) {
+            showMessage(`Removed ${username}.`);
+            await loadChatsFromServer(state.userId);
+            await openManageAccessModal();
+            renderDrawer();
+        } else {
+            showMessage(res?.message || 'Could not remove collaborator.');
+        }
+    } catch (err) {
+        logError('removeCollaboratorUI', err);
+        showMessage(err.message || 'Error removing collaborator.');
+    }
 }
 
 // ─── Search ────────────────────────────────────────────────────────────────────
@@ -788,7 +905,7 @@ async function handleClearHistory() {
         createLocalChat();
         saveChatCache();
         renderDrawer();
-        renderMessages();
+        renderMessages(true);
         showMessage('All chat history cleared.');
     } catch {
         showMessage('Failed to clear history. Check connection.');
@@ -808,7 +925,7 @@ async function handleDeleteAccount() {
         createLocalChat();
         renderUserState();
         renderDrawer();
-        renderMessages();
+        renderMessages(true);
         closeSettingsModal();
         showMessage('Account deleted.');
         openAuthModal('login');
@@ -837,11 +954,31 @@ function showChatMenuUI(event, chatId) {
         ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="transform: rotate(45deg);"><path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/></svg>`
         : `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/></svg>`;
         
+    const isOwner = chat.userId === state.userId;
+    const isServerChat = !String(chatId).startsWith('local_');
+    const showShare = state.authToken && isOwner && isServerChat && !state.isTemporaryChat;
+
+    let shareItem = '';
+    if (showShare) {
+        const shareText = chat.isShared ? 'Manage Shared Access' : 'Share';
+        const shareIcon = chat.isShared
+            ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>`
+            : `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>`;
+            
+        shareItem = `
+            <button class="chat-context-menu-item" onclick="window.selectChatUI('${chatId}'); window.openManageAccessModalUI(); hideChatMenuUI();">
+                ${shareIcon}
+                <span>${shareText}</span>
+            </button>
+        `;
+    }
+
     menu.innerHTML = `
         <button class="chat-context-menu-item" onclick="window.togglePinChatUI('${chatId}'); hideChatMenuUI();">
             ${pinIcon}
             <span>${pinText}</span>
         </button>
+        ${shareItem}
         <button class="chat-context-menu-item" onclick="window.renameChatUI('${chatId}'); hideChatMenuUI();">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
             <span>Rename</span>

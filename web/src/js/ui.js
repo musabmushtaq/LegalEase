@@ -1,6 +1,7 @@
 // UI rendering module
-import { state, DEFAULT_USERNAME } from './config.js';
+import { state, DEFAULT_USERNAME, DEFAULT_USER_ID } from './config.js';
 import { escapeHtml } from './utils.js';
+import { getUserProfile } from './api.js';
 
 // DOM element references
 let menuBtn, newChatBtn, drawer, drawerOverlay, closeDrawerBtn;
@@ -11,7 +12,9 @@ let userStatus, authModal, authForm, authTitle, authSwitchBtn, authSwitchText;
 let authCloseBtn, authUsername, authEmailLabel, authEmail, authPassword;
 let authConfirmLabel, authConfirmPassword, authSubmitBtn;
 let settingsBtn, settingsModal, settingsApiPrefix, settingsApiSuffix, settingsApiIp, settingsCloseBtn;
-let personaBtn, contextPill, attachmentMenu;
+let personaBtn, contextPill, attachmentMenu, newMessagesPill;
+let shareBtn, manageAccessModal, manageAccessCloseBtn, chatPrivacyStateText, revokeAccessBtn;
+let inviteSection, inviteForm, inviteUsername, inviteSubmitBtn, collaboratorsListCard;
 
 export function initializeDOM() {
     menuBtn = document.getElementById('menuBtn');
@@ -55,6 +58,34 @@ export function initializeDOM() {
     personaBtn = document.getElementById('attachPersonaBtn');
     contextPill = document.getElementById('contextActivePill');
     attachmentMenu = document.getElementById('attachmentMenu');
+    shareBtn = document.getElementById('shareBtn');
+    manageAccessModal = document.getElementById('manageAccessModal');
+    manageAccessCloseBtn = document.getElementById('manageAccessCloseBtn');
+    chatPrivacyStateText = document.getElementById('chatPrivacyStateText');
+    revokeAccessBtn = document.getElementById('revokeAccessBtn');
+    inviteSection = document.getElementById('inviteSection');
+    inviteForm = document.getElementById('inviteForm');
+    inviteUsername = document.getElementById('inviteUsername');
+    inviteSubmitBtn = document.getElementById('inviteSubmitBtn');
+    collaboratorsListCard = document.getElementById('collaboratorsListCard');
+    newMessagesPill = document.getElementById('newMessagesPill');
+
+    if (newMessagesPill) {
+        newMessagesPill.addEventListener('click', () => {
+            scrollToBottom();
+            hideNewMessagesPill();
+        });
+    }
+
+    if (messagesContainer) {
+        messagesContainer.addEventListener('scroll', () => {
+            const threshold = 35; // px
+            const isAtBottom = (messagesContainer.scrollHeight - messagesContainer.scrollTop - messagesContainer.clientHeight) <= threshold;
+            if (isAtBottom) {
+                hideNewMessagesPill();
+            }
+        });
+    }
 }
 
 export function toggleDrawer() {
@@ -219,29 +250,101 @@ function chatItemHtml(chat) {
             <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/></svg>
            </span>`
         : '';
+    const sharedIndicator = chat.isShared 
+        ? `<span class="sidebar-shared-icon" title="Shared chat">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+           </span>`
+        : '';
+
+    // Only allow context menu / actions if user is the owner (admin) of the chat
+    const isOwner = !state.authToken || !chat.userId || chat.userId === state.userId;
+    const contextMenuAttr = isOwner 
+        ? `oncontextmenu="event.preventDefault(); event.stopPropagation(); window.showChatMenuUI(event, '${chat.id}')"`
+        : `oncontextmenu="event.preventDefault();"`;
+
+    const menuTrigger = isOwner
+        ? `<button class="chat-menu-trigger"
+                   onclick="event.stopPropagation(); window.showChatMenuUI(event, '${chat.id}')"
+                   title="Chat actions" aria-label="Chat actions">
+               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+           </button>`
+        : '';
+
     return `
         <div class="chat-item ${isActive ? 'active' : ''}"
              data-chat-id="${chat.id}"
              onclick="window.selectChatUI('${chat.id}')"
-             oncontextmenu="event.preventDefault(); event.stopPropagation(); window.showChatMenuUI(event, '${chat.id}')"
+             ${contextMenuAttr}
              role="button" tabindex="0"
              aria-label="Chat: ${escapeHtml(chat.title)}">
             <div class="chat-title">${escapeHtml(chat.title)}</div>
             <div class="chat-item-right-row">
                 ${pinIndicator}
-                <button class="chat-menu-trigger"
-                        onclick="event.stopPropagation(); window.showChatMenuUI(event, '${chat.id}')"
-                        title="Chat actions" aria-label="Chat actions">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
-                </button>
+                ${sharedIndicator}
+                ${menuTrigger}
             </div>
         </div>
     `;
 }
 
+const usernamesCache = {};
+
+function getUsername(userId) {
+    if (!userId) return '...';
+    if (userId === state.userId && state.username) {
+        return state.username;
+    }
+    if (userId === DEFAULT_USER_ID || userId === 'default_user') {
+        return DEFAULT_USERNAME;
+    }
+    if (usernamesCache[userId]) {
+        return usernamesCache[userId];
+    }
+    usernamesCache[userId] = 'loading';
+    getUserProfile(userId).then(profile => {
+        usernamesCache[userId] = profile.username || 'Unknown';
+        renderMessages();
+    }).catch(() => {
+        usernamesCache[userId] = 'Unknown';
+        renderMessages();
+    });
+    return '...';
+}
+
+function showNewMessagesPill() {
+    if (newMessagesPill) {
+        newMessagesPill.classList.remove('hidden');
+    }
+}
+
+function hideNewMessagesPill() {
+    if (newMessagesPill) {
+        newMessagesPill.classList.add('hidden');
+    }
+}
+
 // ─── Messages ──────────────────────────────────────────────────────────────────
-export function renderMessages() {
+export function renderMessages(forceScroll = false) {
     if (!messagesContainer) return;
+
+    // Check if we were at the bottom before updating HTML
+    const threshold = 35; // px
+    const wasAtBottom = (messagesContainer.scrollHeight - messagesContainer.scrollTop - messagesContainer.clientHeight) <= threshold;
+    const prevScrollTop = messagesContainer.scrollTop;
+
+    // Update shareBtn visibility
+    const shareBtn = document.getElementById('shareBtn');
+    if (shareBtn) {
+        const activeChat = state.currentChatId ? state.chats[state.currentChatId] : null;
+        const isOwner = activeChat && activeChat.userId === state.userId;
+        const isServerChat = activeChat && !String(activeChat.id).startsWith('local_');
+        
+        if (state.authToken && activeChat && isOwner && isServerChat && !state.isTemporaryChat) {
+            shareBtn.classList.remove('hidden');
+        } else {
+            shareBtn.classList.add('hidden');
+        }
+    }
 
     const chatContainer = document.querySelector('.chat-container');
     const msgList = state.currentChatId
@@ -253,6 +356,7 @@ export function renderMessages() {
 
     if (isEmpty) {
         messagesContainer.innerHTML = '';
+        hideNewMessagesPill();
         return;
     }
 
@@ -266,8 +370,19 @@ export function renderMessages() {
     }
 
     messagesContainer.innerHTML = msgList.map(msg => messageBubbleHtml(msg, lastAiMsgId)).join('');
-    scrollToBottom();
 
+    // Determine if we should scroll to bottom
+    const lastMsg = msgList[msgList.length - 1];
+    const isOwnMessage = lastMsg && lastMsg.sender === 'user' && (lastMsg.userId === state.userId || String(lastMsg.id).startsWith('local_'));
+
+    if (forceScroll || isOwnMessage || wasAtBottom) {
+        scrollToBottom();
+        hideNewMessagesPill();
+    } else {
+        // Keep scroll position and show new messages pill
+        messagesContainer.scrollTop = prevScrollTop;
+        showNewMessagesPill();
+    }
 }
 
 function messageBubbleHtml(msg, lastAiMsgId) {
@@ -286,6 +401,16 @@ function messageBubbleHtml(msg, lastAiMsgId) {
 function userBubbleHtml(msg, isEdited, canEdit) {
     const hasAttachment = msg.fileName && (msg.fileId || msg.localFileUrl);
     const cleanContent = msg.content.trim();
+
+    const activeChat = state.currentChatId ? state.chats[state.currentChatId] : null;
+    const isShared = activeChat ? activeChat.isShared : false;
+    const isOwnMessage = !isShared || !msg.userId || msg.userId === state.userId;
+
+    let usernameLabel = '';
+    if (isShared && msg.userId) {
+        const username = getUsername(msg.userId);
+        usernameLabel = `<div class="message-username">${escapeHtml(username)}</div>`;
+    }
 
     let attachmentCard = '';
     if (hasAttachment) {
@@ -314,12 +439,13 @@ function userBubbleHtml(msg, isEdited, canEdit) {
     }
 
     return `
-        <div class="message-bubble user" data-message-id="${msg.id}" role="article">
+        <div class="message-bubble user ${isOwnMessage ? '' : 'other'}" data-message-id="${msg.id}" role="article">
             <div class="user-bubble-glass">
                 ${cleanContent ? `<div class="user-bubble-text">${escapeHtml(cleanContent)}</div>` : ''}
                 ${attachmentCard}
                 ${isEdited ? '<div class="edited-indicator">(edited)</div>' : ''}
             </div>
+            ${usernameLabel}
         </div>
     `;
 }
@@ -454,3 +580,115 @@ export function updateAttachmentPreview(file) {
 // Legacy exports kept for compatibility
 export function openShareModal() {}
 export function closeShareModal() {}
+
+export async function openManageAccessModal() {
+    if (!state.currentChatId) return;
+    const chat = state.chats[state.currentChatId];
+    if (!chat) return;
+
+    const modal = document.getElementById('manageAccessModal');
+    if (!modal) return;
+
+    // Reset inputs
+    const usernameInput = document.getElementById('inviteUsername');
+    if (usernameInput) usernameInput.value = '';
+
+    // Render privacy status
+    const privacyText = document.getElementById('chatPrivacyStateText');
+    const revokeBtn = document.getElementById('revokeAccessBtn');
+    
+    if (chat.isShared) {
+        if (privacyText) {
+            privacyText.textContent = 'Shared Chat';
+            privacyText.nextElementSibling.textContent = 'This conversation is shared with collaborators.';
+        }
+        if (revokeBtn) revokeBtn.classList.remove('hidden');
+    } else {
+        if (privacyText) {
+            privacyText.textContent = 'Private Chat';
+            privacyText.nextElementSibling.textContent = 'Only you have access to this conversation.';
+        }
+        if (revokeBtn) revokeBtn.classList.add('hidden');
+    }
+
+    // Render list
+    await renderCollaboratorsList(chat);
+
+    modal.classList.remove('hidden');
+}
+
+export function closeManageAccessModal() {
+    const modal = document.getElementById('manageAccessModal');
+    if (modal) {
+        modal.classList.add('hidden');
+    }
+}
+
+async function renderCollaboratorsList(chat) {
+    const card = document.getElementById('collaboratorsListCard');
+    if (!card) return;
+
+    card.innerHTML = '<div class="loading-text" style="padding: 16px; text-align: center;">Loading collaborators...</div>';
+
+    try {
+        const listHtml = [];
+        
+        // 1. Render Owner row
+        let ownerName = 'Owner';
+        let ownerEmail = '';
+        try {
+            const ownerProfile = await getUserProfile(chat.userId);
+            if (ownerProfile) {
+                ownerName = ownerProfile.username || 'Owner';
+                ownerEmail = ownerProfile.email || '';
+            }
+        } catch (_) {}
+
+        listHtml.push(`
+            <div class="collaborator-row">
+                <div class="collaborator-info">
+                    <span class="collaborator-username">${escapeHtml(ownerName)}</span>
+                    ${ownerEmail ? `<span class="collaborator-email">${escapeHtml(ownerEmail)}</span>` : ''}
+                </div>
+                <span class="collaborator-badge owner">Owner</span>
+            </div>
+        `);
+
+        // 2. Render Collaborator rows
+        const collaborators = chat.collaborators || [];
+        if (collaborators.length > 0) {
+            for (const collabId of collaborators) {
+                let collabName = 'User';
+                let collabEmail = '';
+                try {
+                    const collabProfile = await getUserProfile(collabId);
+                    if (collabProfile) {
+                        collabName = collabProfile.username || 'User';
+                        collabEmail = collabProfile.email || '';
+                    }
+                } catch (_) {}
+
+                listHtml.push(`
+                    <div class="collaborator-row">
+                        <div class="collaborator-info">
+                            <span class="collaborator-username">${escapeHtml(collabName)}</span>
+                            ${collabEmail ? `<span class="collaborator-email">${escapeHtml(collabEmail)}</span>` : ''}
+                        </div>
+                        <button type="button" class="collaborator-remove-btn" onclick="window.removeCollaboratorUI('${escapeHtml(collabName)}')">Remove</button>
+                    </div>
+                `);
+            }
+        } else {
+            listHtml.push(`
+                <div class="collaborators-list-container" style="align-items: center; justify-content: center; opacity: 0.5; padding: 20px 0;">
+                    <span style="font-size: 13px;">No collaborators yet. Invite others to join!</span>
+                </div>
+            `);
+        }
+
+        card.innerHTML = listHtml.join('');
+    } catch (err) {
+        console.error('Error rendering collaborators:', err);
+        card.innerHTML = '<div class="loading-text" style="padding: 16px; text-align: center; color: var(--danger);">Error loading collaborators</div>';
+    }
+}

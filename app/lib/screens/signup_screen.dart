@@ -1,7 +1,5 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:image_picker/image_picker.dart';
 import '../services/chat_service.dart';
 import '../theme/app_theme.dart';
 import 'chat_screen.dart';
@@ -21,18 +19,6 @@ class _SignupScreenState extends State<SignupScreen> {
   final _passwordController = TextEditingController();
   final _confirmController = TextEditingController();
   bool _isLoading = false;
-  File? _profilePic;
-
-  final ImagePicker _picker = ImagePicker();
-
-  Future<void> _pickImage() async {
-    final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
-    if (image != null) {
-      setState(() {
-        _profilePic = File(image.path);
-      });
-    }
-  }
 
   void _signup() async {
     if (_passwordController.text != _confirmController.text) {
@@ -52,7 +38,6 @@ class _SignupScreenState extends State<SignupScreen> {
       username: _usernameController.text.trim(),
       email: _emailController.text.trim(),
       password: _passwordController.text,
-      profilePic: _profilePic,
     );
     setState(() => _isLoading = false);
 
@@ -78,12 +63,16 @@ class _SignupScreenState extends State<SignupScreen> {
     required String labelText,
     required IconData icon,
     bool obscureText = false,
+    TextInputAction? textInputAction,
+    ValueChanged<String>? onSubmitted,
   }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16.0),
       child: TextField(
         controller: controller,
         obscureText: obscureText,
+        textInputAction: textInputAction,
+        onSubmitted: onSubmitted,
         style: const TextStyle(color: Colors.white),
         decoration: InputDecoration(
           labelText: labelText,
@@ -144,56 +133,34 @@ class _SignupScreenState extends State<SignupScreen> {
                     ),
                     
                     const SizedBox(height: 32),
-
-                    Center(
-                      child: GestureDetector(
-                        onTap: () {
-                          HapticFeedback.lightImpact();
-                          _pickImage();
-                        },
-                        child: Container(
-                          width: 100,
-                          height: 100,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.05),
-                            shape: BoxShape.circle,
-                            border: Border.all(color: AppTheme.highlight.withOpacity(0.5), width: 2),
-                            image: _profilePic != null
-                                ? DecorationImage(
-                                    image: FileImage(_profilePic!),
-                                    fit: BoxFit.cover,
-                                  )
-                                : null,
-                          ),
-                          child: _profilePic == null
-                              ? const Icon(Icons.add_a_photo, size: 40, color: AppTheme.highlight)
-                              : null,
-                        ),
-                      ),
-                    ),
                     const SizedBox(height: 32),
                     
                     _buildTextField(
                       controller: _usernameController,
                       labelText: 'Username',
                       icon: Icons.person_outline,
+                      textInputAction: TextInputAction.next,
                     ),
                     _buildTextField(
                       controller: _emailController,
                       labelText: 'Email',
                       icon: Icons.email_outlined,
+                      textInputAction: TextInputAction.next,
                     ),
                     _buildTextField(
                       controller: _passwordController,
                       labelText: 'Password',
                       icon: Icons.lock_outline,
                       obscureText: true,
+                      textInputAction: TextInputAction.next,
                     ),
                     _buildTextField(
                       controller: _confirmController,
                       labelText: 'Confirm Password',
                       icon: Icons.lock_outline,
                       obscureText: true,
+                      textInputAction: TextInputAction.done,
+                      onSubmitted: (_) => _signup(),
                     ),
                     
                     const SizedBox(height: 16),

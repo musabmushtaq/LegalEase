@@ -35,6 +35,10 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _isAiThinking = false;
   File? _attachedFile;
   final ImagePicker _imagePicker = ImagePicker();
+  bool _isAtBottom = true;
+  bool _showNewMessagesPill = false;
+  int _lastMessageCount = 0;
+  String? _lastChatId;
 
   Future<void> _pickImage(ImageSource source) async {
     try {
@@ -302,6 +306,22 @@ class _ChatScreenState extends State<ChatScreen> {
   void initState() {
     super.initState();
     _scrollController = ScrollController();
+    _scrollController.addListener(() {
+      if (!_scrollController.hasClients) return;
+      final maxScroll = _scrollController.position.maxScrollExtent;
+      final currentScroll = _scrollController.position.pixels;
+      const threshold = 40.0;
+      
+      final atBottom = maxScroll - currentScroll <= threshold;
+      if (atBottom != _isAtBottom) {
+        setState(() {
+          _isAtBottom = atBottom;
+          if (_isAtBottom) {
+            _showNewMessagesPill = false;
+          }
+        });
+      }
+    });
     _textController = TextEditingController();
     _textController.addListener(() {
       setState(() {
@@ -316,6 +336,36 @@ class _ChatScreenState extends State<ChatScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     _chatService = Provider.of<ChatService>(context);
+    
+    final currentChatId = _chatService.currentChatId;
+    if (currentChatId != _lastChatId) {
+      _lastChatId = currentChatId;
+      _lastMessageCount = _chatService.currentMessages.length;
+      _showNewMessagesPill = false;
+      _scrollToBottom();
+    } else {
+      final messageCount = _chatService.currentMessages.length;
+      if (_lastMessageCount != 0 && messageCount > _lastMessageCount) {
+        final lastMsg = _chatService.currentMessages.last;
+        final isOwnMsg = lastMsg.sender == 'user' && lastMsg.userId == _chatService.userId;
+        
+        if (isOwnMsg) {
+          _scrollToBottom();
+          setState(() {
+            _showNewMessagesPill = false;
+          });
+        } else {
+          if (_isAtBottom) {
+            _scrollToBottom();
+          } else {
+            setState(() {
+              _showNewMessagesPill = true;
+            });
+          }
+        }
+      }
+      _lastMessageCount = messageCount;
+    }
   }
 
   @override
@@ -407,7 +457,6 @@ class _ChatScreenState extends State<ChatScreen> {
               ),
             ),
 
-            // Bottom Overlay Actions (File, Text Input, Voice/Send)
             Positioned(
               bottom: 16.0,
               left: 16.0,
@@ -415,6 +464,17 @@ class _ChatScreenState extends State<ChatScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  // New Messages Pill
+                  AnimatedSize(
+                    duration: const Duration(milliseconds: 200),
+                    curve: Curves.easeInOut,
+                    child: _showNewMessagesPill
+                        ? Padding(
+                            padding: const EdgeInsets.only(bottom: 8.0),
+                            child: _buildNewMessagesPill(),
+                          )
+                        : const SizedBox.shrink(),
+                  ),
                   // Context Active Banner/Pill
                   AnimatedContainer(
                     duration: Duration(milliseconds: _showContextActivePill ? 180 : 350),
@@ -907,6 +967,68 @@ class _ChatScreenState extends State<ChatScreen> {
     });
     // Use smart scroll to show the context (User Message at top)
     _scrollToBottom(toTrigger: true);
+  }
+
+  Widget _buildNewMessagesPill() {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(28.0),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 15.0, sigmaY: 15.0),
+        child: Container(
+          height: 48.0,
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          decoration: BoxDecoration(
+            color: const Color(0xFF2E2E2E).withValues(alpha: 0.85),
+            borderRadius: BorderRadius.circular(28.0),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.12),
+              width: 1.0,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.3),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(28.0),
+              onTap: () {
+                HapticFeedback.lightImpact();
+                _scrollToBottom();
+                setState(() {
+                  _showNewMessagesPill = false;
+                });
+              },
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    'New messages',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                  SizedBox(width: 8),
+                  Icon(
+                    Icons.arrow_downward,
+                    color: Colors.white,
+                    size: 16,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildFilePlaceholder() {

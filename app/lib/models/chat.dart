@@ -5,6 +5,8 @@ class Chat {
   final DateTime createdAt;
   DateTime updatedAt;
   bool isPinned;
+  bool isShared;
+  List<String> collaborators;
 
   Chat({
     required this.id,
@@ -13,6 +15,8 @@ class Chat {
     required this.createdAt,
     required this.updatedAt,
     this.isPinned = false,
+    this.isShared = false,
+    this.collaborators = const [],
   });
 
   // Data mapping representing exactly how it looks in PostgreSQL
@@ -24,6 +28,11 @@ class Chat {
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
       isPinned: json['is_pinned'] as bool? ?? false,
+      isShared: json['is_shared'] as bool? ?? false,
+      collaborators: (json['collaborators'] as List<dynamic>?)
+              ?.map((e) => e as String)
+              .toList() ??
+          [],
     );
   }
 
@@ -35,6 +44,8 @@ class Chat {
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
       'is_pinned': isPinned,
+      'is_shared': isShared,
+      'collaborators': collaborators,
     };
   }
 }
@@ -49,6 +60,7 @@ class ChatMessage {
   final String? localFilePath;
   final String? fileId;
   final String? fileName;
+  final String? userId;
 
   ChatMessage({
     required this.id,
@@ -60,6 +72,7 @@ class ChatMessage {
     this.localFilePath,
     this.fileId,
     this.fileName,
+    this.userId,
   });
 
   factory ChatMessage.fromJson(Map<String, dynamic> json) {
@@ -72,6 +85,7 @@ class ChatMessage {
       localFilePath: json['local_file_path'] as String?,
       fileId: json['file_id'] as String?,
       fileName: json['filename'] as String?,
+      userId: json['user_id'] as String?,
     );
   }
 
@@ -85,6 +99,7 @@ class ChatMessage {
       if (localFilePath != null) 'local_file_path': localFilePath,
       if (fileId != null) 'file_id': fileId,
       if (fileName != null) 'filename': fileName,
+      if (userId != null) 'user_id': userId,
     };
   }
 }

@@ -1,5 +1,5 @@
 // Chat management module
-import { state, CHAT_CACHE_KEY } from './config.js';
+import { state, CHAT_CACHE_KEY, API_BASE_URL } from './config.js';
 import { 
     loadChats as apiLoadChats, 
     createChat as apiCreateChat, 
@@ -49,6 +49,8 @@ export async function loadChatsFromServer(userId) {
                 isPinned: item.is_pinned || false,
                 isShared: item.is_shared || false,
                 shareLink: item.share_link || null,
+                userId: item.user_id || null,
+                collaborators: item.collaborators || [],
             };
             state.messages[item.id] = (item.messages || []).map(msg => ({
                 id: msg.id,
@@ -58,6 +60,7 @@ export async function loadChatsFromServer(userId) {
                 edited_at: msg.edited_at,
                 fileId: msg.file_id || null,
                 fileName: msg.filename || null,
+                userId: msg.user_id || null,
                 isNew: false,
             }));
         });
@@ -83,6 +86,8 @@ export async function createNewChat(userId) {
             isPinned: response.is_pinned || false,
             isShared: response.is_shared || false,
             shareLink: response.share_link || null,
+            userId: response.user_id || userId,
+            collaborators: response.collaborators || [],
         };
         state.messages[response.id] = [];
         state.currentChatId = response.id;
@@ -111,6 +116,7 @@ export function createLocalChat() {
 export function selectChat(chatId) {
     state.currentChatId = chatId;
     saveChatCache();
+    connectChatWebSocket(chatId);
 }
 
 function isServerBackedChat(chatId) {
@@ -218,4 +224,183 @@ export function getCurrentChat() {
 
 export function getCurrentMessages() {
     return state.currentChatId ? (state.messages[state.currentChatId] || []) : [];
+}
+
+export function disconnectChatWebSocket() {
+    if (state.wsConnection) {
+        try {
+            state.wsConnection.close();
+        } catch (_) {}
+        state.wsConnection = null;
+    }
+}
+
+export function connectChatWebSocket(chatId) {
+    disconnectChatWebSocket();
+    if (!chatId || state.isTemporaryChat || String(chatId).startsWith('local_')) {
+        return;
+    }
+
+    const base = (window.API_BASE_URL) ? window.API_BASE_URL : API_BASE_URL;
+    const wsScheme = base.startsWith('https') ? 'wss' : 'ws';
+    const urlWithoutScheme = base.replace(/^https?:\/\//, '');
+    const wsUrl = `${wsScheme}://${urlWithoutScheme}/ws/chats/${chatId}`;
+
+    try {
+        const ws = new WebSocket(wsUrl);
+        state.wsConnection = ws;
+
+        ws.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                if (data.type === 'new_message' && data.chat_id === chatId) {
+                    const msg = data.message;
+                    if (!msg || !msg.id) return;
+
+                    // Initialize array if undefined
+                    if (!state.messages[chatId]) {
+                        state.messages[chatId] = [];
+                    }
+
+                    // Check if message already exists
+                    const exists = state.messages[chatId].some(m => m.id === msg.id);
+                    if (!exists) {
+                        // Check if there is a matching message with same content and sender to replace/update (handles double-broadcast and local optimistic states)
+                        const tempIndex = state.messages[chatId].findIndex(m => {
+                            if (m.sender !== msg.sender || m.content !== msg.content) {
+                                return false;
+                            }
+                            if (msg.sender === 'user') {
+                                return String(m.id).startsWith('local_');
+                            } else {
+                                // For AI messages, match temporary local IDs or the last message in the list
+                                return String(m.id).startsWith('local_ai_') || m.id === state.messages[chatId][state.messages[chatId].length - 1]?.id;
+                            }
+                        });
+
+                        if (tempIndex !== -1) {
+                            // Update the existing message's ID and properties instead of duplicating it
+                            state.messages[chatId][tempIndex].id = msg.id;
+                            state.messages[chatId][tempIndex].fileId = msg.file_id || null;
+                            state.messages[chatId][tempIndex].fileName = msg.filename || null;
+                            state.messages[chatId][tempIndex].createdAt = msg.created_at;
+                            state.messages[chatId][tempIndex].edited_at = msg.edited_at;
+                            state.messages[chatId][tempIndex].userId = msg.user_id || null;
+                        } else {
+                            // Add as new message
+                            state.messages[chatId].push({
+                                id: msg.id,
+                                sender: msg.sender,
+                                content: msg.content,
+                                createdAt: msg.created_at,
+                                edited_at: msg.edited_at,
+                                fileId: msg.file_id || null,
+                                fileName: msg.filename || null,
+                                userId: msg.user_id || null,
+                                isNew: true,
+                            });
+                        }
+                        
+                        // Save cache
+                        saveChatCache();
+
+                        // Call renderMessages if this is the active chat
+                        if (state.currentChatId === chatId && typeof window.renderMessages === 'function') {
+                            window.renderMessages();
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error('Error parsing WebSocket message:', err);
+            }
+        };
+
+        ws.onclose = () => {
+            if (state.wsConnection === ws) {
+                state.wsConnection = null;
+            }
+        };
+
+        ws.onerror = (err) => {
+            console.error('WebSocket error:', err);
+        };
+    } catch (e) {
+        console.error('Failed to connect WebSocket:', e);
+    }
+}
+
+export function disconnectUserWebSocket() {
+    if (state.userWsConnection) {
+        try {
+            state.userWsConnection.close();
+        } catch (_) {}
+        state.userWsConnection = null;
+    }
+}
+
+export function connectUserWebSocket(userId) {
+    disconnectUserWebSocket();
+    if (!userId || state.isTemporaryChat) {
+        return;
+    }
+
+    const base = (window.API_BASE_URL) ? window.API_BASE_URL : API_BASE_URL;
+    const wsScheme = base.startsWith('https') ? 'wss' : 'ws';
+    const urlWithoutScheme = base.replace(/^https?:\/\//, '');
+    const wsUrl = `${wsScheme}://${urlWithoutScheme}/ws/users/${userId}`;
+
+    try {
+        const ws = new WebSocket(wsUrl);
+        state.userWsConnection = ws;
+
+        ws.onmessage = async (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                if (data.type === 'chat_list_updated') {
+                    console.log('User WebSocket: chat_list_updated event received, reloading chats...');
+                    await loadChatsFromServer(userId);
+                    
+                    if (typeof window.renderDrawer === 'function') {
+                        window.renderDrawer();
+                    }
+                    
+                    // If the currently selected chat is deleted (or no longer available to B), switch chats safely
+                    if (state.currentChatId && !state.chats[state.currentChatId]) {
+                        console.log('Currently active chat was deleted or revoked. Selecting a new active chat...');
+                        const firstChatId = Object.keys(state.chats)[0] || null;
+                        state.currentChatId = firstChatId;
+                        if (firstChatId) {
+                            connectChatWebSocket(firstChatId);
+                        } else {
+                            disconnectChatWebSocket();
+                        }
+                        if (typeof window.renderMessages === 'function') {
+                            window.renderMessages();
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error('Error handling User WebSocket message:', err);
+            }
+        };
+
+        ws.onclose = () => {
+            if (state.userWsConnection === ws) {
+                state.userWsConnection = null;
+                // Reconnect after 3 seconds if user is still logged in
+                setTimeout(() => {
+                    if (state.userId === userId && !state.userWsConnection && !state.isTemporaryChat) {
+                        console.log('Reconnecting User WebSocket...');
+                        connectUserWebSocket(userId);
+                    }
+                }, 3000);
+            }
+        };
+
+        ws.onerror = (err) => {
+            console.error('User WebSocket error:', err);
+        };
+    } catch (e) {
+        console.error('Failed to connect User WebSocket:', e);
+    }
 }
