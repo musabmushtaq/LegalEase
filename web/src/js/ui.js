@@ -521,6 +521,11 @@ export function renderMessages(forceScroll = false) {
         }
         lastMessageCount = messageCount;
     }
+
+    const thinkingEl = document.getElementById('thinkingIndicator');
+    if (thinkingEl) {
+        messagesContainer.appendChild(thinkingEl);
+    }
 }
 
 function messageBubbleHtml(msg, lastAiMsgId) {
