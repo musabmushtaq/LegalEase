@@ -2633,31 +2633,37 @@ html.is-unauthenticated #authModal.modal-overlay {
 /* ─── New Messages Pill ────────────────────────────────── */
 .new-messages-pill {
   position: absolute;
-  bottom: 84px;
+  bottom: 96px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 100;
   display: flex;
   align-items: center;
-  gap: 6px;
-  background: rgba(45, 45, 45, 0.75);
-  backdrop-filter: var(--blur-sm);
-  -webkit-backdrop-filter: var(--blur-sm);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  gap: 10px;
+  background: rgba(30, 30, 30, 0.82);
+  backdrop-filter: var(--blur-md);
+  -webkit-backdrop-filter: var(--blur-md);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   color: var(--text-1);
-  padding: 8px 16px;
-  border-radius: 20px;
-  font-size: 13px;
-  font-weight: 500;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  padding: 10px 20px;
+  border-radius: var(--radius-xl);
+  font-size: 13.5px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 16px rgba(0, 0, 0, 0.15);
   cursor: pointer;
-  transition: opacity var(--transition), transform var(--transition), background-color var(--transition);
+  transition: opacity var(--transition), transform var(--transition), background-color var(--transition), border-color var(--transition);
   animation: pillAppear 0.22s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .new-messages-pill:hover {
-  background: rgba(60, 60, 60, 0.85);
-  border-color: rgba(255, 255, 255, 0.25);
+  background: rgba(45, 45, 45, 0.9);
+  border-color: rgba(252, 229, 102, 0.3);
+  transform: translateX(-50%) translateY(-2px);
+}
+
+.new-messages-pill:active {
+  transform: translateX(-50%) translateY(0);
 }
 
 @keyframes pillAppear {
