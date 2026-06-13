@@ -31,7 +31,14 @@ export function showMessage(message, duration = 3000) {
     const banner = document.createElement('div');
     banner.className = 'notification-banner';
     banner.textContent = message;
-    document.body.appendChild(banner);
+    
+    const chatContainer = document.querySelector('.chat-container');
+    if (chatContainer) {
+        chatContainer.appendChild(banner);
+    } else {
+        document.body.appendChild(banner);
+    }
+    
     setTimeout(() => {
         banner.classList.add('show');
     }, 10);
