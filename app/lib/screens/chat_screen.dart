@@ -975,13 +975,13 @@ class _ChatScreenState extends State<ChatScreen> {
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 15.0, sigmaY: 15.0),
         child: Container(
-          height: 48.0,
+          height: 56.0,
           padding: const EdgeInsets.symmetric(horizontal: 24),
           decoration: BoxDecoration(
             color: const Color(0xFF2E2E2E).withValues(alpha: 0.85),
             borderRadius: BorderRadius.circular(28.0),
             border: Border.all(
-              color: Colors.white.withValues(alpha: 0.12),
+              color: Colors.white.withValues(alpha: 0.1),
               width: 1.0,
             ),
             boxShadow: [
@@ -1004,23 +1004,23 @@ class _ChatScreenState extends State<ChatScreen> {
                 });
               },
               child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(
-                    'New messages',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                  SizedBox(width: 8),
                   Icon(
                     Icons.arrow_downward,
                     color: Colors.white,
-                    size: 16,
+                    size: 18,
+                  ),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'New messages',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
                   ),
                 ],
               ),
