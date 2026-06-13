@@ -16,7 +16,8 @@ export function loadChatCache() {
         const cached = JSON.parse(raw);
         state.chats = cached.chats || {};
         state.messages = cached.messages || {};
-        state.currentChatId = cached.currentChatId || Object.keys(state.chats)[0] || null;
+        // Start a new session on application startup
+        state.currentChatId = null;
         state.isTemporaryChat = cached.isTemporaryChat || false;
     } catch (_) {
         state.chats = {};
@@ -65,7 +66,8 @@ export async function loadChatsFromServer(userId) {
             }));
         });
         
-        if (!state.currentChatId || !state.chats[state.currentChatId]) {
+        // Only override currentChatId if we had one selected, but it no longer exists
+        if (state.currentChatId && !state.chats[state.currentChatId]) {
             state.currentChatId = items.length > 0 ? items[0].id : null;
         }
         

@@ -85,10 +85,6 @@ async function initializeApp() {
             }
         }
 
-        if (!state.currentChatId) {
-            const firstChatId = Object.keys(state.chats)[0];
-            if (firstChatId) state.currentChatId = firstChatId;
-        }
         if (!state.currentChatId && (!state.authToken || state.isTemporaryChat)) {
             createLocalChat();
         }
