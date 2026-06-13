@@ -490,7 +490,7 @@ html.is-unauthenticated #authModal.modal-overlay {
 
 /* ─── Connection Banner ──────────────────────────────────── */
 .connection-banner {
-  position: fixed;
+  position: absolute;
   top: 12px;
   left: 50%;
   transform: translateX(-50%);
@@ -1874,8 +1874,8 @@ html.is-unauthenticated #authModal.modal-overlay {
 
 /* ─── Toast Notification ─────────────────────────────────── */
 .notification-banner {
-  position: fixed;
-  bottom: 90px;
+  position: absolute;
+  bottom: 96px;
   left: 50%;
   transform: translateX(-50%) translateY(12px);
   background: rgba(30, 30, 30, 0.92);
