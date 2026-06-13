@@ -311,6 +311,21 @@ export function connectChatWebSocket(chatId) {
                             window.renderMessages();
                         }
                     }
+                } else if (data.type === 'collaborator_removed' && data.user_id === state.userId) {
+                    console.log('You were removed from this collaborative chat.');
+                    state.currentChatId = null;
+                    disconnectChatWebSocket();
+                    saveChatCache();
+                    loadChatsFromServer(state.userId).catch(() => {});
+                    if (typeof window.renderDrawer === 'function') {
+                        window.renderDrawer();
+                    }
+                    if (typeof window.renderMessages === 'function') {
+                        window.renderMessages();
+                    }
+                    if (typeof window.showNotificationPill === 'function') {
+                        window.showNotificationPill('Access revoked as a collaborator');
+                    }
                 }
             } catch (err) {
                 console.error('Error parsing WebSocket message:', err);
@@ -360,24 +375,30 @@ export function connectUserWebSocket(userId) {
                 const data = JSON.parse(event.data);
                 if (data.type === 'chat_list_updated') {
                     console.log('User WebSocket: chat_list_updated event received, reloading chats...');
+                    
+                    const activeChatId = state.currentChatId;
+                    const wasActiveChatCollaborator = activeChatId && state.chats[activeChatId] && state.chats[activeChatId].userId !== state.userId;
+                    
                     await loadChatsFromServer(userId);
                     
                     if (typeof window.renderDrawer === 'function') {
                         window.renderDrawer();
                     }
                     
-                    // If the currently selected chat is deleted (or no longer available to B), switch chats safely
-                    if (state.currentChatId && !state.chats[state.currentChatId]) {
-                        console.log('Currently active chat was deleted or revoked. Selecting a new active chat...');
-                        const firstChatId = Object.keys(state.chats)[0] || null;
-                        state.currentChatId = firstChatId;
-                        if (firstChatId) {
-                            connectChatWebSocket(firstChatId);
-                        } else {
-                            disconnectChatWebSocket();
-                        }
+                    // If the currently selected chat is deleted (or no longer available to B), leave chat safely
+                    if (activeChatId && !state.chats[activeChatId]) {
+                        console.log('Currently active chat was deleted or revoked.');
+                        state.currentChatId = null;
+                        disconnectChatWebSocket();
+                        saveChatCache();
                         if (typeof window.renderMessages === 'function') {
                             window.renderMessages();
+                        }
+                        
+                        if (wasActiveChatCollaborator) {
+                            if (typeof window.showNotificationPill === 'function') {
+                                window.showNotificationPill('Access revoked as a collaborator');
+                            }
                         }
                     }
                 }

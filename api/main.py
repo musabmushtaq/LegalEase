@@ -467,6 +467,12 @@ async def remove_collaborator(chat_id: str, payload: InviteCollaboratorRequest) 
     )
     await notify_chat_participants_changed(chat_id, extra_user_ids=[user_id_to_remove])
     
+    # Broadcast to the chat websocket so B immediately knows they were removed
+    await manager.broadcast({
+        "type": "collaborator_removed",
+        "user_id": user_id_to_remove
+    }, chat_id)
+    
     return {"success": True, "message": f"User {payload.username} removed from collaborators."}
 
 

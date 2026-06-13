@@ -858,3 +858,20 @@ async function renderCollaboratorsList(chat) {
         card.innerHTML = '<div class="loading-text" style="padding: 16px; text-align: center; color: var(--danger);">Error loading collaborators</div>';
     }
 }
+
+export function showNotificationPill(message) {
+    const pill = document.getElementById('notificationPill');
+    if (!pill) return;
+    const textSpan = pill.querySelector('span');
+    if (textSpan) textSpan.textContent = message;
+    
+    pill.classList.remove('hidden');
+    
+    // Auto-hide after 3 seconds
+    if (window.notificationPillTimeout) {
+        clearTimeout(window.notificationPillTimeout);
+    }
+    window.notificationPillTimeout = setTimeout(() => {
+        pill.classList.add('hidden');
+    }, 3000);
+}

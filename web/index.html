@@ -276,6 +276,17 @@
                 </svg>
                 <span id="newMessagesPillText">Scroll to bottom</span>
             </button>
+            
+            <!-- Access Revoked Notification Pill -->
+            <div class="new-messages-pill hidden" id="notificationPill" style="cursor: default;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+                <span>Access revoked as a collaborator</span>
+            </div>
+            
             <div class="messages-container" id="messagesContainer" role="log" aria-live="polite" aria-label="Chat messages"></div>
 
             <!-- Welcome (shown when no messages via CSS) -->
