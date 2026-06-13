@@ -353,13 +353,26 @@ class _ChatScreenState extends State<ChatScreen> {
         final isOwnMsg = lastMsg.sender == 'user' && lastMsg.userId == _chatService.userId;
         final isAiMsg = lastMsg.sender == 'ai';
         
+        bool isResponseToOwnMsg = false;
+        if (isAiMsg) {
+          final messages = _chatService.currentMessages;
+          for (int i = messages.length - 2; i >= 0; i--) {
+            if (messages[i].sender == 'user') {
+              if (messages[i].userId == _chatService.userId) {
+                isResponseToOwnMsg = true;
+              }
+              break;
+            }
+          }
+        }
+        
         if (isOwnMsg) {
           _scrollToBottom();
           setState(() {
             _showNewMessagesPill = false;
             _hasNewUnreadMessages = false;
           });
-        } else if (isAiMsg) {
+        } else if (isAiMsg && isResponseToOwnMsg) {
           if (_isAtBottom) {
             _scrollToBottom();
           } else {
@@ -369,7 +382,7 @@ class _ChatScreenState extends State<ChatScreen> {
             });
           }
         } else {
-          // Message from another user in a shared chat (sender == 'user' but not own message)
+          // Message from another user, OR AI responding to another user's message
           // Never auto-scroll, keep position and show the new messages pill
           setState(() {
             _showNewMessagesPill = true;
