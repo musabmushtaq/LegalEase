@@ -600,7 +600,6 @@ html.is-unauthenticated #authModal.modal-overlay {
   display: flex;
   flex-direction: column;
   padding: 6px 20px;
-  animation: msgAppear 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .message-bubble.user {
