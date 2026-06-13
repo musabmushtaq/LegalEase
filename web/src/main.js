@@ -98,7 +98,7 @@ async function initializeApp() {
         }
 
         renderDrawer();
-        renderMessages();
+        renderMessages(true);
         renderUserState();
         showPrivacySections(!!state.authToken);
 
@@ -285,7 +285,7 @@ async function createNewChatUI() {
     
     clearAttachment();
     renderDrawer();
-    renderMessages();
+    renderMessages(true);
     renderUserState();
     document.getElementById('messageInput')?.focus();
 }
@@ -293,7 +293,7 @@ async function createNewChatUI() {
 // ─── Select / Pin / Rename / Delete chat ──────────────────────────────────────
 function selectChatUI(chatId) {
     selectChat(chatId);
-    renderMessages();
+    renderMessages(true);
     renderDrawer();
     closeDrawer();
     document.getElementById('messageInput')?.focus();
@@ -330,7 +330,7 @@ async function deleteChatUI(chatId) {
     try {
         await removeChat(chatId);
         renderDrawer();
-        renderMessages();
+        renderMessages(true);
     } catch (error) {
         logError('deleteChatUI', error);
         showMessage('Could not delete chat.');
@@ -406,6 +406,7 @@ async function sendMessageUI() {
         isNew: true,
         fileName: file?.name || null,
         localFileUrl: file ? URL.createObjectURL(file) : null,
+        userId: state.userId || DEFAULT_USER_ID,
     };
     state.messages[chatId].push(userMsg);
 
@@ -433,6 +434,7 @@ async function sendMessageUI() {
                         id: saved.message.id || userMsgId,
                         fileId: saved.message.file_id || null,
                         fileName: saved.message.filename || file?.name || null,
+                        userId: saved.message.user_id || state.userId || DEFAULT_USER_ID,
                         isNew: false,
                     };
                 }
@@ -459,16 +461,19 @@ async function sendMessageUI() {
 
         const aiContent = aiResp?.assistant_message?.content || "I'm sorry, I encountered an error. Please try again.";
 
-        // 5. Add AI message locally
-        const aiMsgId = `local_ai_${Date.now()}`;
-        const aiMsg = {
-            id: aiMsgId,
-            sender: 'ai',
-            content: aiContent,
-            createdAt: new Date().toISOString(),
-            isNew: true,
-        };
-        state.messages[chatId].push(aiMsg);
+        // 5. Add AI message locally (only if it doesn't already exist from WebSocket broadcast)
+        const exists = state.messages[chatId].some(m => m.sender === 'ai' && m.content === aiContent);
+        if (!exists) {
+            const aiMsgId = `local_ai_${Date.now()}`;
+            const aiMsg = {
+                id: aiMsgId,
+                sender: 'ai',
+                content: aiContent,
+                createdAt: new Date().toISOString(),
+                isNew: true,
+            };
+            state.messages[chatId].push(aiMsg);
+        }
 
         // Update chat timestamp
         if (state.chats[chatId]) state.chats[chatId].updatedAt = new Date().toISOString();
@@ -677,7 +682,7 @@ async function handleAuthAction() {
         renderUserState();
         renderTemporaryToggle();
         renderDrawer();
-        renderMessages();
+        renderMessages(true);
         showPrivacySections(false);
         saveChatCache();
         openAuthModal('login');
@@ -716,7 +721,7 @@ async function handleAuthSubmit(event) {
             connectChatWebSocket(state.currentChatId);
         }
         renderDrawer();
-        renderMessages();
+        renderMessages(true);
     } catch (error) {
         logError('handleAuthSubmit', error);
         showMessage(error.message || 'Authentication failed.');
@@ -900,7 +905,7 @@ async function handleClearHistory() {
         createLocalChat();
         saveChatCache();
         renderDrawer();
-        renderMessages();
+        renderMessages(true);
         showMessage('All chat history cleared.');
     } catch {
         showMessage('Failed to clear history. Check connection.');
@@ -920,7 +925,7 @@ async function handleDeleteAccount() {
         createLocalChat();
         renderUserState();
         renderDrawer();
-        renderMessages();
+        renderMessages(true);
         closeSettingsModal();
         showMessage('Account deleted.');
         openAuthModal('login');

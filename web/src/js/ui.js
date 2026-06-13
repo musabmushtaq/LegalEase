@@ -1,5 +1,5 @@
 // UI rendering module
-import { state, DEFAULT_USERNAME } from './config.js';
+import { state, DEFAULT_USERNAME, DEFAULT_USER_ID } from './config.js';
 import { escapeHtml } from './utils.js';
 import { getUserProfile } from './api.js';
 
@@ -12,7 +12,7 @@ let userStatus, authModal, authForm, authTitle, authSwitchBtn, authSwitchText;
 let authCloseBtn, authUsername, authEmailLabel, authEmail, authPassword;
 let authConfirmLabel, authConfirmPassword, authSubmitBtn;
 let settingsBtn, settingsModal, settingsApiPrefix, settingsApiSuffix, settingsApiIp, settingsCloseBtn;
-let personaBtn, contextPill, attachmentMenu;
+let personaBtn, contextPill, attachmentMenu, newMessagesPill;
 let shareBtn, manageAccessModal, manageAccessCloseBtn, chatPrivacyStateText, revokeAccessBtn;
 let inviteSection, inviteForm, inviteUsername, inviteSubmitBtn, collaboratorsListCard;
 
@@ -68,6 +68,24 @@ export function initializeDOM() {
     inviteUsername = document.getElementById('inviteUsername');
     inviteSubmitBtn = document.getElementById('inviteSubmitBtn');
     collaboratorsListCard = document.getElementById('collaboratorsListCard');
+    newMessagesPill = document.getElementById('newMessagesPill');
+
+    if (newMessagesPill) {
+        newMessagesPill.addEventListener('click', () => {
+            scrollToBottom();
+            hideNewMessagesPill();
+        });
+    }
+
+    if (messagesContainer) {
+        messagesContainer.addEventListener('scroll', () => {
+            const threshold = 35; // px
+            const isAtBottom = (messagesContainer.scrollHeight - messagesContainer.scrollTop - messagesContainer.clientHeight) <= threshold;
+            if (isAtBottom) {
+                hideNewMessagesPill();
+            }
+        });
+    }
 }
 
 export function toggleDrawer() {
@@ -269,9 +287,50 @@ function chatItemHtml(chat) {
     `;
 }
 
+const usernamesCache = {};
+
+function getUsername(userId) {
+    if (!userId) return '...';
+    if (userId === state.userId && state.username) {
+        return state.username;
+    }
+    if (userId === DEFAULT_USER_ID || userId === 'default_user') {
+        return DEFAULT_USERNAME;
+    }
+    if (usernamesCache[userId]) {
+        return usernamesCache[userId];
+    }
+    usernamesCache[userId] = 'loading';
+    getUserProfile(userId).then(profile => {
+        usernamesCache[userId] = profile.username || 'Unknown';
+        renderMessages();
+    }).catch(() => {
+        usernamesCache[userId] = 'Unknown';
+        renderMessages();
+    });
+    return '...';
+}
+
+function showNewMessagesPill() {
+    if (newMessagesPill) {
+        newMessagesPill.classList.remove('hidden');
+    }
+}
+
+function hideNewMessagesPill() {
+    if (newMessagesPill) {
+        newMessagesPill.classList.add('hidden');
+    }
+}
+
 // ─── Messages ──────────────────────────────────────────────────────────────────
-export function renderMessages() {
+export function renderMessages(forceScroll = false) {
     if (!messagesContainer) return;
+
+    // Check if we were at the bottom before updating HTML
+    const threshold = 35; // px
+    const wasAtBottom = (messagesContainer.scrollHeight - messagesContainer.scrollTop - messagesContainer.clientHeight) <= threshold;
+    const prevScrollTop = messagesContainer.scrollTop;
 
     // Update shareBtn visibility
     const shareBtn = document.getElementById('shareBtn');
@@ -297,6 +356,7 @@ export function renderMessages() {
 
     if (isEmpty) {
         messagesContainer.innerHTML = '';
+        hideNewMessagesPill();
         return;
     }
 
@@ -310,8 +370,19 @@ export function renderMessages() {
     }
 
     messagesContainer.innerHTML = msgList.map(msg => messageBubbleHtml(msg, lastAiMsgId)).join('');
-    scrollToBottom();
 
+    // Determine if we should scroll to bottom
+    const lastMsg = msgList[msgList.length - 1];
+    const isOwnMessage = lastMsg && lastMsg.sender === 'user' && (lastMsg.userId === state.userId || String(lastMsg.id).startsWith('local_'));
+
+    if (forceScroll || isOwnMessage || wasAtBottom) {
+        scrollToBottom();
+        hideNewMessagesPill();
+    } else {
+        // Keep scroll position and show new messages pill
+        messagesContainer.scrollTop = prevScrollTop;
+        showNewMessagesPill();
+    }
 }
 
 function messageBubbleHtml(msg, lastAiMsgId) {
@@ -330,6 +401,16 @@ function messageBubbleHtml(msg, lastAiMsgId) {
 function userBubbleHtml(msg, isEdited, canEdit) {
     const hasAttachment = msg.fileName && (msg.fileId || msg.localFileUrl);
     const cleanContent = msg.content.trim();
+
+    const activeChat = state.currentChatId ? state.chats[state.currentChatId] : null;
+    const isShared = activeChat ? activeChat.isShared : false;
+    const isOwnMessage = !isShared || !msg.userId || msg.userId === state.userId;
+
+    let usernameLabel = '';
+    if (isShared && msg.userId) {
+        const username = getUsername(msg.userId);
+        usernameLabel = `<div class="message-username">${escapeHtml(username)}</div>`;
+    }
 
     let attachmentCard = '';
     if (hasAttachment) {
@@ -358,12 +439,13 @@ function userBubbleHtml(msg, isEdited, canEdit) {
     }
 
     return `
-        <div class="message-bubble user" data-message-id="${msg.id}" role="article">
+        <div class="message-bubble user ${isOwnMessage ? '' : 'other'}" data-message-id="${msg.id}" role="article">
             <div class="user-bubble-glass">
                 ${cleanContent ? `<div class="user-bubble-text">${escapeHtml(cleanContent)}</div>` : ''}
                 ${attachmentCard}
                 ${isEdited ? '<div class="edited-indicator">(edited)</div>' : ''}
             </div>
+            ${usernameLabel}
         </div>
     `;
 }

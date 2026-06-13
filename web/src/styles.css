@@ -439,6 +439,7 @@ html.is-unauthenticated #authModal.modal-overlay {
   height: 100vh;
   overflow: hidden;
   background: var(--bg);
+  position: relative;
 }
 
 .chat-container.no-messages {
@@ -604,6 +605,24 @@ html.is-unauthenticated #authModal.modal-overlay {
 
 .message-bubble.user {
   align-items: flex-end;
+}
+
+.message-bubble.user.other {
+  align-items: flex-start;
+}
+
+.message-bubble.user.other .user-bubble-glass {
+  border-radius: var(--radius-lg) var(--radius-lg) var(--radius-lg) 6px;
+}
+
+.message-username {
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.45);
+  margin-top: 4px;
+  margin-bottom: 6px;
+  user-select: none;
+  padding: 0 4px;
 }
 
 .message-bubble.ai {
@@ -2609,6 +2628,47 @@ html.is-unauthenticated #authModal.modal-overlay {
 .chat-header-share-btn:hover {
   background: var(--glass-bg);
   color: var(--highlight);
+}
+
+/* ─── New Messages Pill ────────────────────────────────── */
+.new-messages-pill {
+  position: absolute;
+  bottom: 84px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(45, 45, 45, 0.75);
+  backdrop-filter: var(--blur-sm);
+  -webkit-backdrop-filter: var(--blur-sm);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: var(--text-1);
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+  transition: opacity var(--transition), transform var(--transition), background-color var(--transition);
+  animation: pillAppear 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.new-messages-pill:hover {
+  background: rgba(60, 60, 60, 0.85);
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+@keyframes pillAppear {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 10px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
 }
 
 
