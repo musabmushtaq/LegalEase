@@ -489,14 +489,27 @@ export function renderMessages(forceScroll = false) {
             const isOwnMsg = lastMsg.sender === 'user' && (lastMsg.userId === state.userId || String(lastMsg.id).startsWith('local_'));
             const isAiMsg = lastMsg.sender === 'ai';
 
+            let isResponseToOwnMsg = false;
+            if (isAiMsg) {
+                for (let i = msgList.length - 2; i >= 0; i--) {
+                    if (msgList[i].sender === 'user') {
+                        const isOwnUserMsg = msgList[i].userId === state.userId || String(msgList[i].id).startsWith('local_');
+                        if (isOwnUserMsg) {
+                            isResponseToOwnMsg = true;
+                        }
+                        break;
+                    }
+                }
+            }
+
             if (isOwnMsg) {
                 scrollToBottom(true); // Smooth scroll when you send a message
                 isAtBottom = true;
                 hasNewUnreadMessages = false;
                 updatePillTextAndVisibility();
-            } else if (isAiMsg) {
+            } else if (isAiMsg && isResponseToOwnMsg) {
                 if (wasAtBottom) {
-                    scrollToBottom(true); // Smooth scroll when AI responds
+                    scrollToBottom(true); // Smooth scroll when AI responds to your message
                     isAtBottom = true;
                     hasNewUnreadMessages = false;
                     updatePillTextAndVisibility();
@@ -507,7 +520,7 @@ export function renderMessages(forceScroll = false) {
                     updatePillTextAndVisibility();
                 }
             } else {
-                // Message from another user in a shared chat (sender === 'user' but not own message)
+                // Message from another user, OR AI responding to another user's message
                 // Never auto scroll, keep scroll position and show the new messages pill
                 messagesContainer.scrollTop = prevScrollTop;
                 isAtBottom = false;
