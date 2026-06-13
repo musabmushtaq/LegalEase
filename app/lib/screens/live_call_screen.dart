@@ -41,12 +41,21 @@ class _LiveCallScreenState extends State<LiveCallScreen>
   double _aiAmplitude = 0.0;
   bool _isUserSpeaking = false;
   bool _forceSubmitSpeech = false;
+  
+  // TTS Queue state variables
+  final List<String> _pendingSentences = [];
+  final List<Uint8List> _readyAudioChunks = [];
+  bool _isDownloadingTts = false;
+  bool _isTtsPlaying = false;
+  int _playbackInteractionId = 0;
+  Timer? _aiPulseTimer;
 
   // Color animation: blue (user) <-> gold (AI)
   late AnimationController _colorController;
   static const Color _userColor = Color(0xFF4A90E2);
   static const Color _aiColor = Color(0xFFFCE566);
   static const Color _mutedColor = Color(0xFF424242);
+  static const Color _thinkingColor = Color(0xFF8B5CF6);
   late Animation<Color?> _waveColor;
 
   @override
@@ -136,6 +145,13 @@ class _LiveCallScreenState extends State<LiveCallScreen>
       
       _isUserSpeaking = true;
       _activeInteractionId++; // Invalidate any pending AI responses
+      
+      // Stop and clear any ongoing TTS queue/playback
+      _pendingSentences.clear();
+      _readyAudioChunks.clear();
+      _isDownloadingTts = false;
+      _isTtsPlaying = false;
+      _aiPulseTimer?.cancel();
       
       setState(() {
         _isAiSpeaking = false; 
@@ -265,70 +281,125 @@ class _LiveCallScreenState extends State<LiveCallScreen>
 
   Future<void> _playTTS(String text) async {
     if (text.isEmpty) return;
-    try {
-      final apiUrl = '${ChatService.apiBaseUrl}/api/tts';
-      final response = await http.post(
-        Uri.parse(apiUrl),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'text': text}),
-      );
 
-      if (response.statusCode == 200) {
-        final bytes = response.bodyBytes;
-        
-        // AI audio is ready - switch from thinking to speaking
-        if (mounted) {
-          setState(() {
-            _isThinking = false;
-            _isAiSpeaking = true;
-          });
-        }
-        
-        // Simulate AI amplitude from playback using a timer
-        Timer? aiPulseTimer;
-        aiPulseTimer = Timer.periodic(const Duration(milliseconds: 50), (_) {
-          if (!mounted) { aiPulseTimer?.cancel(); return; }
-          setState(() {
-            // Create organic-feeling amplitude using multiple sine waves
-            final t = DateTime.now().millisecondsSinceEpoch / 1000.0;
-            _aiAmplitude = (0.4 + 
-              0.25 * sin(t * 5.3) + 
-              0.15 * sin(t * 8.7) + 
-              0.1 * sin(t * 13.1)).clamp(0.0, 1.0);
-          });
-        });
-        
-        await _audioPlayer.play(BytesSource(bytes));
+    // Split text into individual sentences
+    final RegExp sentenceRegex = RegExp(r'(?<=[.!?])\s+');
+    final List<String> sentences = text
+        .split(sentenceRegex)
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty)
+        .toList();
 
-        _audioPlayer.onPlayerComplete.listen((_) {
-          aiPulseTimer?.cancel();
-          if (mounted) {
-            setState(() {
-              _isAiSpeaking = false;
-              _aiAmplitude = 0.0;
-            });
-          }
-        });
-      } else {
-        debugPrint(
-          'LiveCallScreen: TTS error: ${response.statusCode} - ${response.body}',
+    if (sentences.isEmpty) return;
+
+    // Reset queue state for this new response
+    _playbackInteractionId = _activeInteractionId;
+    _pendingSentences.clear();
+    _readyAudioChunks.clear();
+    _pendingSentences.addAll(sentences);
+
+    // Start downloading in background and play immediately when ready
+    _startTtsDownloads();
+    _startTtsPlayback();
+  }
+
+  Future<void> _startTtsDownloads() async {
+    if (_isDownloadingTts || _pendingSentences.isEmpty) return;
+    _isDownloadingTts = true;
+
+    final int myInteractionId = _playbackInteractionId;
+
+    while (_pendingSentences.isNotEmpty && myInteractionId == _activeInteractionId) {
+      final String nextSentence = _pendingSentences.removeAt(0);
+      try {
+        final apiUrl = '${ChatService.apiBaseUrl}/api/tts';
+        final response = await http.post(
+          Uri.parse(apiUrl),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({'text': nextSentence}),
         );
-        if (mounted) {
-          setState(() {
-            _isAiSpeaking = false;
-            _isThinking = false;
-          });
+
+        if (myInteractionId != _activeInteractionId) {
+          break;
         }
-      }
-    } catch (e) {
-      debugPrint('LiveCallScreen: Error calling TTS API: $e');
-      if (mounted) {
-        setState(() {
-          _isAiSpeaking = false;
-          _isThinking = false;
-        });
+
+        if (response.statusCode == 200) {
+          _readyAudioChunks.add(response.bodyBytes);
+          _startTtsPlayback();
+        } else {
+          debugPrint('LiveCallScreen: TTS error for sentence "$nextSentence": ${response.statusCode}');
+        }
+      } catch (e) {
+        debugPrint('LiveCallScreen: Error downloading TTS chunk: $e');
       }
     }
+
+    _isDownloadingTts = false;
+  }
+
+  Future<void> _startTtsPlayback() async {
+    if (_isTtsPlaying || _readyAudioChunks.isEmpty) return;
+    _isTtsPlaying = true;
+
+    final int myInteractionId = _playbackInteractionId;
+
+    while (_readyAudioChunks.isNotEmpty && myInteractionId == _activeInteractionId) {
+      final Uint8List bytes = _readyAudioChunks.removeAt(0);
+
+      if (mounted) {
+        setState(() {
+          _isThinking = false;
+          _isAiSpeaking = true;
+        });
+      }
+
+      // Start the pulsing animation timer
+      _startAiAmplitudeTimer();
+
+      try {
+        await _audioPlayer.play(BytesSource(bytes));
+
+        final Completer<void> completer = Completer<void>();
+        StreamSubscription? subscription;
+        subscription = _audioPlayer.onPlayerComplete.listen((_) {
+          subscription?.cancel();
+          completer.complete();
+        });
+
+        await completer.future;
+      } catch (e) {
+        debugPrint('LiveCallScreen: Error playing TTS chunk: $e');
+      }
+
+      _aiPulseTimer?.cancel();
+    }
+
+    if (mounted && myInteractionId == _activeInteractionId) {
+      setState(() {
+        _isAiSpeaking = false;
+        _aiAmplitude = 0.0;
+      });
+    }
+
+    _isTtsPlaying = false;
+  }
+
+  void _startAiAmplitudeTimer() {
+    _aiPulseTimer?.cancel();
+    _aiPulseTimer = Timer.periodic(const Duration(milliseconds: 50), (_) {
+      if (!mounted) {
+        _aiPulseTimer?.cancel();
+        return;
+      }
+      setState(() {
+        final t = DateTime.now().millisecondsSinceEpoch / 1000.0;
+        _aiAmplitude = (0.4 +
+                0.25 * sin(t * 5.3) +
+                0.15 * sin(t * 8.7) +
+                0.1 * sin(t * 13.1))
+            .clamp(0.0, 1.0);
+      });
+    });
   }
 
   Future<void> _toggleMute() async {
@@ -370,6 +441,7 @@ class _LiveCallScreenState extends State<LiveCallScreen>
 
   @override
   void dispose() {
+    _aiPulseTimer?.cancel();
     _vadHandler.stopListening();
     _vadHandler.dispose();
     _glowController.dispose();
@@ -394,7 +466,7 @@ class _LiveCallScreenState extends State<LiveCallScreen>
       topBarAuraColor = _aiColor;
     } else if (_isThinking) {
       statusText = "Thinking...";
-      topBarAuraColor = _userColor.withValues(alpha: 0.6);
+      topBarAuraColor = _thinkingColor;
     } else if (_isMuted) {
       statusText = "Muted";
       topBarAuraColor = _mutedColor;
@@ -427,18 +499,27 @@ class _LiveCallScreenState extends State<LiveCallScreen>
                   final bool isFlat = _isMuted && !_isAiSpeaking && !_isThinking;
 
                   final double amplitude;
-                  if (isFlat || _isThinking) {
+                  if (isFlat) {
                     amplitude = 0.0;
+                  } else if (_isThinking) {
+                    // Gentle breathing pulse while thinking (amplitude moves slowly between 0.05 and 0.12)
+                    final double t = DateTime.now().millisecondsSinceEpoch / 1000.0;
+                    amplitude = 0.07 + 0.03 * sin(t * 3.5);
                   } else if (_isAiSpeaking) {
                     amplitude = _aiAmplitude;
                   } else {
                     amplitude = _smoothedLevel;
                   }
 
-                  // Use animated color: blue for user, gold for AI
-                  final Color waveColor = isFlat
-                      ? _mutedColor
-                      : (_waveColor.value ?? _userColor);
+                  // Use animated color: blue for user, gold for AI, purple for thinking
+                  final Color waveColor;
+                  if (isFlat) {
+                    waveColor = _mutedColor;
+                  } else if (_isThinking) {
+                    waveColor = _thinkingColor;
+                  } else {
+                    waveColor = _waveColor.value ?? _userColor;
+                  }
 
                   // Time-based phase for wave flow
                   final double t = DateTime.now().millisecondsSinceEpoch / 1000.0;
