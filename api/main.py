@@ -221,7 +221,7 @@ def call_gemini_api_sync(prompt: str, system_prompt: str, chat_history: list, fi
             
             # Start chat session with account-specific model name
             chat_session = client.chats.create(
-                model='gemini-2.5-flash',
+                model='gemini-flash-latest',
                 config=types.GenerateContentConfig(
                     system_instruction=types.Content(parts=[types.Part(text=system_prompt)]),
                 ),
@@ -466,6 +466,12 @@ async def remove_collaborator(chat_id: str, payload: InviteCollaboratorRequest) 
         }
     )
     await notify_chat_participants_changed(chat_id, extra_user_ids=[user_id_to_remove])
+    
+    # Broadcast to the chat websocket so B immediately knows they were removed
+    await manager.broadcast({
+        "type": "collaborator_removed",
+        "user_id": user_id_to_remove
+    }, chat_id)
     
     return {"success": True, "message": f"User {payload.username} removed from collaborators."}
 
@@ -935,16 +941,12 @@ async def generate_tts(payload: dict):
     import numpy as np
 
     pipeline = get_kpipeline()
+    generator = pipeline(text, voice='af_heart', speed=1)
     
-    def run_synthesis():
-        generator = pipeline(text, voice='af_heart', speed=1)
-        pieces = []
+    pieces = []
+    try:
         for gs, ps, audio in generator:
             pieces.append(audio)
-        return pieces
-
-    try:
-        pieces = await asyncio.to_thread(run_synthesis)
     except Exception as e:
         import traceback
         traceback.print_exc()
@@ -999,13 +1001,9 @@ async def transcribe_raw(request: Request):
         audio_array = np.frombuffer(raw_bytes, dtype=np.float32).copy()
         
         model = get_whisper_model()
-        
-        def run_transcription():
-            # Transcribe expects 16kHz float32 1D numpy array
-            segments, info = model.transcribe(audio_array, beam_size=1, word_timestamps=False)
-            return "".join([segment.text for segment in segments])
-
-        text = await asyncio.to_thread(run_transcription)
+        # Transcribe expects 16kHz float32 1D numpy array
+        segments, info = model.transcribe(audio_array, beam_size=1, word_timestamps=False)
+        text = "".join([segment.text for segment in segments])
         return {"text": text.strip()}
     except Exception as e:
         import traceback

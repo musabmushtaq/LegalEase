@@ -38,6 +38,8 @@ class ChatService extends ChangeNotifier {
   bool _isTemporaryChat = false;
   bool _isInitialStartup = true;
   int _consecutiveFailures = 0;
+  bool _showAccessRevokedPill = false;
+  bool get showAccessRevokedPill => _showAccessRevokedPill;
 
   StreamSubscription? _connectivitySubscription;
   bool _isRecovering = false;
@@ -1273,6 +1275,24 @@ class ChatService extends ChangeNotifier {
           _saveCurrentChatToCache();
           notifyListeners();
         }
+      } else if (type == 'collaborator_removed' && data['user_id'] == _userId) {
+        debugPrint('ChatService: You were removed from this collaborative chat.');
+        _currentChatId = null;
+        _disconnectWebSocket();
+        SharedPreferences.getInstance().then((prefs) {
+          prefs.remove('currentChatCache');
+          prefs.remove('currentChatIdCache');
+        }).catchError((_) {});
+        
+        _syncFromApi().catchError((_) {});
+        
+        _showAccessRevokedPill = true;
+        notifyListeners();
+        
+        Timer(const Duration(seconds: 3), () {
+          _showAccessRevokedPill = false;
+          notifyListeners();
+        });
       }
     } catch (e) {
       debugPrint('ChatService: Error parsing WebSocket message: $e');

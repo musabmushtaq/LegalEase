@@ -522,6 +522,17 @@ class _ChatScreenState extends State<ChatScreen> {
                           )
                         : const SizedBox.shrink(),
                   ),
+                  // Access Revoked Pill
+                  AnimatedSize(
+                    duration: const Duration(milliseconds: 200),
+                    curve: Curves.easeInOut,
+                    child: _chatService.showAccessRevokedPill
+                        ? Padding(
+                            padding: const EdgeInsets.only(bottom: 8.0),
+                            child: _buildAccessRevokedPill(),
+                          )
+                        : const SizedBox.shrink(),
+                  ),
                   // Context Active Banner/Pill
                   AnimatedContainer(
                     duration: Duration(milliseconds: _showContextActivePill ? 180 : 350),
@@ -1163,5 +1174,54 @@ class _ChatScreenState extends State<ChatScreen> {
     }
 
     return glassContainer;
+  }
+
+  Widget _buildAccessRevokedPill() {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(28.0),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 15.0, sigmaY: 15.0),
+        child: Container(
+          height: 56.0,
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          decoration: BoxDecoration(
+            color: const Color(0xFF2E2E2E).withValues(alpha: 0.85),
+            borderRadius: BorderRadius.circular(28.0),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.1),
+              width: 1.0,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.3),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: const Row(
+            children: [
+              Icon(
+                Icons.error_outline,
+                color: Colors.white,
+                size: 18,
+              ),
+              SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Access revoked as a collaborator',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
