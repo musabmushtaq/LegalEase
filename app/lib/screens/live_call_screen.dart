@@ -55,6 +55,7 @@ class _LiveCallScreenState extends State<LiveCallScreen>
   static const Color _userColor = Color(0xFF4A90E2);
   static const Color _aiColor = Color(0xFFFCE566);
   static const Color _mutedColor = Color(0xFF424242);
+  static const Color _thinkingColor = Color(0xFF8B5CF6);
   late Animation<Color?> _waveColor;
 
   @override
@@ -465,7 +466,7 @@ class _LiveCallScreenState extends State<LiveCallScreen>
       topBarAuraColor = _aiColor;
     } else if (_isThinking) {
       statusText = "Thinking...";
-      topBarAuraColor = _userColor.withValues(alpha: 0.6);
+      topBarAuraColor = _thinkingColor;
     } else if (_isMuted) {
       statusText = "Muted";
       topBarAuraColor = _mutedColor;
@@ -498,18 +499,27 @@ class _LiveCallScreenState extends State<LiveCallScreen>
                   final bool isFlat = _isMuted && !_isAiSpeaking && !_isThinking;
 
                   final double amplitude;
-                  if (isFlat || _isThinking) {
+                  if (isFlat) {
                     amplitude = 0.0;
+                  } else if (_isThinking) {
+                    // Gentle breathing pulse while thinking (amplitude moves slowly between 0.05 and 0.12)
+                    final double t = DateTime.now().millisecondsSinceEpoch / 1000.0;
+                    amplitude = 0.07 + 0.03 * sin(t * 3.5);
                   } else if (_isAiSpeaking) {
                     amplitude = _aiAmplitude;
                   } else {
                     amplitude = _smoothedLevel;
                   }
 
-                  // Use animated color: blue for user, gold for AI
-                  final Color waveColor = isFlat
-                      ? _mutedColor
-                      : (_waveColor.value ?? _userColor);
+                  // Use animated color: blue for user, gold for AI, purple for thinking
+                  final Color waveColor;
+                  if (isFlat) {
+                    waveColor = _mutedColor;
+                  } else if (_isThinking) {
+                    waveColor = _thinkingColor;
+                  } else {
+                    waveColor = _waveColor.value ?? _userColor;
+                  }
 
                   // Time-based phase for wave flow
                   final double t = DateTime.now().millisecondsSinceEpoch / 1000.0;
