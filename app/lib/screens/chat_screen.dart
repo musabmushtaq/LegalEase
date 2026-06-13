@@ -39,6 +39,7 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _showNewMessagesPill = false;
   int _lastMessageCount = 0;
   String? _lastChatId;
+  bool _hasNewUnreadMessages = false;
 
   Future<void> _pickImage(ImageSource source) async {
     try {
@@ -316,8 +317,9 @@ class _ChatScreenState extends State<ChatScreen> {
       if (atBottom != _isAtBottom) {
         setState(() {
           _isAtBottom = atBottom;
-          if (_isAtBottom) {
-            _showNewMessagesPill = false;
+          _showNewMessagesPill = !atBottom;
+          if (atBottom) {
+            _hasNewUnreadMessages = false;
           }
         });
       }
@@ -342,6 +344,7 @@ class _ChatScreenState extends State<ChatScreen> {
       _lastChatId = currentChatId;
       _lastMessageCount = _chatService.currentMessages.length;
       _showNewMessagesPill = false;
+      _hasNewUnreadMessages = false;
       _scrollToBottom();
     } else {
       final messageCount = _chatService.currentMessages.length;
@@ -353,6 +356,7 @@ class _ChatScreenState extends State<ChatScreen> {
           _scrollToBottom();
           setState(() {
             _showNewMessagesPill = false;
+            _hasNewUnreadMessages = false;
           });
         } else {
           if (_isAtBottom) {
@@ -360,6 +364,7 @@ class _ChatScreenState extends State<ChatScreen> {
           } else {
             setState(() {
               _showNewMessagesPill = true;
+              _hasNewUnreadMessages = true;
             });
           }
         }
@@ -394,6 +399,27 @@ class _ChatScreenState extends State<ChatScreen> {
           curve: Curves.easeOutCubic,
         );
       }
+    });
+  }
+
+  void _acceleratedScrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scrollController.hasClients) return;
+      final maxScroll = _scrollController.position.maxScrollExtent;
+      final currentScroll = _scrollController.position.pixels;
+      final distance = maxScroll - currentScroll;
+
+      const maxAnimateDistance = 1500.0;
+      if (distance > maxAnimateDistance) {
+        // Jump closer to the bottom to avoid lag/long animation
+        _scrollController.jumpTo(maxScroll - maxAnimateDistance);
+      }
+
+      _scrollController.animateTo(
+        maxScroll,
+        duration: const Duration(milliseconds: 500),
+        curve: Curves.easeInOutCubic,
+      );
     });
   }
 
@@ -998,23 +1024,24 @@ class _ChatScreenState extends State<ChatScreen> {
               borderRadius: BorderRadius.circular(28.0),
               onTap: () {
                 HapticFeedback.lightImpact();
-                _scrollToBottom();
+                _acceleratedScrollToBottom();
                 setState(() {
                   _showNewMessagesPill = false;
+                  _hasNewUnreadMessages = false;
                 });
               },
-              child: const Row(
+              child: Row(
                 children: [
-                  Icon(
+                  const Icon(
                     Icons.arrow_downward,
                     color: Colors.white,
                     size: 18,
                   ),
-                  SizedBox(width: 12),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      'New messages',
-                      style: TextStyle(
+                      _hasNewUnreadMessages ? 'New messages' : 'Scroll to bottom',
+                      style: const TextStyle(
                         color: Colors.white,
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
