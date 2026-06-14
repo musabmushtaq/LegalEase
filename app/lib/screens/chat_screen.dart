@@ -23,7 +23,7 @@ class ChatScreen extends StatefulWidget {
   State<ChatScreen> createState() => _ChatScreenState();
 }
 
-class _ChatScreenState extends State<ChatScreen> {
+class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final GlobalKey _triggerMessageKey = GlobalKey();
   late TextEditingController _textController;
@@ -306,6 +306,7 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _scrollController = ScrollController();
     _scrollController.addListener(() {
       if (!_scrollController.hasClients) return;
@@ -339,12 +340,19 @@ class _ChatScreenState extends State<ChatScreen> {
     _chatService = Provider.of<ChatService>(context);
     
     final currentChatId = _chatService.currentChatId;
+    debugPrint('ChatScreen: didChangeDependencies called - currentChatId: $currentChatId, _lastChatId: $_lastChatId');
     if (currentChatId != _lastChatId) {
+      debugPrint('ChatScreen: Active chat ID changed from $_lastChatId to $currentChatId');
       _lastChatId = currentChatId;
       _lastMessageCount = _chatService.currentMessages.length;
       _showNewMessagesPill = false;
       _hasNewUnreadMessages = false;
       _jumpToBottom();
+      
+      if (currentChatId == null && Navigator.canPop(context)) {
+        debugPrint('ChatScreen: Access revoked (currentChatId is null). Popping any overlay routes back to base.');
+        Navigator.popUntil(context, (route) => route.isFirst);
+      }
     } else {
       final messageCount = _chatService.currentMessages.length;
       if (_lastMessageCount != 0 && messageCount > _lastMessageCount) {
@@ -373,7 +381,17 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    debugPrint('ChatScreen: AppLifecycleState changed to $state');
+    if (state == AppLifecycleState.resumed) {
+      debugPrint('ChatScreen: App resumed. Triggering chat sync verification check...');
+      _chatService.checkInitialAndInstantNetwork();
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _textController.dispose();
     _scrollController.dispose();
     _focusNode.dispose();

@@ -374,6 +374,8 @@ async def update_chat(chat_id: str, payload: UpdateChatRequest) -> dict[str, Any
     if not chat:
         raise HTTPException(status_code=404, detail="Chat not found")
 
+    old_collaborators = chat.get("collaborators", [])
+
     updates: dict[str, Any] = {"updated_at": now_iso()}
     if payload.title is not None:
         updates["title"] = payload.title.strip() or chat.get("title", "New Chat")
@@ -388,7 +390,16 @@ async def update_chat(chat_id: str, payload: UpdateChatRequest) -> dict[str, Any
     updated = await db.chats.find_one({"chat_id": chat_id})
     if not updated:
         raise HTTPException(status_code=404, detail="Chat not found")
-    await notify_chat_participants_changed(chat_id)
+
+    # Broadcast collaborator removal if the chat was made private
+    if payload.is_shared is not None and not payload.is_shared:
+        for colab_id in old_collaborators:
+            await manager.broadcast({
+                "type": "collaborator_removed",
+                "user_id": colab_id
+            }, chat_id)
+
+    await notify_chat_participants_changed(chat_id, extra_user_ids=old_collaborators)
     return chat_to_response(updated)
 
 
@@ -498,6 +509,13 @@ async def delete_chat(chat_id: str, request: Request) -> dict[str, bool]:
         raise HTTPException(status_code=403, detail="Only the chat owner can delete this chat")
 
     user_ids = [chat.get("owner_id")] + chat.get("collaborators", [])
+    
+    # Broadcast collaborator removal so collaborators are kicked out instantly
+    for colab_id in chat.get("collaborators", []):
+        await manager.broadcast({
+            "type": "collaborator_removed",
+            "user_id": colab_id
+        }, chat_id)
     
     # 1. Find and delete files from disk
     files_cursor = db.files.find({"chat_id": chat_id})
