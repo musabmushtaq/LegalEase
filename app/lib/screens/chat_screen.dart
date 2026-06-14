@@ -309,11 +309,10 @@ class _ChatScreenState extends State<ChatScreen> {
     _scrollController = ScrollController();
     _scrollController.addListener(() {
       if (!_scrollController.hasClients) return;
-      final maxScroll = _scrollController.position.maxScrollExtent;
       final currentScroll = _scrollController.position.pixels;
       const threshold = 40.0;
       
-      final atBottom = maxScroll - currentScroll <= threshold;
+      final atBottom = currentScroll <= threshold;
       if (atBottom != _isAtBottom) {
         setState(() {
           _isAtBottom = atBottom;
@@ -345,26 +344,12 @@ class _ChatScreenState extends State<ChatScreen> {
       _lastMessageCount = _chatService.currentMessages.length;
       _showNewMessagesPill = false;
       _hasNewUnreadMessages = false;
-      _scrollToBottom();
+      _jumpToBottom();
     } else {
       final messageCount = _chatService.currentMessages.length;
       if (_lastMessageCount != 0 && messageCount > _lastMessageCount) {
         final lastMsg = _chatService.currentMessages.last;
         final isOwnMsg = lastMsg.sender == 'user' && lastMsg.userId == _chatService.userId;
-        final isAiMsg = lastMsg.sender == 'ai';
-        
-        bool isResponseToOwnMsg = false;
-        if (isAiMsg) {
-          final messages = _chatService.currentMessages;
-          for (int i = messages.length - 2; i >= 0; i--) {
-            if (messages[i].sender == 'user') {
-              if (messages[i].userId == _chatService.userId) {
-                isResponseToOwnMsg = true;
-              }
-              break;
-            }
-          }
-        }
         
         if (isOwnMsg) {
           _scrollToBottom();
@@ -372,7 +357,7 @@ class _ChatScreenState extends State<ChatScreen> {
             _showNewMessagesPill = false;
             _hasNewUnreadMessages = false;
           });
-        } else if (isAiMsg && isResponseToOwnMsg) {
+        } else {
           if (_isAtBottom) {
             _scrollToBottom();
           } else {
@@ -381,13 +366,6 @@ class _ChatScreenState extends State<ChatScreen> {
               _hasNewUnreadMessages = true;
             });
           }
-        } else {
-          // Message from another user, OR AI responding to another user's message
-          // Never auto-scroll, keep position and show the new messages pill
-          setState(() {
-            _showNewMessagesPill = true;
-            _hasNewUnreadMessages = true;
-          });
         }
       }
       _lastMessageCount = messageCount;
@@ -402,6 +380,15 @@ class _ChatScreenState extends State<ChatScreen> {
     super.dispose();
   }
 
+  /// Instantly jump to bottom without animation – used on chat load so
+  /// the user never sees a scrolling flash.
+  void _jumpToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scrollController.hasClients) return;
+      _scrollController.jumpTo(0.0);
+    });
+  }
+
   void _scrollToBottom({bool toTrigger = false}) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_scrollController.hasClients) return;
@@ -409,14 +396,19 @@ class _ChatScreenState extends State<ChatScreen> {
       if (toTrigger && _triggerMessageKey.currentContext != null) {
         Scrollable.ensureVisible(
           _triggerMessageKey.currentContext!,
-          duration: const Duration(milliseconds: 600),
+          duration: const Duration(milliseconds: 400),
           curve: Curves.easeOutCubic,
           alignment: 0.0, // Aligns the user message to the top of the viewport
         );
       } else {
+        final distance = _scrollController.position.pixels.abs();
+        // Dynamic duration based on distance to avoid speed-related jitter
+        // Speed of 2 pixels per ms, clamped between 300ms and 1500ms
+        final durationMs = (distance / 2.0).clamp(300.0, 1500.0).toInt();
+
         _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 600),
+          0.0,
+          duration: Duration(milliseconds: durationMs),
           curve: Curves.easeOutCubic,
         );
       }
@@ -424,24 +416,7 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _acceleratedScrollToBottom() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!_scrollController.hasClients) return;
-      final maxScroll = _scrollController.position.maxScrollExtent;
-      final currentScroll = _scrollController.position.pixels;
-      final distance = maxScroll - currentScroll;
-
-      const maxAnimateDistance = 1500.0;
-      if (distance > maxAnimateDistance) {
-        // Jump closer to the bottom to avoid lag/long animation
-        _scrollController.jumpTo(maxScroll - maxAnimateDistance);
-      }
-
-      _scrollController.animateTo(
-        maxScroll,
-        duration: const Duration(milliseconds: 500),
-        curve: Curves.easeInOutCubic,
-      );
-    });
+    _scrollToBottom();
   }
 
   @override
@@ -944,46 +919,82 @@ class _ChatScreenState extends State<ChatScreen> {
       );
     }
 
-    return ShaderMask(
-      shaderCallback: (Rect bounds) {
-        return LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Colors.black.withValues(alpha: 0),
-            Colors.black,
-            Colors.black,
-            Colors.black.withValues(alpha: 0),
-          ],
-          stops: const [0.0, 0.2, 0.8, 1.0], // Fade in first 20% and out last 20%
-        ).createShader(bounds);
-      },
-      blendMode: BlendMode.dstIn,
-      child: ListView.builder(
-        controller: _scrollController,
-        padding: const EdgeInsets.only(top: 80.0, bottom: 80.0),
-        itemCount: messages.length + (_isAiThinking ? 1 : 0),
-        itemBuilder: (context, index) {
-          if (index == messages.length && _isAiThinking) {
-            return const ThinkingIndicator();
-          }
-          
-          final message = messages[index];
-          // We apply the trigger key to the user message that preceded the current AI response
-          final isTrigger = !_isAiThinking && index == messages.length - 2 && messages[index].sender == 'user';
-          
-          Widget bubble = MessageBubble(message: message);
-          
-          if (isTrigger) {
-            return KeyedSubtree(
-              key: _triggerMessageKey,
-              child: bubble,
-            );
-          }
-          
-          return bubble;
-        },
-      ),
+    return Stack(
+      children: [
+        ListView.builder(
+          controller: _scrollController,
+          physics: const ClampingScrollPhysics(),
+          padding: const EdgeInsets.only(top: 80.0, bottom: 80.0),
+          reverse: true,
+          itemCount: messages.length + (_isAiThinking ? 1 : 0),
+          itemBuilder: (context, index) {
+            if (index == 0 && _isAiThinking) {
+              return const ThinkingIndicator();
+            }
+            
+            final messageIndex = _isAiThinking ? messages.length - index : messages.length - 1 - index;
+            final message = messages[messageIndex];
+            
+            // The trigger message is the user message preceding the latest AI response.
+            // In the reversed list, the latest message is at index 0 (if AI) or we are thinking.
+            // If we are not thinking, the latest message is index 0. The message preceding it is index 1.
+            final isTrigger = !_isAiThinking && index == 1 && message.sender == 'user';
+            
+            Widget bubble = MessageBubble(message: message);
+            
+            if (isTrigger) {
+              return KeyedSubtree(
+                key: _triggerMessageKey,
+                child: bubble,
+              );
+            }
+            
+            return bubble;
+          },
+        ),
+        // Top fade overlay
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 80.0,
+          child: IgnorePointer(
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    AppTheme.background,
+                    AppTheme.background.withValues(alpha: 0.0),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+        // Bottom fade overlay
+        Positioned(
+          bottom: 0,
+          left: 0,
+          right: 0,
+          height: 80.0,
+          child: IgnorePointer(
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
+                  colors: [
+                    AppTheme.background,
+                    AppTheme.background.withValues(alpha: 0.0),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
