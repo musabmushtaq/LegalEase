@@ -353,13 +353,6 @@ function acceleratedScrollToBottom() {
     updatePillTextAndVisibility();
 
     const maxScroll = messagesContainer.scrollHeight - messagesContainer.clientHeight;
-    const currentScroll = messagesContainer.scrollTop;
-    const distance = maxScroll - currentScroll;
-    
-    const maxAnimateDistance = 1500;
-    if (distance > maxAnimateDistance) {
-        messagesContainer.scrollTop = maxScroll - maxAnimateDistance;
-    }
     
     messagesContainer.scrollTo({
         top: maxScroll,
@@ -857,4 +850,21 @@ async function renderCollaboratorsList(chat) {
         console.error('Error rendering collaborators:', err);
         card.innerHTML = '<div class="loading-text" style="padding: 16px; text-align: center; color: var(--danger);">Error loading collaborators</div>';
     }
+}
+
+export function showNotificationPill(message) {
+    const pill = document.getElementById('notificationPill');
+    if (!pill) return;
+    const textSpan = pill.querySelector('span');
+    if (textSpan) textSpan.textContent = message;
+    
+    pill.classList.remove('hidden');
+    
+    // Auto-hide after 3 seconds
+    if (window.notificationPillTimeout) {
+        clearTimeout(window.notificationPillTimeout);
+    }
+    window.notificationPillTimeout = setTimeout(() => {
+        pill.classList.add('hidden');
+    }, 3000);
 }
