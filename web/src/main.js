@@ -2,7 +2,7 @@
 import { API_BASE_URL, state, CONNECTIVITY_CHECK_INTERVAL, DEFAULT_USER_ID } from './js/config.js';
 import { loadAuthState, saveAuthState, clearAuthState, handleLogin, handleRegister, handleLogout, toggleTemporaryMode, ensureUserId } from './js/auth.js';
 import { loadChatCache, saveChatCache, loadChatsFromServer, createNewChat, createLocalChat, selectChat, renameChat, togglePinChat, removeChat, searchChatsServer, searchChatsLocal, disconnectChatWebSocket, connectChatWebSocket, connectUserWebSocket, disconnectUserWebSocket } from './js/chat.js';
-import { initializeDOM, toggleDrawer, closeDrawer, renderUserState, renderTemporaryToggle, renderConnectionBanner, openAuthModal, closeAuthModal, renderDrawer, renderMessages, getUIElements, updateAttachmentPreview, openSettingsModal, closeSettingsModal, renderThinkingIndicator, removeThinkingIndicator, renderContextPill, updatePersonaBtn, showPrivacySections, openManageAccessModal, closeManageAccessModal } from './js/ui.js';
+import { initializeDOM, toggleDrawer, closeDrawer, renderUserState, renderTemporaryToggle, renderConnectionBanner, openAuthModal, closeAuthModal, renderDrawer, renderMessages, getUIElements, updateAttachmentPreview, openSettingsModal, closeSettingsModal, renderThinkingIndicator, removeThinkingIndicator, renderContextPill, updatePersonaBtn, showPrivacySections, openManageAccessModal, closeManageAccessModal, showNotificationPill } from './js/ui.js';
 import { checkHealth, saveUserMessage, generateAiReply, saveAiMessage, summarizeText, updateMessage as apiUpdateMessage, deleteMessage as apiDeleteMessage, downloadFile as apiDownloadFile, clearPersonalContext, clearAllHistory, deleteUserAccount, getUserProfile, inviteCollaborator, removeCollaborator, updateChat } from './js/api.js';
 import { debounce, showMessage, logError, showCustomConfirm, showCustomPrompt } from './js/utils.js';
 
@@ -30,6 +30,7 @@ window.renderDrawer = renderDrawer;
 window.removeCollaboratorUI = removeCollaboratorUI;
 window.openManageAccessModalUI = openManageAccessModal;
 window.closeManageAccessModalUI = closeManageAccessModal;
+window.showNotificationPill = showNotificationPill;
 window.openSettingsModalUI = () => {
     console.log("Global openSettingsModalUI called");
     const uiEls = getUIElements();
@@ -85,10 +86,6 @@ async function initializeApp() {
             }
         }
 
-        if (!state.currentChatId) {
-            const firstChatId = Object.keys(state.chats)[0];
-            if (firstChatId) state.currentChatId = firstChatId;
-        }
         if (!state.currentChatId && (!state.authToken || state.isTemporaryChat)) {
             createLocalChat();
         }

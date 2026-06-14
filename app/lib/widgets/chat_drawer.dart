@@ -579,77 +579,84 @@ class _ChatDrawerState extends State<ChatDrawer> {
     final isCurrentChat = widget.chatService.currentChatId == chat.id;
     final isGeneratingTitle = widget.chatService.isTitleGenerating(chat.id);
 
-    return GestureDetector(
-      key: ValueKey(chat.id),
-      onLongPress: () {
-        final isOwner = !widget.chatService.isAuthenticated || chat.userId == widget.chatService.userId;
-        if (isOwner) {
-          HapticFeedback.heavyImpact();
-          _showChatMenu(chat);
-        }
-      },
-      onTap: () {
-        HapticFeedback.selectionClick();
-        widget.chatService.selectChat(chat.id);
-        _searchController.clear();
-        widget.chatService.setSearchQuery('');
-        widget.onChatSelected();
-        Navigator.pop(context);
-      },
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 4.0),
-        padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 16.0),
-        decoration: BoxDecoration(
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 4.0),
+      decoration: BoxDecoration(
+        color: isCurrentChat
+            ? AppTheme.highlight.withValues(alpha: 0.15)
+            : Colors.transparent,
+        borderRadius: BorderRadius.circular(26.0),
+        border: Border.all(
           color: isCurrentChat
-              ? AppTheme.highlight.withValues(alpha: 0.15)
+              ? AppTheme.highlight.withValues(alpha: 0.3)
               : Colors.transparent,
-          borderRadius: BorderRadius.circular(26.0),
-          border: Border.all(
-            color: isCurrentChat
-                ? AppTheme.highlight.withValues(alpha: 0.3)
-                : Colors.transparent,
-            width: 1.0,
-          ),
+          width: 1.0,
         ),
-        child: Row(
-          children: [
-            Expanded(
-              child: isGeneratingTitle
-                  ? _buildAnimatedTitle(chat.title, isCurrentChat)
-                  : Text(
-                      chat.title,
-                      style: TextStyle(
-                        color: isCurrentChat
-                            ? AppTheme.highlight
-                            : Colors.white,
-                        fontSize: 15,
-                        fontWeight: isCurrentChat
-                            ? FontWeight.w600
-                            : FontWeight.normal,
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(26.0),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: () {
+              HapticFeedback.selectionClick();
+              widget.chatService.selectChat(chat.id);
+              _searchController.clear();
+              widget.chatService.setSearchQuery('');
+              widget.onChatSelected();
+              Navigator.pop(context);
+            },
+            onLongPress: () {
+              final isOwner = !widget.chatService.isAuthenticated || chat.userId == widget.chatService.userId;
+              if (isOwner) {
+                HapticFeedback.heavyImpact();
+                _showChatMenu(chat);
+              }
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 16.0),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: isGeneratingTitle
+                        ? _buildAnimatedTitle(chat.title, isCurrentChat)
+                        : Text(
+                            chat.title,
+                            style: TextStyle(
+                              color: isCurrentChat
+                                  ? AppTheme.highlight
+                                  : Colors.white,
+                              fontSize: 15,
+                              fontWeight: isCurrentChat
+                                  ? FontWeight.w600
+                                  : FontWeight.normal,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                  ),
+                  if (chat.isShared)
+                    const Padding(
+                      padding: EdgeInsets.only(left: 8.0),
+                      child: Icon(
+                        Icons.share_outlined,
+                        color: AppTheme.highlight,
+                        size: 16,
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                    )
+                  else if (chat.isPinned)
+                    const Padding(
+                      padding: EdgeInsets.only(left: 8.0),
+                      child: Icon(
+                        Icons.push_pin,
+                        color: AppTheme.highlight,
+                        size: 16,
+                      ),
                     ),
-            ),
-            if (chat.isShared)
-              const Padding(
-                padding: EdgeInsets.only(left: 8.0),
-                child: Icon(
-                  Icons.share_outlined,
-                  color: AppTheme.highlight,
-                  size: 16,
-                ),
-              )
-            else if (chat.isPinned)
-              const Padding(
-                padding: EdgeInsets.only(left: 8.0),
-                child: Icon(
-                  Icons.push_pin,
-                  color: AppTheme.highlight,
-                  size: 16,
-                ),
+                ],
               ),
-          ],
+            ),
+          ),
         ),
       ),
     );

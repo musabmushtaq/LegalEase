@@ -33,7 +33,6 @@ Stores user profile information and security credentials for account authenticat
   "username": "musab",
   "email": "musabmushtaq952@gmail.com",
   "password": "$2b$12$ncNxlwj5nc/SPP2Eft5UDOgXLqoHzGp9F2Jv/6hbIAbXerZyGB42S",
-  "context": "I am a real estate attorney looking for landlord-tenant templates.",
   "created_at": "2026-04-11T18:54:11.380895+00:00"
 }
 ```
@@ -46,7 +45,6 @@ Stores user profile information and security credentials for account authenticat
 | `username` | `String` | The unique screen name/login handle selected by the user. |
 | `email` | `String` | The user's primary email address, utilized for communications, password resets, and login identification. |
 | `password` | `String` | A cryptographically secure, one-way hash (Bcrypt, 12 rounds) of the user's password. Never stored in plaintext. |
-| `context` | `String` | User-provided background details and context used to dynamically tailor legal responses. |
 | `created_at`| `String (ISO)`| Precise timestamp of account registration. |
 
 #### Database Indexes
@@ -64,10 +62,9 @@ The heart of LegalEase. It represents a single legal consultation session. Messa
   "_id": ObjectId("6a0c35f352680fd21fbcb9f2"),
   "chat_id": "chat_f82cc27847b4",
   "owner_id": "user_af748175fe85",
-  "collaborators": ["user_b28192cd44f1"],
   "title": "Hello.",
+  "system_prompt": "You are LegalEase, a legal-focused assistant. Provide clear and practical guidance, mention limitations, and recommend consulting a qualified lawyer for jurisdiction-specific legal advice.",
   "is_pinned": false,
-  "is_shared": false,
   "messages": [
     {
       "id": "msg_8d249f05a1ce",
@@ -97,10 +94,9 @@ The heart of LegalEase. It represents a single legal consultation session. Messa
 | `_id` | `ObjectId` | Auto-generated unique document key. |
 | `chat_id` | `String` | Unique application-level ID for the chat session (prefixed with `chat_`). |
 | `owner_id` | `String` | References the `user_id` of the user who owns this chat. |
-| `collaborators` | `Array` | References `user_id`s of invited users who have access to this chat. |
 | `title` | `String` | The visible name of the chat in the sidebar (summarized automatically via Gemini). |
+| `system_prompt`| `String` | Custom instructions given to the AI for this specific chat context, allowing highly specialized legal personas. |
 | `is_pinned` | `Boolean` | Flag indicating if this chat is pinned to the top of the list for quick access. |
-| `is_shared` | `Boolean` | Flag showing whether this chat has been made public or shared with collaborators. |
 | `messages` | `Array` | A sub-document array representing the history of user and AI turns (see below). |
 | `created_at` | `String (ISO)`| Chat initiation timestamp. |
 | `updated_at` | `String (ISO)`| Updated whenever a message is added, deleted, or edited. Controls chronology sorting. |
@@ -118,6 +114,7 @@ The heart of LegalEase. It represents a single legal consultation session. Messa
 #### Database Indexes
 * `{ "chat_id": 1 }` (**Unique**): Rapid single chat retrieval.
 * `[("owner_id", 1), ("updated_at", -1)]` (**Compound**): Powers the sidebar loading. Retrieves all chats belonging to a user, instantly sorted from most recent to oldest.
+
 
 ---
 

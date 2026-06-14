@@ -1,7 +1,7 @@
 # LegalEase Developer Guide
 
-**Version**: 1.0  
-**Last Updated**: May 20, 2026  
+**Version**: 1.0 
+**Last Updated**: May 20, 2026 
 **Audience**: Developers working on LegalEase codebase
 
 ---
@@ -121,61 +121,61 @@ const API_TIMEOUT = 30000; // 30 seconds
 
 ```
 legalease/
-├── api/                    # Backend FastAPI server
-│   ├── main.py            # Application entry point
-│   ├── requirements.txt    # Python dependencies
-│   ├── api_keys.csv       # Google Gemini API keys
-│   ├── .env               # Environment configuration
-│   └── uploads/           # Temporary file storage
-│
-├── app/                   # Flutter mobile application
-│   ├── lib/
-│   │   ├── main.dart      # App entry point
-│   │   ├── models/        # Data models
-│   │   ├── screens/       # UI screens
-│   │   ├── services/      # Business logic
-│   │   ├── theme/         # Theme configuration
-│   │   └── widgets/       # Reusable UI components
-│   ├── android/           # Android native code
-│   ├── test/              # Unit tests
-│   └── pubspec.yaml       # Dependencies
-│
-├── web/                   # Web application
-│   ├── index.html         # Main HTML file
-│   ├── package.json       # NPM dependencies & scripts
-│   ├── vite.config.js     # Vite configuration
-│   ├── run.bat            # Windows startup script
-│   └── src/
-│       ├── main.js        # App entry point & event binders
-│       ├── app.js         # Core controller logic
-│       ├── styles.css     # Premium dark-mode style sheets
-│       └── js/
-│           ├── api.js     # API client request wrapper
-│           ├── chat.js    # Conversation logic
-│           ├── auth.js    # JWT authorization controller
-│           ├── ui.js      # DOM rendering & touch actions
-│           ├── config.js  # Settings & runtime configurations
-│           └── utils.js   # Escape & helper utilities
-│
-├── db/                    # Database scripts
-│   ├── init_db.py         # Initialization script
-│   ├── requirements.txt    # Python dependencies
-│   └── SCHEMA.md          # Schema documentation
-│
-├── docs/                  # Documentation
-│   ├── SYSTEM_ARCHITECTURE.md
-│   ├── API_DOCUMENTATION.md
-│   ├── DATABASE_DESIGN.md
-│   ├── USER_MANUAL.md
-│   ├── DEVELOPER_GUIDE.md (this file)
-│   ├── architecture.md
-│   ├── contributing.md
-│   └── deployment.md
-│
-├── README.md              # Project overview
-├── LICENSE               # GPL v3 license
-├── privacy_policy.md     # Privacy policy
-└── terms_and_conditions.md # Terms of service
+|--─ api/                    # Backend FastAPI server
+|   |--─ main.py            # Application entry point
+|   |--─ requirements.txt    # Python dependencies
+|   |--─ api_keys.csv       # Google Gemini API keys
+|   |--─ .env               # Environment configuration
+|   +--─ uploads/           # Temporary file storage
+|
+|--─ app/                   # Flutter mobile application
+|   |--─ lib/
+|   |   |--─ main.dart      # App entry point
+|   |   |--─ models/        # Data models
+|   |   |--─ screens/       # UI screens
+|   |   |--─ services/      # Business logic
+|   |   |--─ theme/         # Theme configuration
+|   |   +--─ widgets/       # Reusable UI components
+|   |--─ android/           # Android native code
+|   |--─ test/              # Unit tests
+|   +--─ pubspec.yaml       # Dependencies
+|
+|--─ web/                   # Web application
+|   |--─ index.html         # Main HTML file
+|   |--─ package.json       # NPM dependencies & scripts
+|   |--─ vite.config.js     # Vite configuration
+|   |--─ run.bat            # Windows startup script
+|   +--─ src/
+|       |--─ main.js        # App entry point & event binders
+|       |--─ app.js         # Core controller logic
+|       |--─ styles.css     # Premium dark-mode style sheets
+|       +--─ js/
+|           |--─ api.js     # API client request wrapper
+|           |--─ chat.js    # Conversation logic
+|           |--─ auth.js    # JWT authorization controller
+|           |--─ ui.js      # DOM rendering & touch actions
+|           |--─ config.js  # Settings & runtime configurations
+|           +--─ utils.js   # Escape & helper utilities
+|
+|--─ db/                    # Database scripts
+|   |--─ init_db.py         # Initialization script
+|   |--─ requirements.txt    # Python dependencies
+|   +--─ SCHEMA.md          # Schema documentation
+|
+|--─ docs/                  # Documentation
+|   |--─ SYSTEM_ARCHITECTURE.md
+|   |--─ API_DOCUMENTATION.md
+|   |--─ DATABASE_DESIGN.md
+|   |--─ USER_MANUAL.md
+|   |--─ DEVELOPER_GUIDE.md (this file)
+|   |--─ architecture.md
+|   |--─ contributing.md
+|   +--─ deployment.md
+|
+|--─ README.md              # Project overview
+|--─ LICENSE               # GPL v3 license
+|--─ privacy_policy.md     # Privacy policy
++--─ terms_and_conditions.md # Terms of service
 ```
 
 ---
@@ -312,12 +312,12 @@ async def get(u):
 
 **Standards**:
 
-- ✅ Type hints on all functions
-- ✅ Docstrings for classes/functions
-- ✅ Max line length: 100 characters
-- ✅ 4-space indentation
-- ✅ snake_case for variables/functions
-- ✅ PascalCase for classes
+- Type hints on all functions
+- Docstrings for classes/functions
+- Max line length: 100 characters
+- 4-space indentation
+- snake_case for variables/functions
+- PascalCase for classes
 
 ### Dart/Flutter (Mobile App)
 
@@ -354,12 +354,12 @@ class Message {
 
 **Standards**:
 
-- ✅ Comprehensive documentation
-- ✅ camelCase for variables/functions
-- ✅ PascalCase for classes
-- ✅ Use const constructors where possible
-- ✅ Null safety enabled
-- ✅ Proper widget composition
+- Comprehensive documentation
+- camelCase for variables/functions
+- PascalCase for classes
+- Use const constructors where possible
+- Null safety enabled
+- Proper widget composition
 
 ### JavaScript (Web)
 
@@ -383,12 +383,12 @@ var getChats = function (u) {
 
 **Standards**:
 
-- ✅ Use const/let (no var)
-- ✅ Arrow functions preferred
-- ✅ camelCase for variables/functions
-- ✅ JSDoc comments for functions
-- ✅ Max line length: 100 characters
-- ✅ Use async/await over promises when readable
+- Use const/let (no var)
+- Arrow functions preferred
+- camelCase for variables/functions
+- JSDoc comments for functions
+- Max line length: 100 characters
+- Use async/await over promises when readable
 
 ---
 
@@ -504,27 +504,27 @@ db.users.find({"email": {"$regex": ".*pattern.*"}})
 
 ```
 app/lib/
-├── main.dart                   # Entry point
-├── models/
-│   ├── user.dart
-│   ├── chat.dart
-│   └── message.dart
-├── screens/
-│   ├── chat_screen.dart       # Main chat UI
-│   ├── login_screen.dart      # Auth UI
-│   ├── signup_screen.dart     # Registration
-│   ├── settings_screen.dart   # Settings
-│   └── live_call_screen.dart  # Calls
-├── services/
-│   ├── chat_service.dart      # Business logic
-│   └── api_service.dart       # API calls
-├── theme/
-│   └── app_theme.dart         # Color scheme
-└── widgets/
-    ├── chat_drawer.dart       # Sidebar
-    ├── message_bubble.dart    # Message UI
-    ├── thinking_indicator.dart # Loading
-    └── connectivity_banner.dart # Status
+|--─ main.dart                   # Entry point
+|--─ models/
+|   |--─ user.dart
+|   |--─ chat.dart
+|   +--─ message.dart
+|--─ screens/
+|   |--─ chat_screen.dart       # Main chat UI
+|   |--─ login_screen.dart      # Auth UI
+|   |--─ signup_screen.dart     # Registration
+|   |--─ settings_screen.dart   # Settings
+|   +--─ live_call_screen.dart  # Calls
+|--─ services/
+|   |--─ chat_service.dart      # Business logic
+|   +--─ api_service.dart       # API calls
+|--─ theme/
+|   +--─ app_theme.dart         # Color scheme
++--─ widgets/
+    |--─ chat_drawer.dart       # Sidebar
+    |--─ message_bubble.dart    # Message UI
+    |--─ thinking_indicator.dart # Loading
+    +--─ connectivity_banner.dart # Status
 ```
 
 ### Running the App
@@ -627,13 +627,13 @@ Live Calls enable real-time voice interaction with the AI using Voice Activity D
 **State Variables** (in `live_call_screen.dart`):
 
 ```dart
-late VadHandler _vadHandler;  // Voice detection handler
-AudioPlayer _audioPlayer;      // Audio playback
-double _micLevel = 0.0;        // Real-time microphone level
-String _transcription = "";    // User's speech (text)
-bool _isAiSpeaking = false;    // AI output state
-bool _isThinking = false;      // Processing state
-int _activeInteractionId = 0;  // ID for interruption tracking
+late VadHandler _vadHandler; // Voice detection handler
+AudioPlayer _audioPlayer; // Audio playback
+double _micLevel = 0.0; // Real-time microphone level
+String _transcription = ""; // User's speech (text)
+bool _isAiSpeaking = false; // AI output state
+bool _isThinking = false; // Processing state
+int _activeInteractionId = 0; // ID for interruption tracking
 ```
 
 **VAD Configuration**:
@@ -647,8 +647,8 @@ int _activeInteractionId = 0;  // ID for interruption tracking
 
 ```dart
 _vadHandler.onSpeechStart.listen((_) {
-  _activeInteractionId++;  // Invalidate pending responses
-  _audioPlayer.stop();     // Stop AI immediately
+  _activeInteractionId++; // Invalidate pending responses
+  _audioPlayer.stop(); // Stop AI immediately
   _isAiSpeaking = false;
 });
 
@@ -760,21 +760,21 @@ npm run dev
 
 ```
 web/
-├── index.html            # Main HTML document template
-├── package.json          # Node dependency configuration & Vite scripts
-├── vite.config.js        # Vite compiler and development configuration
-├── run.bat               # Windows launcher script
-└── src/
-    ├── main.js           # App entry point & Event listeners
-    ├── app.js            # Core orchestration and application state managers
-    ├── styles.css        # Premium style declarations and media queries
-    └── js/
-        ├── api.js        # HTTP client wrapper & request handler
-        ├── auth.js       # JWT login/signup controller
-        ├── chat.js       # Message mutation and active thread hooks
-        ├── config.js     # Default settings and global state objects
-        ├── ui.js         # DOM rendering & touch actions
-        └── utils.js      # Text formatting, escaping, and validation functions
+|--─ index.html            # Main HTML document template
+|--─ package.json          # Node dependency configuration & Vite scripts
+|--─ vite.config.js        # Vite compiler and development configuration
+|--─ run.bat               # Windows launcher script
++--─ src/
+    |--─ main.js           # App entry point & Event listeners
+    |--─ app.js            # Core orchestration and application state managers
+    |--─ styles.css        # Premium style declarations and media queries
+    +--─ js/
+        |--─ api.js        # HTTP client wrapper & request handler
+        |--─ auth.js       # JWT login/signup controller
+        |--─ chat.js       # Message mutation and active thread hooks
+        |--─ config.js     # Default settings and global state objects
+        |--─ ui.js         # DOM rendering & touch actions
+        +--─ utils.js # Text formatting, escaping, and validation functions
 ```
 
 ### Adding Features
@@ -1178,7 +1178,7 @@ CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
 db.chats.find({"ownerId": "user_123", "isPinned": True})
 
 # Bad: Full collection scan, slow
-db.chats.find({"title": {"$regex": "pattern"}})  # Without index
+db.chats.find({"title": {"$regex": "pattern"}}) # Without index
 ```
 
 ### Database Optimization
@@ -1210,6 +1210,8 @@ const handleSearch = debounce((query) => {
   // Search API call
 }, 300);
 ```
+
+
 
 ---
 
@@ -1247,4 +1249,4 @@ For questions or issues:
 3. Create new issue with details
 4. Contact maintainers
 
-Happy coding! 🚀
+Happy coding!

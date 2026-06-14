@@ -16,6 +16,12 @@ let personaBtn, contextPill, attachmentMenu, newMessagesPill;
 let shareBtn, manageAccessModal, manageAccessCloseBtn, chatPrivacyStateText, revokeAccessBtn;
 let inviteSection, inviteForm, inviteUsername, inviteSubmitBtn, collaboratorsListCard;
 
+// Scroll and unread message states
+let isAtBottom = true;
+let hasNewUnreadMessages = false;
+let lastChatId = null;
+let lastMessageCount = 0;
+
 export function initializeDOM() {
     menuBtn = document.getElementById('menuBtn');
     newChatBtn = document.getElementById('newChatBtn');
@@ -72,17 +78,20 @@ export function initializeDOM() {
 
     if (newMessagesPill) {
         newMessagesPill.addEventListener('click', () => {
-            scrollToBottom();
-            hideNewMessagesPill();
+            acceleratedScrollToBottom();
         });
     }
 
     if (messagesContainer) {
         messagesContainer.addEventListener('scroll', () => {
-            const threshold = 35; // px
-            const isAtBottom = (messagesContainer.scrollHeight - messagesContainer.scrollTop - messagesContainer.clientHeight) <= threshold;
-            if (isAtBottom) {
-                hideNewMessagesPill();
+            const threshold = 40; // px
+            const atBottom = (messagesContainer.scrollHeight - messagesContainer.scrollTop - messagesContainer.clientHeight) <= threshold;
+            if (atBottom !== isAtBottom) {
+                isAtBottom = atBottom;
+                if (isAtBottom) {
+                    hasNewUnreadMessages = false;
+                }
+                updatePillTextAndVisibility();
             }
         });
     }
@@ -311,16 +320,44 @@ function getUsername(userId) {
     return '...';
 }
 
-function showNewMessagesPill() {
-    if (newMessagesPill) {
+function updatePillTextAndVisibility() {
+    if (!newMessagesPill) return;
+    const textSpan = document.getElementById('newMessagesPillText');
+    if (isAtBottom) {
+        newMessagesPill.classList.add('hidden');
+        hasNewUnreadMessages = false;
+    } else {
+        if (textSpan) {
+            textSpan.textContent = hasNewUnreadMessages ? 'New messages' : 'Scroll to bottom';
+        }
         newMessagesPill.classList.remove('hidden');
     }
 }
 
+function showNewMessagesPill() {
+    isAtBottom = false;
+    updatePillTextAndVisibility();
+}
+
 function hideNewMessagesPill() {
-    if (newMessagesPill) {
-        newMessagesPill.classList.add('hidden');
-    }
+    isAtBottom = true;
+    hasNewUnreadMessages = false;
+    updatePillTextAndVisibility();
+}
+
+function acceleratedScrollToBottom() {
+    if (!messagesContainer) return;
+    
+    isAtBottom = true;
+    hasNewUnreadMessages = false;
+    updatePillTextAndVisibility();
+
+    const maxScroll = messagesContainer.scrollHeight - messagesContainer.clientHeight;
+    
+    messagesContainer.scrollTo({
+        top: maxScroll,
+        behavior: 'smooth'
+    });
 }
 
 // ─── Messages ──────────────────────────────────────────────────────────────────
@@ -328,7 +365,7 @@ export function renderMessages(forceScroll = false) {
     if (!messagesContainer) return;
 
     // Check if we were at the bottom before updating HTML
-    const threshold = 35; // px
+    const threshold = 40; // px
     const wasAtBottom = (messagesContainer.scrollHeight - messagesContainer.scrollTop - messagesContainer.clientHeight) <= threshold;
     const prevScrollTop = messagesContainer.scrollTop;
 
@@ -354,9 +391,15 @@ export function renderMessages(forceScroll = false) {
     const isEmpty = msgList.length === 0;
     chatContainer?.classList.toggle('no-messages', isEmpty);
 
+    const messageCount = msgList.length;
+
     if (isEmpty) {
         messagesContainer.innerHTML = '';
-        hideNewMessagesPill();
+        isAtBottom = true;
+        hasNewUnreadMessages = false;
+        updatePillTextAndVisibility();
+        lastChatId = state.currentChatId;
+        lastMessageCount = 0;
         return;
     }
 
@@ -369,19 +412,133 @@ export function renderMessages(forceScroll = false) {
         }
     }
 
-    messagesContainer.innerHTML = msgList.map(msg => messageBubbleHtml(msg, lastAiMsgId)).join('');
+    const isChatSwitch = state.currentChatId !== lastChatId;
+    if (isChatSwitch) {
+        messagesContainer.innerHTML = '';
+    }
 
-    // Determine if we should scroll to bottom
-    const lastMsg = msgList[msgList.length - 1];
-    const isOwnMessage = lastMsg && lastMsg.sender === 'user' && (lastMsg.userId === state.userId || String(lastMsg.id).startsWith('local_'));
+    const existingBubbles = Array.from(messagesContainer.querySelectorAll('.message-bubble'));
+    const existingIds = existingBubbles.map(el => el.getAttribute('data-message-id'));
+    const newIds = msgList.map(msg => String(msg.id));
 
-    if (forceScroll || isOwnMessage || wasAtBottom) {
-        scrollToBottom();
-        hideNewMessagesPill();
+    // 1. Remove elements that are no longer in the list (or if chat changed)
+    existingBubbles.forEach(el => {
+        const id = el.getAttribute('data-message-id');
+        if (!newIds.includes(id)) {
+            el.remove();
+        }
+    });
+
+    // 2. Insert or update elements
+    msgList.forEach((msg) => {
+        const msgIdStr = String(msg.id);
+        let el = messagesContainer.querySelector(`.message-bubble[data-message-id="${msgIdStr}"]`);
+        const html = messageBubbleHtml(msg, lastAiMsgId);
+        
+        if (el) {
+            // Update in-place to avoid re-triggering animations on existing elements
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = html;
+            const newInner = tempDiv.firstElementChild.innerHTML;
+            
+            if (el.innerHTML !== newInner) {
+                el.innerHTML = newInner;
+            }
+            
+            // Sync class names except for 'newly-added'
+            const currentClasses = Array.from(el.classList);
+            const targetClasses = Array.from(tempDiv.firstElementChild.classList);
+            targetClasses.forEach(c => {
+                if (!el.classList.contains(c)) el.classList.add(c);
+            });
+            currentClasses.forEach(c => {
+                if (c !== 'newly-added' && !targetClasses.includes(c)) el.classList.remove(c);
+            });
+        } else {
+            // Create and append the new element
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = html;
+            const newEl = tempDiv.firstElementChild;
+            
+            // Run entry slide-up animation only if it's NOT a full chat switch/load
+            if (!isChatSwitch) {
+                newEl.classList.add('newly-added');
+            }
+            
+            messagesContainer.appendChild(newEl);
+        }
+    });
+
+    if (isChatSwitch) {
+        lastChatId = state.currentChatId;
+        lastMessageCount = messageCount;
+        isAtBottom = true;
+        hasNewUnreadMessages = false;
+        scrollToBottom(false); // Instant snap on chat switch
+        updatePillTextAndVisibility();
     } else {
-        // Keep scroll position and show new messages pill
-        messagesContainer.scrollTop = prevScrollTop;
-        showNewMessagesPill();
+        if (lastMessageCount !== 0 && messageCount > lastMessageCount) {
+            const lastMsg = msgList[msgList.length - 1];
+            const isOwnMsg = lastMsg.sender === 'user' && (lastMsg.userId === state.userId || String(lastMsg.id).startsWith('local_'));
+            const isAiMsg = lastMsg.sender === 'ai';
+
+            let isResponseToOwnMsg = false;
+            if (isAiMsg) {
+                for (let i = msgList.length - 2; i >= 0; i--) {
+                    if (msgList[i].sender === 'user') {
+                        const isOwnUserMsg = msgList[i].userId === state.userId || String(msgList[i].id).startsWith('local_');
+                        if (isOwnUserMsg) {
+                            isResponseToOwnMsg = true;
+                        }
+                        break;
+                    }
+                }
+            }
+
+            if (isOwnMsg) {
+                scrollToBottom(true); // Smooth scroll when you send a message
+                isAtBottom = true;
+                hasNewUnreadMessages = false;
+                updatePillTextAndVisibility();
+            } else if (isAiMsg && isResponseToOwnMsg) {
+                if (wasAtBottom) {
+                    scrollToBottom(true); // Smooth scroll when AI responds to your message
+                    isAtBottom = true;
+                    hasNewUnreadMessages = false;
+                    updatePillTextAndVisibility();
+                } else {
+                    messagesContainer.scrollTop = prevScrollTop;
+                    isAtBottom = false;
+                    hasNewUnreadMessages = true;
+                    updatePillTextAndVisibility();
+                }
+            } else {
+                // Message from another user, OR AI responding to another user's message
+                // Never auto scroll, keep scroll position and show the new messages pill
+                messagesContainer.scrollTop = prevScrollTop;
+                isAtBottom = false;
+                hasNewUnreadMessages = true;
+                updatePillTextAndVisibility();
+            }
+        } else {
+            if (forceScroll) {
+                scrollToBottom(true);
+                isAtBottom = true;
+                hasNewUnreadMessages = false;
+                updatePillTextAndVisibility();
+            } else {
+                messagesContainer.scrollTop = prevScrollTop;
+                const currentAtBottom = (messagesContainer.scrollHeight - messagesContainer.scrollTop - messagesContainer.clientHeight) <= threshold;
+                isAtBottom = currentAtBottom;
+                updatePillTextAndVisibility();
+            }
+        }
+        lastMessageCount = messageCount;
+    }
+
+    const thinkingEl = document.getElementById('thinkingIndicator');
+    if (thinkingEl) {
+        messagesContainer.appendChild(thinkingEl);
     }
 }
 
@@ -508,17 +665,19 @@ export function removeThinkingIndicator() {
     document.getElementById('thinkingIndicator')?.remove();
 }
 
-function scrollToBottom() {
+function scrollToBottom(smooth = false) {
+    isAtBottom = true;
+    hasNewUnreadMessages = false;
+    updatePillTextAndVisibility();
+
     const performScroll = () => {
         if (!messagesContainer) return;
         
-        // Scroll the container scrollTop
-        messagesContainer.scrollTop = messagesContainer.scrollHeight;
-        
-        // Also scroll the last element into view as a backup for mobile devices
-        if (messagesContainer.lastElementChild) {
-            messagesContainer.lastElementChild.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        }
+        const maxScroll = messagesContainer.scrollHeight - messagesContainer.clientHeight;
+        messagesContainer.scrollTo({
+            top: maxScroll,
+            behavior: smooth ? 'smooth' : 'auto'
+        });
     };
 
     requestAnimationFrame(performScroll);
@@ -691,4 +850,21 @@ async function renderCollaboratorsList(chat) {
         console.error('Error rendering collaborators:', err);
         card.innerHTML = '<div class="loading-text" style="padding: 16px; text-align: center; color: var(--danger);">Error loading collaborators</div>';
     }
+}
+
+export function showNotificationPill(message) {
+    const pill = document.getElementById('notificationPill');
+    if (!pill) return;
+    const textSpan = pill.querySelector('span');
+    if (textSpan) textSpan.textContent = message;
+    
+    pill.classList.remove('hidden');
+    
+    // Auto-hide after 3 seconds
+    if (window.notificationPillTimeout) {
+        clearTimeout(window.notificationPillTimeout);
+    }
+    window.notificationPillTimeout = setTimeout(() => {
+        pill.classList.add('hidden');
+    }, 3000);
 }

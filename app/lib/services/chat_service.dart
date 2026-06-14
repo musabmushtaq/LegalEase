@@ -31,12 +31,19 @@ class ChatService extends ChangeNotifier {
   StreamSubscription? _webSocketSubscription;
   String? _webSocketConnectedChatId;
 
+  WebSocketChannel? _userWebSocketChannel;
+  StreamSubscription? _userWebSocketSubscription;
+  bool _isUserWebSocketConnected = false;
+
   bool _isConnected = false;
   bool _isConnecting = true;
   Timer? _connectivityTimer;
   bool _isAuthenticated = false;
   bool _isTemporaryChat = false;
+  bool _isInitialStartup = true;
   int _consecutiveFailures = 0;
+  bool _showAccessRevokedPill = false;
+  bool get showAccessRevokedPill => _showAccessRevokedPill;
 
   StreamSubscription? _connectivitySubscription;
   bool _isRecovering = false;
@@ -94,12 +101,15 @@ class ChatService extends ChangeNotifier {
     await _loadSettings();
     await _loadAuth();
     if (_isAuthenticated) {
-      await _restoreCurrentChatFromCache();
       _updateWebSocketConnection();
-      // Reactive check on startup - skip restoring from cache for fresh start
-      checkInitialAndInstantNetwork();
+      _updateUserWebSocketConnection();
+      // Start network check on startup - skip restoring from cache for fresh start
+      checkInitialAndInstantNetwork().then((_) {
+        _isInitialStartup = false;
+      });
     } else {
       _isConnecting = false;
+      _isInitialStartup = false;
       notifyListeners();
     }
     _listenToConnectivityChanges();
@@ -184,6 +194,7 @@ class ChatService extends ChangeNotifier {
         await prefs.setString('username', _username!);
 
         await _syncFromApi();
+        _updateUserWebSocketConnection();
         notifyListeners();
         return true;
       }
@@ -226,6 +237,7 @@ class ChatService extends ChangeNotifier {
     _chats.clear();
     _messages.clear();
     _disconnectWebSocket();
+    _disconnectUserWebSocket();
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('userId');
@@ -343,8 +355,11 @@ class ChatService extends ChangeNotifier {
       _chats.clear();
       _messages.clear();
       // Restore the one cached chat so the user can still see their active conversation
-      _restoreCurrentChatFromCache();
+      if (!_isInitialStartup) {
+        _restoreCurrentChatFromCache();
+      }
       _updateWebSocketConnection();
+      _updateUserWebSocketConnection();
       notifyListeners();
       
       // Start aggressive recovery loop to detect when server is back
@@ -389,7 +404,6 @@ class ChatService extends ChangeNotifier {
     _isConnecting = true;
     notifyListeners();
     
-    final startTime = DateTime.now();
     try {
       final uri = Uri.parse('$_apiBaseUrl/api/ping');
       final response = await http.get(uri).timeout(const Duration(seconds: 5));
@@ -399,11 +413,9 @@ class ChatService extends ChangeNotifier {
       if (!isOnline) {
         _forceOfflineState();
       } else {
-        if (!_isConnected) {
-          _isConnected = true;
-          _consecutiveFailures = 0;
-          await _syncFromApi();
-        }
+        _isConnected = true;
+        _consecutiveFailures = 0;
+        await _syncFromApi();
       }
       notifyListeners();
       return isOnline;
@@ -455,6 +467,7 @@ class ChatService extends ChangeNotifier {
   void dispose() {
     _recoveryTimer?.cancel();
     _connectivitySubscription?.cancel();
+    _disconnectUserWebSocket();
     super.dispose();
   }
 
@@ -516,9 +529,10 @@ class ChatService extends ChangeNotifier {
             .whereType<Map<String, dynamic>>()
             .toList();
 
-        // Clear everything first - history is network driven
-        _chats.clear();
-        _messages.clear();
+        // Incrementally update: only remove local records that are no longer on the server
+        final serverChatIds = items.map((item) => item['id'] as String).toSet();
+        _chats.removeWhere((key, value) => !serverChatIds.contains(key));
+        _messages.removeWhere((key, value) => !serverChatIds.contains(key));
 
         for (final item in items) {
           final chat = Chat.fromJson(item);
@@ -527,14 +541,57 @@ class ChatService extends ChangeNotifier {
           final rawMessages = (item['messages'] as List<dynamic>? ?? [])
               .whereType<Map<String, dynamic>>()
               .toList();
-          _messages[chat.id] = rawMessages.map(ChatMessage.fromJson).toList();
+          final parsedMessages = rawMessages.map(ChatMessage.fromJson).toList();
+
+          if (chat.id == _currentChatId) {
+            // Keep local/in-flight messages for the active conversation, merging missing ones
+            final currentList = _messages[chat.id] ?? [];
+            for (final incoming in parsedMessages) {
+              final exists = currentList.any((m) => m.id == incoming.id);
+              if (!exists) {
+                // Match temporary local user message by content and sender
+                final tempIndex = currentList.indexWhere((m) =>
+                    m.sender == incoming.sender &&
+                    m.content == incoming.content &&
+                    !m.id.startsWith('msg_'));
+                if (tempIndex != -1) {
+                  currentList[tempIndex] = incoming;
+                } else {
+                  currentList.add(incoming);
+                }
+              }
+            }
+            currentList.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+            _messages[chat.id] = currentList;
+          } else {
+            _messages[chat.id] = parsedMessages;
+          }
         }
 
         // Only cache the current chat to shared preferences for instant load next time
-        if (_currentChatId != null && _chats.containsKey(_currentChatId)) {
-          await _saveCurrentChatToCache();
+        if (_currentChatId != null && !_isTemporaryChat) {
+          final hasAccess = _chats.containsKey(_currentChatId);
+          debugPrint('ChatService: Checking if current chat ID $_currentChatId is still in user\'s chats list: $hasAccess');
+          if (hasAccess) {
+            await _saveCurrentChatToCache();
+          } else {
+            // Lost access/removed from this chat
+            debugPrint('ChatService: Current chat $_currentChatId is no longer in user\'s chats list! Revoking access.');
+            _currentChatId = null;
+            _disconnectWebSocket();
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.remove('currentChatCache');
+            await prefs.remove('currentChatIdCache');
+            _showAccessRevokedPill = true;
+            notifyListeners();
+            Timer(const Duration(seconds: 3), () {
+              _showAccessRevokedPill = false;
+              notifyListeners();
+            });
+          }
         }
         _updateWebSocketConnection();
+        _updateUserWebSocketConnection();
         _isConnected = true; // Confirm we are online
         _isConnecting = false;
         notifyListeners();
@@ -896,6 +953,22 @@ class ChatService extends ChangeNotifier {
           }
         }
 
+        if (response.statusCode == 403 || response.statusCode == 401) {
+          debugPrint('ChatService: sendUserMessage returned ${response.statusCode}. Access revoked.');
+          _currentChatId = null;
+          _disconnectWebSocket();
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.remove('currentChatCache');
+          await prefs.remove('currentChatIdCache');
+          _showAccessRevokedPill = true;
+          notifyListeners();
+          Timer(const Duration(seconds: 3), () {
+            _showAccessRevokedPill = false;
+            notifyListeners();
+          });
+          return;
+        }
+
         if (response.statusCode == 404) {
           // Server says chat doesn't exist - clear and retry once
           _currentChatId = null;
@@ -1210,6 +1283,13 @@ class ChatService extends ChangeNotifier {
         onDone: () {
           debugPrint('ChatService: WebSocket connection closed');
           _webSocketConnectedChatId = null;
+          if (_isConnected && _isAuthenticated && _currentChatId != null) {
+            Timer(const Duration(seconds: 2), () {
+              if (_isConnected && _isAuthenticated && _currentChatId != null) {
+                _updateWebSocketConnection();
+              }
+            });
+          }
         },
       );
     } catch (e) {
@@ -1226,11 +1306,90 @@ class ChatService extends ChangeNotifier {
     _webSocketConnectedChatId = null;
   }
 
+  void _updateUserWebSocketConnection() {
+    if (_userId == null || _isTemporaryChat || !_isConnected) {
+      _disconnectUserWebSocket();
+      return;
+    }
+
+    final httpUri = Uri.parse(_apiBaseUrl);
+    final wsScheme = httpUri.scheme == 'https' ? 'wss' : 'ws';
+    final wsUri = Uri(
+      scheme: wsScheme,
+      host: httpUri.host,
+      port: httpUri.port,
+      path: 'ws/users/$_userId',
+    );
+
+    if (_isUserWebSocketConnected) {
+      return;
+    }
+
+    _disconnectUserWebSocket();
+
+    debugPrint('ChatService: Connecting to User WebSocket at $wsUri');
+    try {
+      _userWebSocketChannel = WebSocketChannel.connect(wsUri);
+      _isUserWebSocketConnected = true;
+      _userWebSocketSubscription = _userWebSocketChannel!.stream.listen(
+        (message) {
+          _handleUserWebSocketMessage(message);
+        },
+        onError: (error) {
+          debugPrint('ChatService: User WebSocket error: $error');
+          _isUserWebSocketConnected = false;
+        },
+        onDone: () {
+          debugPrint('ChatService: User WebSocket connection closed');
+          _isUserWebSocketConnected = false;
+          if (_isConnected && _isAuthenticated) {
+            Timer(const Duration(seconds: 2), () {
+              if (_isConnected && _isAuthenticated) {
+                _updateUserWebSocketConnection();
+              }
+            });
+          }
+        },
+      );
+    } catch (e) {
+      debugPrint('ChatService: Failed to connect to User WebSocket: $e');
+      _isUserWebSocketConnected = false;
+    }
+  }
+
+  void _disconnectUserWebSocket() {
+    _userWebSocketSubscription?.cancel();
+    _userWebSocketSubscription = null;
+    _userWebSocketChannel?.sink.close();
+    _userWebSocketChannel = null;
+    _isUserWebSocketConnected = false;
+  }
+
+  void _handleUserWebSocketMessage(dynamic messageStr) {
+    debugPrint('ChatService: User WebSocket message received: $messageStr');
+    try {
+      final data = jsonDecode(messageStr as String) as Map<String, dynamic>;
+      final type = data['type'] as String?;
+      debugPrint('ChatService: Parsed User WS message type: $type');
+      if (type == 'chat_list_updated') {
+        debugPrint('ChatService: Chat list updated event received on User WebSocket. Syncing...');
+        _syncFromApi().catchError((e) {
+          debugPrint('ChatService: Error syncing chats after User WS notification: $e');
+        });
+      }
+    } catch (e) {
+      debugPrint('ChatService: Error parsing User WebSocket message: $e');
+    }
+  }
+
   void _handleWebSocketMessage(dynamic messageStr) {
+    debugPrint('ChatService: WebSocket message received: $messageStr');
     try {
       final data = jsonDecode(messageStr as String) as Map<String, dynamic>;
       final type = data['type'] as String?;
       final chatId = data['chat_id'] as String?;
+      final userIdInMsg = data['user_id'] as String?;
+      debugPrint('ChatService: Parsed WS message - type: $type, chatId: $chatId, user_id: $userIdInMsg');
       
       if (type == 'new_message' && chatId == _currentChatId) {
         final messageData = data['message'] as Map<String, dynamic>?;
@@ -1268,6 +1427,24 @@ class ChatService extends ChangeNotifier {
           _saveCurrentChatToCache();
           notifyListeners();
         }
+      } else if (type == 'collaborator_removed' && userIdInMsg == _userId) {
+        debugPrint('ChatService: You were removed from this collaborative chat.');
+        _currentChatId = null;
+        _disconnectWebSocket();
+        SharedPreferences.getInstance().then((prefs) {
+          prefs.remove('currentChatCache');
+          prefs.remove('currentChatIdCache');
+        }).catchError((_) {});
+        
+        _syncFromApi().catchError((_) {});
+        
+        _showAccessRevokedPill = true;
+        notifyListeners();
+        
+        Timer(const Duration(seconds: 3), () {
+          _showAccessRevokedPill = false;
+          notifyListeners();
+        });
       }
     } catch (e) {
       debugPrint('ChatService: Error parsing WebSocket message: $e');

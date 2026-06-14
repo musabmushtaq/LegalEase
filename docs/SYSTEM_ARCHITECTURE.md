@@ -1,7 +1,7 @@
 # LegalEase System Architecture
 
-**Document Version**: 1.0  
-**Last Updated**: May 20, 2026  
+**Document Version**: 1.0 
+**Last Updated**: May 20, 2026 
 **Status**: Production-Ready
 
 ---
@@ -12,51 +12,50 @@ LegalEase is a comprehensive AI-powered legal assistance platform designed to de
 
 - **Mobile App** (Flutter): Native Android application with offline support
 - **Web Interface** (Vanilla JS): Responsive web client for desktop and mobile browsers
-- **Backend API** (FastAPI): RESTful API with real-time WebSocket support
+- **Backend API** (FastAPI): RESTful API with AI and voice processing pipelines
 - **Database** (MongoDB): NoSQL document store for users, chats, and file metadata
 
 ### System Architecture Diagram
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                        USER LAYER                               │
-├──────────────────────┬──────────────────────────────────────────┤
-│   Mobile App         │         Web Browser                      │
-│   (Flutter/Android)  │   (HTML/CSS/JavaScript)                │
-└──────────────┬───────┴──────────────────┬───────────────────────┘
-               │                          │
-               │         HTTP/WebSocket   │
-               ├──────────────────────────┤
-               ▼                          ▼
-┌─────────────────────────────────────────────────────────────────┐
-│              BACKEND API LAYER (FastAPI)                        │
-├─────────────────────────────────────────────────────────────────┤
-│  • User Authentication & Authorization                          │
-│  • Chat Management (CRUD Operations)                            │
-│  • Live Call Voice Processing (Transcription, TTS)              │
-│  • Message Processing & AI Integration                          │
-│  • File Upload & Management                                     │
-│  • WebSocket Real-time Communication                            │
-│  • CORS Middleware for Client Communication                     │
-└──────────────┬──────────────────────────────────────────────────┘
-               │
-               │ MongoDB Driver (Motor)
-               ▼
-┌─────────────────────────────────────────────────────────────────┐
-│              DATA PERSISTENCE LAYER (MongoDB)                   │
-├─────────────────────────────────────────────────────────────────┤
-│  Collections:                                                   │
-│  • users       - User accounts & authentication data            │
-│  • chats       - Conversation metadata & embedded messages      │
-│  • files       - File metadata & storage references             │
-└─────────────────────────────────────────────────────────────────┘
-               │
-               │ File System
-               ▼
-┌─────────────────────────────────────────────────────────────────┐
-│         LOCAL FILE STORAGE (C:\legalEaseDB)                     │
-│  Document uploads organized by user directories                 │
-└─────────────────────────────────────────────────────────────────┘
++─────────────────────────────────────────────────────────────────+
+|                        USER LAYER                               |
+|--─────────────────────+──────────────────────────────────────────+
+|   Mobile App         |         Web Browser                      |
+|   (Flutter/Android)  |   (HTML/CSS/JavaScript)                |
++--─────────────+───────+──────────────────+───────────────────────+
+               |                          |
+               |         HTTP REST API    |
+               |--─────────────────────────+
+               v v
++─────────────────────────────────────────────────────────────────+
+|              BACKEND API LAYER (FastAPI)                        |
+|--────────────────────────────────────────────────────────────────+
+|  • User Authentication & Authorization                          |
+|  • Chat Management (CRUD Operations)                            |
+|  • Live Call Voice Processing (Transcription, TTS)              |
+|  • Message Processing & AI Integration                          |
+|  • File Upload & Management                                     |
+|  • CORS Middleware for Client Communication                     |
++--─────────────+──────────────────────────────────────────────────+
+               |
+               | MongoDB Driver (Motor)
+               v
++─────────────────────────────────────────────────────────────────+
+|              DATA PERSISTENCE LAYER (MongoDB)                   |
+|--────────────────────────────────────────────────────────────────+
+|  Collections:                                                   |
+|  • users       - User accounts & authentication data            |
+|  • chats       - Conversation metadata & embedded messages      |
+|  • files       - File metadata & storage references             |
++--────────────────────────────────────────────────────────────────+
+               |
+               | File System
+               v
++─────────────────────────────────────────────────────────────────+
+|         LOCAL FILE STORAGE (C:\legalEaseDB)                     |
+|  Document uploads organized by user directories                 |
++--────────────────────────────────────────────────────────────────+
 ```
 
 ---
@@ -89,30 +88,30 @@ LegalEase is a comprehensive AI-powered legal assistance platform designed to de
 
 ```
 app/
-├── lib/
-│   ├── main.dart                 # Application entry point
-│   ├── models/                   # Data models (User, Chat, Message)
-│   ├── screens/
-│   │   ├── chat_screen.dart      # Main chat interface
-│   │   ├── login_screen.dart     # User authentication
-│   │   ├── signup_screen.dart    # User registration
-│   │   ├── settings_screen.dart  # User settings
-│   │   └── live_call_screen.dart # Live call functionality
-│   ├── services/
-│   │   └── chat_service.dart     # API communication & business logic
-│   ├── theme/
-│   │   └── app_theme.dart        # Dark theme configuration
-│   └── widgets/
-│       ├── chat_drawer.dart      # Chat history sidebar
-│       ├── message_bubble.dart   # Message UI component
-│       ├── thinking_indicator.dart # AI thinking animation
-│       └── connectivity_banner.dart # Network status indicator
-├── assets/
-│   └── models/
-│       └── silero_vad_legacy.onnx # Voice activity detection model
-├── android/                      # Android native code
-├── test/                         # Unit & integration tests
-└── pubspec.yaml                  # Dependencies configuration
+|--─ lib/
+|   |--─ main.dart                 # Application entry point
+|   |--─ models/                   # Data models (User, Chat, Message)
+|   |--─ screens/
+|   |   |--─ chat_screen.dart      # Main chat interface
+|   |   |--─ login_screen.dart     # User authentication
+|   |   |--─ signup_screen.dart    # User registration
+|   |   |--─ settings_screen.dart  # User settings
+|   |   +--─ live_call_screen.dart # Live call functionality
+|   |--─ services/
+|   |   +--─ chat_service.dart     # API communication & business logic
+|   |--─ theme/
+|   |   +--─ app_theme.dart        # Dark theme configuration
+|   +--─ widgets/
+|       |--─ chat_drawer.dart      # Chat history sidebar
+|       |--─ message_bubble.dart   # Message UI component
+|       |--─ thinking_indicator.dart # AI thinking animation
+|       +--─ connectivity_banner.dart # Network status indicator
+|--─ assets/
+|   +--─ models/
+|       +--─ silero_vad_legacy.onnx # Voice activity detection model
+|--─ android/                      # Android native code
+|--─ test/                         # Unit & integration tests
++--─ pubspec.yaml # Dependencies configuration
 ```
 
 **Design System**:
@@ -152,21 +151,21 @@ app/
 
 ```
 web/
-├── index.html            # Main HTML document template
-├── package.json          # Node dependency configuration & Vite scripts
-├── vite.config.js        # Vite compiler and development configuration
-├── run.bat               # Interactive dependency installer and launcher script
-└── src/
-    ├── main.js           # Main application entry point & Event listeners
-    ├── app.js            # Core orchestration and application state managers
-    ├── styles.css        # Premium style declarations and media queries
-    └── js/
-        ├── api.js        # HTTP client wrapper & request handler
-        ├── auth.js       # JWT login/signup controller
-        ├── chat.js       # Message mutation and active thread hooks
-        ├── config.js     # Default settings and global state objects
-        ├── ui.js         # Dynamic DOM renderer, scroll handlers, & context actions
-        └── utils.js      # Text formatting, escaping, and validation functions
+|--─ index.html            # Main HTML document template
+|--─ package.json          # Node dependency configuration & Vite scripts
+|--─ vite.config.js        # Vite compiler and development configuration
+|--─ run.bat               # Interactive dependency installer and launcher script
++--─ src/
+    |--─ main.js           # Main application entry point & Event listeners
+    |--─ app.js            # Core orchestration and application state managers
+    |--─ styles.css        # Premium style declarations and media queries
+    +--─ js/
+        |--─ api.js        # HTTP client wrapper & request handler
+        |--─ auth.js       # JWT login/signup controller
+        |--─ chat.js       # Message mutation and active thread hooks
+        |--─ config.js     # Default settings and global state objects
+        |--─ ui.js         # Dynamic DOM renderer, scroll handlers, & context actions
+        +--─ utils.js # Text formatting, escaping, and validation functions
 ```
 
 **UI Components**:
@@ -209,12 +208,12 @@ web/
 
 ```
 api/
-├── main.py             # FastAPI entrypoint, router, and AI Pipelines loaders
-├── requirements.txt    # Python module dependencies
-├── api_keys.csv        # Gemini API keys list (for automatic rate-limit rotation)
-├── .env                # Port, URL, and system prompt configurations
-├── uploads/            # Temporary attachment files storage
-└── run.py              # Uvicorn startup utility script
+|--─ main.py             # FastAPI entrypoint, router, and AI Pipelines loaders
+|--─ requirements.txt    # Python module dependencies
+|--─ api_keys.csv        # Gemini API keys list (for automatic rate-limit rotation)
+|--─ .env                # Port, URL, and system prompt configurations
+|--─ uploads/            # Temporary attachment files storage
++--─ run.py # Uvicorn startup utility script
 ```
 
 **API Endpoints**:
@@ -354,16 +353,16 @@ api/
 
 ```
 users (1) ────────> (many) chats
-  └─ userId        └─ ownerId
+  +-- userId +-- ownerId
 
 chats (1) ────────> (many) messages
-  └─ chatId        └─ embedded in messages array
+  +-- chatId +-- embedded in messages array
 
 chats (1) ────────> (many) files
-  └─ fileId        └─ referenced in message attachments
+  +-- fileId +-- referenced in message attachments
 
 files (1) ────────> (1) user
-  └─ userId
+  +-- userId
 ```
 
 **Storage**:
@@ -380,27 +379,27 @@ files (1) ────────> (1) user
 
 ```
 Mobile/Web Client
-    │
-    ├─► POST /users
-    │   {email, username, password, context}
-    │
-    ▼
+    |
+    +-> POST /users
+    |   {email, username, password, context}
+    |
+    v
 FastAPI Backend
-    │
-    ├─► Validate input (email format, password strength)
-    ├─► Hash password with bcrypt
-    ├─► Generate unique userId
-    │
-    ▼
+    |
+    +-> Validate input (email format, password strength)
+    +-> Hash password with bcrypt
+    +-> Generate unique userId
+    |
+    v
 MongoDB
-    │
-    ├─► Insert user document
-    ├─► Create indexes
-    │
-    ▼
+    |
+    +-> Insert user document
+    +-> Create indexes
+    |
+    v
 FastAPI Backend (Response)
-    │
-    └─► 201 Created
+    |
+    +-> 201 Created
         {userId, email, username, context}
 ```
 
@@ -408,32 +407,32 @@ FastAPI Backend (Response)
 
 ```
 Mobile/Web Client
-    │
-    ├─► POST /chats/{chat_id}/messages
-    │   {user_id, sender: "user", content, attachments}
-    │
-    ▼
+    |
+    +-> POST /chats/{chat_id}/messages
+    |   {user_id, sender: "user", content, attachments}
+    |
+    v
 FastAPI Backend
-    │
-    ├─► Generate message ID
-    ├─► Timestamp (UTC ISO)
-    ├─► Validate attachments (file existence)
-    │
-    ├─► Append to chat.messages array
-    ├─► Call Google Gemini API (async)
-    │   └─► Get AI response
-    ├─► Append assistant message to chat
-    │
-    ▼
+    |
+    +-> Generate message ID
+    +-> Timestamp (UTC ISO)
+    +-> Validate attachments (file existence)
+    |
+    +-> Append to chat.messages array
+    +-> Call Google Gemini API (async)
+    |   +-> Get AI response
+    +-> Append assistant message to chat
+    |
+    v
 MongoDB
-    │
-    ├─► Update chats collection
-    │   └─► Add user message + AI response
-    │
-    ▼
+    |
+    +-> Update chats collection
+    |   +-> Add user message + AI response
+    |
+    v
 FastAPI Backend (Response)
-    │
-    └─► 200 OK
+    |
+    +-> 200 OK
         {messages: [...], updatedAt}
 ```
 
@@ -441,51 +440,59 @@ FastAPI Backend (Response)
 
 ```
 Mobile/Web Client
-    │
-    ├─► POST /files/upload
-    │   multipart/form-data: {file, user_id}
-    │
-    ▼
+    |
+    +-> POST /files/upload
+    |   multipart/form-data: {file, user_id}
+    |
+    v
 FastAPI Backend
-    │
-    ├─► Validate file type (PDF, DOCX, TXT, IMG)
-    ├─► Generate unique fileId
-    ├─► Save to C:\legalEaseDB\{userId}\{filename}
-    │
-    ▼
+    |
+    +-> Validate file type (PDF, DOCX, TXT, IMG)
+    +-> Generate unique fileId
+    +-> Save to C:\legalEaseDB\{userId}\{filename}
+    |
+    v
 MongoDB
-    │
-    ├─► Insert files collection document
-    │   {fileId, userId, filepath, mimeType, size}
-    │
-    ▼
+    |
+    +-> Insert files collection document
+    |   {fileId, userId, filepath, mimeType, size}
+    |
+    v
 FastAPI Backend (Response)
-    │
-    └─► 200 OK
+    |
+    +-> 200 OK
         {fileId, filename, size, uploadedAt}
 ```
 
-### 3.4 Real-time WebSocket Flow
+### 3.4 Live Voice Call Audio Pipeline Flow
+
+The Live Call feature processes voice streams with low latency using a decoupled background queue model for Text-to-Speech (TTS) alongside Voice Activity Detection (VAD) user interruption handling:
 
 ```
-Mobile/Web Client
-    │
-    ├─► WS /ws/{chat_id}
-    │   (establish connection)
-    │
-    ▼
-FastAPI Backend
-    │
-    ├─► Accept WebSocket connection
-    ├─► Register client session
-    │
-    ├─► Listen for messages
-    ├─► Process & broadcast
-    │
-    ▼
-MongoDB
-    │
-    └─► Persist messages
+User Voice Input FastAPI Backend Pipeline Audio Output / UI
+      |                                     |                                     |
+      +-> PCM 16kHz audio stream | |
+      +-> VAD registers speech end | |
+      +-> POST /api/transcribe_raw ───────->| (GPU Whisper Speech-to-Text) |
+      |                                     +-> Transcribed Text                  |
+      |                                     +-> POST /api/generate_live           |
+      |                                     |   (Gemini brief 1-3 sentences)      |
+      |                                     v                                     |
+      |                             AI Response Text                              |
+      |                                     |                                     |
+      |                                     +-> Split response into sentences     |
+      |                                     +-> Fetch TTS waves concurrently      |
+      |                                     |   via POST /api/tts (Kokoro ONNX)   |
+      |                                     v                                     |
+      |                                                                           +-> Play waves sequentially
+      |                                                                           +-> Wave breathes on UI
+      |                                                                               (Sinusoidal thinking aura)
+      |                                                                           
+  [USER INTERRUPTS (VAD)] 
+      |                                                                           
+      +-> VAD detects user speaking ──────────────────────────────────────────────+-> Stop active playback
+      +-> Increment interaction ID ───────────────────────────────────────────────+-> Clear TTS download queue
+      +-> Invalidate pending chunks ──────────────────────────────────────────────+-> Clear audio playback chunks
 ```
 
 ---
@@ -495,62 +502,62 @@ MongoDB
 ### 4.1 Request-Response Cycle
 
 ```
-┌────────────────────────────────────────────────────────────────┐
-│                     CLIENT (App/Web)                           │
-├────────────────────────────────────────────────────────────────┤
-│  • User interacts with UI                                       │
-│  • Event triggers API call                                      │
-│  • Local validation (if applicable)                             │
-└────────────┬──────────────────────────────────────────────────┘
-             │
-             │ HTTP/WebSocket
-             ▼
-┌────────────────────────────────────────────────────────────────┐
-│                  FASTAPI BACKEND                               │
-├────────────────────────────────────────────────────────────────┤
-│  1. Route Handler receives request                              │
-│  2. CORS Middleware validates origin                            │
-│  3. Request validation (Pydantic models)                        │
-│  4. Authentication check (if required)                          │
-│  5. Business logic execution                                    │
-│  6. Database operations (via Motor)                             │
-│  7. AI API calls (if applicable)                                │
-│  8. Response serialization                                      │
-└────────────┬──────────────────────────────────────────────────┘
-             │
-             │ MongoDB Driver
-             ▼
-┌────────────────────────────────────────────────────────────────┐
-│                      MONGODB                                   │
-├────────────────────────────────────────────────────────────────┤
-│  1. Document validation against schema                          │
-│  2. CRUD operation execution                                    │
-│  3. Index usage for optimization                                │
-│  4. Transaction (if multi-document)                             │
-│  5. Return results                                              │
-└────────────┬──────────────────────────────────────────────────┘
-             │
-             │ Response
-             ▼
-┌────────────────────────────────────────────────────────────────┐
-│                  FASTAPI BACKEND                               │
-├────────────────────────────────────────────────────────────────┤
-│  • Serialize response data                                      │
-│  • Add headers (content-type, etc.)                             │
-│  • Set status code                                              │
-└────────────┬──────────────────────────────────────────────────┘
-             │
-             │ HTTP Response
-             ▼
-┌────────────────────────────────────────────────────────────────┐
-│                  CLIENT (App/Web)                              │
-├────────────────────────────────────────────────────────────────┤
-│  • Receive response                                             │
-│  • Parse JSON                                                   │
-│  • Update local state                                           │
-│  • Render UI                                                    │
-│  • Show user feedback                                           │
-└────────────────────────────────────────────────────────────────┘
++────────────────────────────────────────────────────────────────+
+|                     CLIENT (App/Web)                           |
+|--───────────────────────────────────────────────────────────────+
+|  • User interacts with UI                                       |
+|  • Event triggers API call                                      |
+|  • Local validation (if applicable)                             |
++--───────────+──────────────────────────────────────────────────+
+             |
+             | HTTP REST API
+             v
++────────────────────────────────────────────────────────────────+
+|                  FASTAPI BACKEND                               |
+|--───────────────────────────────────────────────────────────────+
+|  1. Route Handler receives request                              |
+|  2. CORS Middleware validates origin                            |
+|  3. Request validation (Pydantic models)                        |
+|  4. Authentication check (if required)                          |
+|  5. Business logic execution                                    |
+|  6. Database operations (via Motor)                             |
+|  7. AI API calls (if applicable)                                |
+|  8. Response serialization                                      |
++--───────────+──────────────────────────────────────────────────+
+             |
+             | MongoDB Driver
+             v
++────────────────────────────────────────────────────────────────+
+|                      MONGODB                                   |
+|--───────────────────────────────────────────────────────────────+
+|  1. Document validation against schema                          |
+|  2. CRUD operation execution                                    |
+|  3. Index usage for optimization                                |
+|  4. Transaction (if multi-document)                             |
+|  5. Return results                                              |
++--───────────+──────────────────────────────────────────────────+
+             |
+             | Response
+             v
++────────────────────────────────────────────────────────────────+
+|                  FASTAPI BACKEND                               |
+|--───────────────────────────────────────────────────────────────+
+|  • Serialize response data                                      |
+|  • Add headers (content-type, etc.)                             |
+|  • Set status code                                              |
++--───────────+──────────────────────────────────────────────────+
+             |
+             | HTTP Response
+             v
++────────────────────────────────────────────────────────────────+
+|                  CLIENT (App/Web)                              |
+|--───────────────────────────────────────────────────────────────+
+|  • Receive response                                             |
+|  • Parse JSON                                                   |
+|  • Update local state                                           |
+|  • Render UI                                                    |
+|  • Show user feedback                                           |
++--───────────────────────────────────────────────────────────────+
 ```
 
 ---
@@ -616,35 +623,35 @@ MongoDB
 
 ```
 Local Machine
-├── API Server (FastAPI + Uvicorn)
-│   └── Port 8000
-├── MongoDB Server
-│   └── Port 27017
-├── Web Server (Python HTTP)
-│   └── Port 8080
-└── Mobile Emulator or Device
-    └── Connects to API
+|--─ API Server (FastAPI + Uvicorn)
+|   +--─ Port 8000
+|--─ MongoDB Server
+|   +--─ Port 27017
+|--─ Web Server (Vite Development Server)
+|   +--─ Port 8080
++--─ Mobile Emulator or Device
+    +--─ Connects to API
 ```
 
 ### 7.2 Production Deployment (Recommended)
 
 ```
 Cloud Infrastructure (e.g., AWS, Google Cloud, Azure)
-├── API Tier
-│   ├── FastAPI containerized (Docker)
-│   ├── Multiple replicas behind load balancer
-│   └── Auto-scaling based on CPU/Memory
-├── Data Tier
-│   ├── MongoDB Atlas or self-managed cluster
-│   ├── Replication for HA
-│   └── Automated backups
-├── Storage Tier
-│   ├── Cloud Storage (S3, GCS, Azure Blob)
-│   └── CDN for static files
-└── Frontend Tier
-    ├── Static hosting (Vercel, Netlify)
-    ├── CDN distribution
-    └── Mobile app distribution (Play Store, App Store)
+|--─ API Tier
+|   |--─ FastAPI containerized (Docker)
+|   |--─ Multiple replicas behind load balancer
+|   +--─ Auto-scaling based on CPU/Memory
+|--─ Data Tier
+|   |--─ MongoDB Atlas or self-managed cluster
+|   |--─ Replication for HA
+|   +--─ Automated backups
+|--─ Storage Tier
+|   |--─ Cloud Storage (S3, GCS, Azure Blob)
+|   +--─ CDN for static files
++--─ Frontend Tier
+    |--─ Static hosting (Vercel, Netlify)
+    |--─ CDN distribution
+    +--─ Mobile app distribution (Play Store, App Store)
 ```
 
 ---
@@ -676,7 +683,7 @@ Cloud Infrastructure (e.g., AWS, Google Cloud, Azure)
 | Component      | Technology    | Rationale                                                    |
 | -------------- | ------------- | ------------------------------------------------------------ |
 | Mobile         | Flutter       | Cross-platform, fast development, strong ecosystem           |
-| Web            | Vanilla JS    | No build tools needed, lightweight, full control             |
+| Web            | Vanilla JS + Vite | Modular ES6 modules, hot reloading, lightweight bundling     |
 | Backend        | FastAPI       | Python async, automatic API docs, fast performance           |
 | Database       | MongoDB       | Flexible schema, document storage, scalable                  |
 | AI             | Google Gemini | Powerful LLM, affordable API, good for legal tasks           |
@@ -692,10 +699,8 @@ Cloud Infrastructure (e.g., AWS, Google Cloud, Azure)
 - [ ] End-to-end encryption for sensitive documents
 - [ ] Advanced document OCR and extraction
 - [ ] Template library for legal documents
-- [ ] Collaboration features (shared workspaces)
 - [ ] Advanced analytics dashboard
 - [ ] Mobile app offline sync
-- [ ] Real-time document collaboration
 
 ### 10.2 Infrastructure Upgrades
 
