@@ -529,9 +529,10 @@ class ChatService extends ChangeNotifier {
             .whereType<Map<String, dynamic>>()
             .toList();
 
-        // Clear everything first - history is network driven
-        _chats.clear();
-        _messages.clear();
+        // Incrementally update: only remove local records that are no longer on the server
+        final serverChatIds = items.map((item) => item['id'] as String).toSet();
+        _chats.removeWhere((key, value) => !serverChatIds.contains(key));
+        _messages.removeWhere((key, value) => !serverChatIds.contains(key));
 
         for (final item in items) {
           final chat = Chat.fromJson(item);
@@ -540,7 +541,31 @@ class ChatService extends ChangeNotifier {
           final rawMessages = (item['messages'] as List<dynamic>? ?? [])
               .whereType<Map<String, dynamic>>()
               .toList();
-          _messages[chat.id] = rawMessages.map(ChatMessage.fromJson).toList();
+          final parsedMessages = rawMessages.map(ChatMessage.fromJson).toList();
+
+          if (chat.id == _currentChatId) {
+            // Keep local/in-flight messages for the active conversation, merging missing ones
+            final currentList = _messages[chat.id] ?? [];
+            for (final incoming in parsedMessages) {
+              final exists = currentList.any((m) => m.id == incoming.id);
+              if (!exists) {
+                // Match temporary local user message by content and sender
+                final tempIndex = currentList.indexWhere((m) =>
+                    m.sender == incoming.sender &&
+                    m.content == incoming.content &&
+                    !m.id.startsWith('msg_'));
+                if (tempIndex != -1) {
+                  currentList[tempIndex] = incoming;
+                } else {
+                  currentList.add(incoming);
+                }
+              }
+            }
+            currentList.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+            _messages[chat.id] = currentList;
+          } else {
+            _messages[chat.id] = parsedMessages;
+          }
         }
 
         // Only cache the current chat to shared preferences for instant load next time

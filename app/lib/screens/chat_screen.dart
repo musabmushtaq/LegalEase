@@ -1052,8 +1052,7 @@ class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
     setState(() {
       _isAiThinking = false;
     });
-    // Use smart scroll to show the context (User Message at top)
-    _scrollToBottom(toTrigger: true);
+    _scrollToBottom();
   }
 
   Widget _buildNewMessagesPill() {
