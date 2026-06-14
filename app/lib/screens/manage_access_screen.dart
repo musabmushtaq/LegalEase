@@ -217,8 +217,17 @@ class _ManageAccessScreenState extends State<ManageAccessScreen> {
       builder: (BuildContext context) {
         return StatefulBuilder(
           builder: (context, setState) {
+            final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
+            final isKeyboardOpen = keyboardHeight > 0;
             return AlertDialog(
               backgroundColor: Colors.black.withValues(alpha: 0.9),
+              alignment: isKeyboardOpen ? Alignment.bottomCenter : Alignment.center,
+              insetPadding: EdgeInsets.only(
+                left: 40.0,
+                right: 40.0,
+                top: 24.0,
+                bottom: isKeyboardOpen ? 12.0 : 24.0,
+              ),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20.0),
                 side: BorderSide(
@@ -491,6 +500,7 @@ class _ManageAccessScreenState extends State<ManageAccessScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.transparent,
+      resizeToAvoidBottomInset: false,
       appBar: AppBar(
         title: const Text(
           'Manage Shared Access',
