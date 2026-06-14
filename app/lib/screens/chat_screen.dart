@@ -1039,62 +1039,56 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Widget _buildNewMessagesPill() {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(28.0),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 15.0, sigmaY: 15.0),
-        child: Container(
-          height: 56.0,
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          decoration: BoxDecoration(
-            color: const Color(0xFF2E2E2E).withValues(alpha: 0.85),
-            borderRadius: BorderRadius.circular(28.0),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.1),
-              width: 1.0,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.3),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
+    return Container(
+      height: 56.0,
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      decoration: BoxDecoration(
+        color: const Color(0xFF2E2E2E), // Solid dark grey to eliminate BackdropFilter rendering lag
+        borderRadius: BorderRadius.circular(28.0),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.1),
+          width: 1.0,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.3),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(28.0),
+          onTap: () {
+            HapticFeedback.lightImpact();
+            _acceleratedScrollToBottom();
+            setState(() {
+              _showNewMessagesPill = false;
+              _hasNewUnreadMessages = false;
+            });
+          },
+          child: Row(
+            children: [
+              const Icon(
+                Icons.arrow_downward,
+                color: Colors.white,
+                size: 18,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  _hasNewUnreadMessages ? 'New messages' : 'Scroll to bottom',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    letterSpacing: 0.5,
+                  ),
+                ),
               ),
             ],
-          ),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              borderRadius: BorderRadius.circular(28.0),
-              onTap: () {
-                HapticFeedback.lightImpact();
-                _acceleratedScrollToBottom();
-                setState(() {
-                  _showNewMessagesPill = false;
-                  _hasNewUnreadMessages = false;
-                });
-              },
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.arrow_downward,
-                    color: Colors.white,
-                    size: 18,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      _hasNewUnreadMessages ? 'New messages' : 'Scroll to bottom',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
           ),
         ),
       ),
