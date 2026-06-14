@@ -36,12 +36,13 @@ LegalEase is an AI-powered legal assistant platform designed to help users with 
 
 ## Key Features
 
-- Modern chat interface for intuitive legal Q&A
-- Upload and analyze legal documents (PDF, DOCX, TXT, images)
-- Generate legal notices, affidavits, and summaries
-- Context-aware, multi-turn conversations with memory
-- Secure, on-device data handling (except for AI API calls)
-- Export, share, and manage legal documents
+- **Modern Chat Interface**: Intuitive legal Q&A with progress indicators.
+- **Upload & Analyze Documents**: Upload and extract details from PDF, DOCX, TXT, and image files.
+- **Auto-Generated Titles**: Elegant 2-to-4 word titles summarized by Gemini.
+- **Chat Search**: Locate chats instantly by title or message contents.
+- **Live Voice Calls**: High-performance hands-free voice interactions with sentence-level streaming (Whisper GPU / Kokoro TTS) and interruption detection.
+- **Secure Data Handling**: Clean client-server sync with full user control over profile and history deletion.
+
 
 ## License
 
