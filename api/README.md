@@ -1,6 +1,5 @@
 # LegalEase API (FastAPI Backend)
 
-**Status**: 🚀 Production Ready | Python FastAPI | Fully Featured
 
 This folder contains the production-ready FastAPI server for LegalEase, providing REST endpoints for chat management, AI integration, and data persistence.
 
@@ -11,7 +10,7 @@ This folder contains the production-ready FastAPI server for LegalEase, providin
 - **AI Integration**: Google Generative AI (Gemini)
 - **Async**: asyncio + Motor (async MongoDB driver)
 - **Validation**: Pydantic
-- **API**: RESTful with WebSocket support
+- **API**: RESTful API
 
 ## Prerequisites
 
@@ -21,7 +20,7 @@ This folder contains the production-ready FastAPI server for LegalEase, providin
   ```
 - **MongoDB**: Running on `mongodb://localhost:27017`
   ```bash
-  mongosh  # Verify connection
+  mongosh # Verify connection
   ```
 - **Google Gemini API**: API keys for AI integration
 - **pip**: Python package manager
@@ -97,7 +96,7 @@ AIzaSyDxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 AIzaSyDxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ```
 
-⚠️ **Never commit .env or api_keys.csv to version control**
+**Never commit .env or api_keys.csv to version control**
 
 ## Run Server
 
@@ -111,8 +110,8 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 **Output**:
 
 ```
-INFO:     Uvicorn running on http://127.0.0.1:8000
-INFO:     Press CTRL+C to quit
+INFO: Uvicorn running on http://127.0.0.1:8000
+INFO: Press CTRL+C to quit
 ```
 
 ### Production (no reload)
@@ -155,50 +154,48 @@ curl http://127.0.0.1:8000/health
 - `GET /health` - Health check
 - `GET /api/ping` - Connectivity test
 
-**Users**:
+**Authentication & Profile**:
 
-- `POST /users` - Create user account
-- `GET /users/{user_id}` - Get user profile
-- `PATCH /users/{user_id}` - Update user profile
+- `POST /auth/register` - Create user account
+- `POST /auth/login` - Authenticate and return JWT token
+- `GET /users/{user_id}` - Get user profile and context
+- `PATCH /users/{user_id}/context` - Update user context manually
+- `DELETE /users/{user_id}` - Permanently delete account and all data
+- `DELETE /users/{user_id}/chats` - Clear all chat histories for user
 
-**Chats**:
+**Chats & Search**:
 
-- `GET /users/{user_id}/chats` - List user chats
-- `POST /users/{user_id}/chats` - Create new chat
-- `GET /chats/{chat_id}` - Get chat details
-- `PATCH /chats/{chat_id}` - Update chat
-- `DELETE /chats/{chat_id}` - Delete chat
+- `GET /users/{user_id}/chats` - List user's chats
+- `POST /users/{user_id}/chats` - Create new empty chat
+- `GET /chats/{chat_id}` - Get chat details with messages list
+- `PATCH /chats/{chat_id}` - Rename or pin a chat
+- `DELETE /chats/{chat_id}` - Delete chat (owner only)
+- `GET /users/{user_id}/search` - Search chat messages content
 
-**Messages**:
+**Messages & Files**:
 
-- `POST /chats/{chat_id}/messages` - Add message
-- `PATCH /chats/{chat_id}/messages/{message_id}` - Edit message
-- `DELETE /chats/{chat_id}/messages/{message_id}` - Delete message
+- `POST /chats/{chat_id}/messages` - Add text message to chat
+- `POST /chats/{chat_id}/messages_with_file` - Multipart form message + file upload
+- `PATCH /chats/{chat_id}/messages/{message_id}` - Edit user message
+- `DELETE /chats/{chat_id}/messages/{message_id}` - Delete message (truncates conversation)
+- `GET /api/files/{file_id}` - Stream download uploaded file
 
-**Files**:
+**Real-Time & AI Features**:
 
-- `POST /files/upload` - Upload document
-- `GET /files/{file_id}` - Get file metadata
-- `DELETE /files/{file_id}` - Delete file
-
-**Sharing**:
-
-- `POST /chats/{chat_id}/share` - Generate share token
-- `GET /share/{share_token}` - Access shared chat
-
-**AI Features**:
-
-- `POST /summarize` - Summarize text
-- `WS /ws/{chat_id}` - WebSocket real-time chat
+- `POST /api/generate_ai` - Generate Gemini reply with context sync
+- `POST /api/generate_live` - Generate live call voice-optimized reply
+- `POST /api/transcribe_raw` - GPU Whisper speech-to-text transcription
+- `POST /api/tts` - Kokoro wave audio speech synthesis
+- `POST /api/summarize` - Summarize message to chat title
 
 Full endpoint documentation: [API_DOCUMENTATION.md](../docs/API_DOCUMENTATION.md)
 
 ## Example Usage
 
-### 1. Create User
+### 1. Register User
 
 ```bash
-curl -X POST http://127.0.0.1:8000/users \
+curl -X POST http://127.0.0.1:8000/auth/register \
   -H "Content-Type: application/json" \
   -d '{
     "email": "lawyer@example.com",
@@ -208,15 +205,12 @@ curl -X POST http://127.0.0.1:8000/users \
   }'
 ```
 
-**Response** (201 Created):
+**Response** (200 OK):
 
 ```json
 {
-  "userId": "user_abc123",
-  "email": "lawyer@example.com",
-  "username": "john_doe",
-  "context": "Corporate attorney",
-  "createdAt": "2026-05-20T10:00:00Z"
+  "user_id": "user_abc123",
+  "username": "john_doe"
 }
 ```
 
@@ -279,16 +273,16 @@ curl -X POST http://127.0.0.1:8000/files/upload \
 
 ```
 api/
-├── main.py                  # FastAPI application & endpoints
-├── requirements.txt         # Python dependencies
-├── api_keys.csv            # Google Gemini API keys
-├── .env.example            # Environment template
-├── .env                    # Local environment config
-├── run.py                  # Development runner script
-├── run.bat                 # Windows batch script
-├── uploads/                # Temporary file uploads
-├── tests/                  # Test files (if present)
-└── README.md               # This file
+|--─ main.py                  # FastAPI application & endpoints
+|--─ requirements.txt         # Python dependencies
+|--─ api_keys.csv            # Google Gemini API keys
+|--─ .env.example            # Environment template
+|--─ .env                    # Local environment config
+|--─ run.py                  # Development runner script
+|--─ run.bat                 # Windows batch script
+|--─ uploads/                # Temporary file uploads
+|--─ tests/                  # Test files (if present)
++--─ README.md # This file
 ```
 
 ## Configuration
@@ -333,25 +327,20 @@ Server automatically rotates keys on failures.
 
 ### Core Features
 
-- ✅ User authentication (expandable to JWT)
-- ✅ Chat CRUD operations
-- ✅ Message management with AI responses
-- ✅ File upload and storage
-- ✅ Google Gemini AI integration
-- ✅ WebSocket real-time communication
-- ✅ Chat sharing with tokens
-- ✅ MongoDB integration
+- User authentication via JWT Access Tokens
+- Chat CRUD operations
+- Message management with AI responses
+- File upload and storage
+- Google Gemini AI integration
+- MongoDB integration
 
 ### Advanced Features
 
-- ✅ Async operations (non-blocking)
-- ✅ Error handling & validation
-- ✅ CORS middleware
-- ✅ Request logging
-- ✅ Health monitoring
-- 🚧 Rate limiting (planned)
-- 🚧 API key management (planned)
-- 🚧 Audit logging (planned)
+- Async operations (non-blocking)
+- Error handling & validation
+- CORS middleware
+- Request logging
+- Health monitoring
 
 ## Database
 
@@ -412,34 +401,6 @@ Or use Postman/Insomnia for interactive testing.
 .venv\Scripts\activate
 uvicorn main:app --host 0.0.0.0 --port 8000
 ```
-
-### Docker Deployment
-
-```dockerfile
-FROM python:3.11-slim
-
-WORKDIR /app
-COPY requirements.txt .
-RUN pip install -r requirements.txt
-
-COPY main.py .
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0"]
-```
-
-**Build and run**:
-
-```bash
-docker build -t legalease-api .
-docker run -p 8000:8000 legalease-api
-```
-
-### Cloud Deployment (AWS Example)
-
-1. Deploy to EC2 or ECS
-2. Use RDS or MongoDB Atlas for database
-3. Configure security groups
-4. Set up load balancer
-5. Enable HTTPS/SSL
 
 ## Performance
 
@@ -526,58 +487,3 @@ taskkill /PID <PID> /F
 # Or use different port
 uvicorn main:app --port 8001
 ```
-
-## Documentation
-
-- [System Architecture](../docs/SYSTEM_ARCHITECTURE.md)
-- [API Documentation](../docs/API_DOCUMENTATION.md)
-- [Database Design](../docs/DATABASE_DESIGN.md)
-- [Developer Guide](../docs/DEVELOPER_GUIDE.md)
-
-## Security Best Practices
-
-1. **Secrets Management**:
-   - Never commit `.env` or `api_keys.csv`
-   - Use environment variables in production
-   - Rotate API keys regularly
-
-2. **Input Validation**:
-   - Pydantic validates all requests
-   - Sanitize file uploads
-   - Prevent SQL injection (N/A - MongoDB)
-
-3. **Authentication**:
-   - Passwords hashed with bcrypt
-   - Plan JWT migration
-   - Implement rate limiting
-
-4. **HTTPS**:
-   - Use in production
-   - Valid SSL certificates
-   - Redirect HTTP to HTTPS
-
-## Version History
-
-| Version | Date     | Changes                 |
-| ------- | -------- | ----------------------- |
-| 1.0     | May 2026 | Initial release         |
-| 1.1     | Planning | JWT auth, rate limiting |
-| 2.0     | Planning | Advanced AI features    |
-
-## Contributing
-
-See [CONTRIBUTING.md](../docs/contributing.md)
-
-## Support
-
-For issues:
-
-1. Check this documentation
-2. Review error messages
-3. Check MongoDB connection
-4. Check API keys configuration
-5. Create GitHub issue with details
-
----
-
-**Ready to start? Run `uvicorn main:app --reload` and visit http://127.0.0.1:8000/docs** for interactive API explorer!

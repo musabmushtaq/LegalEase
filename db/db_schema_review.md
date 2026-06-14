@@ -65,9 +65,6 @@ The heart of LegalEase. It represents a single legal consultation session. Messa
   "title": "Hello.",
   "system_prompt": "You are LegalEase, a legal-focused assistant. Provide clear and practical guidance, mention limitations, and recommend consulting a qualified lawyer for jurisdiction-specific legal advice.",
   "is_pinned": false,
-  "is_shared": false,
-  "share_token": null,
-  "share_link": null,
   "messages": [
     {
       "id": "msg_8d249f05a1ce",
@@ -100,9 +97,6 @@ The heart of LegalEase. It represents a single legal consultation session. Messa
 | `title` | `String` | The visible name of the chat in the sidebar (summarized automatically via Gemini). |
 | `system_prompt`| `String` | Custom instructions given to the AI for this specific chat context, allowing highly specialized legal personas. |
 | `is_pinned` | `Boolean` | Flag indicating if this chat is pinned to the top of the list for quick access. |
-| `is_shared` | `Boolean` | Flag showing whether this chat has been made public via a shareable link. |
-| `share_token` | `String / null`| Cryptographic token used in the URL endpoint for shared chat lookup. |
-| `share_link` | `String / null`| The full URL link generated for public guest viewing. |
 | `messages` | `Array` | A sub-document array representing the history of user and AI turns (see below). |
 | `created_at` | `String (ISO)`| Chat initiation timestamp. |
 | `updated_at` | `String (ISO)`| Updated whenever a message is added, deleted, or edited. Controls chronology sorting. |
@@ -120,7 +114,7 @@ The heart of LegalEase. It represents a single legal consultation session. Messa
 #### Database Indexes
 * `{ "chat_id": 1 }` (**Unique**): Rapid single chat retrieval.
 * `[("owner_id", 1), ("updated_at", -1)]` (**Compound**): Powers the sidebar loading. Retrieves all chats belonging to a user, instantly sorted from most recent to oldest.
-* `{ "share_token": 1 }` (**Sparse**): Allows quick public guest query resolving.
+
 
 ---
 

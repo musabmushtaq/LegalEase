@@ -1,6 +1,6 @@
 # LegalEase Mobile App (Flutter)
 
-**Status**: 🚀 Production Ready | Android App | Fully Featured
+**Status**: Production Ready | Android App | Fully Featured
 
 This folder contains the mobile application (Flutter) for LegalEase - an AI-powered legal assistant with chat, document analysis, and offline support.
 
@@ -8,16 +8,16 @@ This folder contains the mobile application (Flutter) for LegalEase - an AI-powe
 
 The Flutter mobile app provides full LegalEase functionality with:
 
-- ✅ Intuitive chat interface for legal Q&A
-- ✅ Document upload and analysis (PDF, DOCX, TXT, images)
-- ✅ Chat history and organization
-- ✅ Offline support for viewing history
-- ✅ Real-time AI responses
-- ✅ File management
-- ✅ User authentication
-- ✅ Settings and preferences
-- ✅ Live call functionality (with VAD, transcription, TTS, user interruption)
-- ✅ Connectivity awareness
+- Intuitive chat interface for legal Q&A
+- Document upload and analysis (PDF, DOCX, TXT, images)
+- Chat history and organization
+- Offline support for viewing history
+- Real-time AI responses
+- File management
+- User authentication
+- Settings and preferences
+- Live call functionality (with VAD, transcription, TTS, user interruption)
+- Connectivity awareness
 
 ## Features
 
@@ -57,47 +57,44 @@ The Flutter mobile app provides full LegalEase functionality with:
 
 ```
 app/
-├── lib/
-│   ├── main.dart                    # Application entry point
-│   │
-│   ├── models/                      # Data models
-│   │   ├── user.dart               # User model
-│   │   ├── chat.dart               # Chat model
-│   │   └── message.dart            # Message model
-│   │
-│   ├── screens/                     # UI screens
-│   │   ├── chat_screen.dart        # Main chat interface
-│   │   ├── login_screen.dart       # User login
-│   │   ├── signup_screen.dart      # User registration
-│   │   ├── settings_screen.dart    # Settings
-│   │   └── live_call_screen.dart   # Live calls
-│   │
-│   ├── services/
-│   │   └── chat_service.dart       # Business logic & API
-│   │
-│   ├── theme/
-│   │   └── app_theme.dart          # Dark theme configuration
-│   │
-│   └── widgets/                     # Reusable UI components
-│       ├── chat_drawer.dart        # Chat history sidebar
-│       ├── message_bubble.dart     # Message UI
-│       ├── thinking_indicator.dart # Loading animation
-│       └── connectivity_banner.dart # Network status
-│
-├── assets/
-│   └── models/
-│       └── silero_vad_legacy.onnx  # Voice detection model
-│
-├── android/                         # Android native code
-│   ├── app/
-│   │   └── build.gradle.kts        # Android build config
-│   └── build.gradle.kts            # Gradle settings
-│
-├── test/
-│   └── websocket_connection_test.dart
-│
-├── pubspec.yaml                     # Dependencies
-└── README.md                        # This file
+|--─ lib/
+|   |--─ main.dart                    # Application entry point
+|   |
+|   |--─ models/                      # Data models
+|   |   |--─ user.dart               # User model
+|   |   |--─ chat.dart               # Chat model
+|   |   +--─ message.dart            # Message model
+|   |
+|   |--─ screens/                     # UI screens
+|   |   |--─ chat_screen.dart        # Main chat interface
+|   |   |--─ login_screen.dart       # User login
+|   |   |--─ signup_screen.dart      # User registration
+|   |   |--─ settings_screen.dart    # Settings
+|   |   +--─ live_call_screen.dart   # Live calls
+|   |
+|   |--─ services/
+|   |   +--─ chat_service.dart       # Business logic & API
+|   |
+|   |--─ theme/
+|   |   +--─ app_theme.dart          # Dark theme configuration
+|   |
+|   +--─ widgets/                     # Reusable UI components
+|       |--─ chat_drawer.dart        # Chat history sidebar
+|       |--─ message_bubble.dart     # Message UI
+|       |--─ thinking_indicator.dart # Loading animation
+|       +--─ connectivity_banner.dart # Network status
+|
+|--─ assets/
+|   +--─ models/
+|       +--─ silero_vad_legacy.onnx  # Voice detection model
+|
+|--─ android/                         # Android native code
+|   |--─ app/
+|   |   +--─ build.gradle.kts        # Android build config
+|   +--─ build.gradle.kts            # Gradle settings
+|
+|--─ pubspec.yaml                     # Dependencies
++--─ README.md # This file
 ```
 
 ## Prerequisites
@@ -369,18 +366,15 @@ Main packages:
 
 | Feature         | Status         | Notes                                                                       |
 | --------------- | -------------- | --------------------------------------------------------------------------- |
-| Chat Interface  | ✅ Complete    | Full messaging                                                              |
-| Document Upload | ✅ Complete    | PDF, DOCX, images                                                           |
-| Chat History    | ✅ Complete    | Persistent storage                                                          |
-| User Auth       | ✅ Complete    | Login/Signup                                                                |
-| Dark Theme      | ✅ Complete    | Full dark mode                                                              |
-| Offline Mode    | ✅ Complete    | View history offline                                                        |
-| Real-time Chat  | 🚧 Partial     | WebSocket ready                                                             |
-| Voice Input     | 🚧 In Progress | Audio recording                                                             |
-| Live Calls      | ✅ Complete    | Full voice interaction with VAD, transcription, TTS, interruption detection |
-| AI Analysis     | ✅ Complete    | Integration ready                                                           |
-| File Sharing    | 🔲 Planned     | v2.0                                                                        |
-| Collaboration   | 🔲 Planned     | v2.0                                                                        |
+| Chat Interface  |  Complete    | Full messaging                                                              |
+| Document Upload |  Complete    | PDF, DOCX, images                                                           |
+| Chat History    |  Complete    | Persistent storage                                                          |
+| User Auth       |  Complete    | Login/Signup                                                                |
+| Dark Theme      |  Complete    | Full dark mode                                                              |
+| Offline Mode    |  Complete    | View history offline                                                        |
+| Voice Input     |  Complete    | Continuous VAD audio capture and GPU Whisper transcriptions                 |
+| Live Calls      |  Complete    | Full voice interaction with VAD, transcription, TTS, interruption detection |
+| AI Analysis     |  Complete    | Integration ready                                                           |
 
 ## Performance
 

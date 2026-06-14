@@ -43,7 +43,7 @@ We will transition the web UI to match the highly curated, dark, luxury glassmor
 ### B. Chat Interface & Main Console
 - **Top Bar**:
   - Left: Collapsible Hamburger menu & New Chat buttons (dotted if temporary mode is active).
-  - Right: User status displays ("Guest", "Temporary", or Username) and share buttons.
+  - Right: User status displays ("Guest", "Temporary", or Username).
 - **Message List**:
   - Custom transition animations when new bubbles enter.
   - Gradient scroll masking (soft linear fade-out at the top and bottom edges of the messages viewport).

@@ -1,8 +1,8 @@
 # LegalEase API Documentation
 
-**Version**: 1.0  
-**Base URL**: `http://127.0.0.1:8000` (local development)  
-**Authentication**: User ID based (expandable to JWT)  
+**Version**: 1.0 
+**Base URL**: `http://127.0.0.1:8000` (local development) 
+**Authentication**: User ID based (expandable to JWT) 
 **Response Format**: JSON
 
 ---
@@ -17,9 +17,8 @@
 6. [File Endpoints](#file-endpoints)
 7. [AI Features](#ai-features)
 8. [Live Call Endpoints](#live-call-endpoints)
-9. [Sharing & Collaboration](#sharing--collaboration)
-10. [Error Handling](#error-handling)
-11. [Request/Response Examples](#requestresponse-examples)
+9. [Error Handling](#error-handling)
+10. [Request/Response Examples](#requestresponse-examples)
 
 ---
 
@@ -312,6 +311,54 @@ The JWT token contains the user's ID and username, cryptographically signed with
 
 **Possible Errors**:
 
+- 404 Not Found: User does not exist
+
+---
+
+### Search User's Chats
+
+**Endpoint**: `GET /users/{user_id}/search`
+
+**Description**: Search for chats belonging to the user where the message content matches a query string.
+
+**URL Parameters**:
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| user_id | string | Unique user identifier |
+
+**Query Parameters**:
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| query | string | Yes | Query string (regex case-insensitive match against message contents) |
+
+**Response** (200 OK):
+```json
+{
+  "items": [
+    {
+      "id": "chat_f82cc27847b4",
+      "user_id": "user_af748175fe85",
+      "title": "Contract Review",
+      "is_pinned": false,
+      "messages": [
+        {
+          "id": "msg_8d249f05a1ce",
+          "sender": "user",
+          "content": "Please review this NDA clause",
+          "file_id": "file_a7e937d10b9d",
+          "filename": "contract.pdf",
+          "created_at": "2026-05-19T10:05:39.980116+00:00",
+          "user_id": "user_af748175fe85"
+        }
+      ],
+      "created_at": "2026-05-19T10:05:39.980116+00:00",
+      "updated_at": "2026-05-19T10:06:00.284062+00:00"
+    }
+  ]
+}
+```
+
+**Possible Errors**:
 - 404 Not Found: User does not exist
 
 ---
@@ -828,78 +875,6 @@ Content-Type: application/octet-stream
 ```json
 {
 ---
-
-## Sharing & Collaboration
-
-### Generate Share Token
-
-**Endpoint**: `POST /chats/{chat_id}/share`
-
-**Description**: Create a shareable link for a chat
-
-**URL Parameters**:
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| chat_id | string | Unique chat identifier |
-
-**Request Body** (optional):
-
-```json
-{
-  "expiration_hours": 24
-}
-```
-
-**Response** (200 OK):
-
-```json
-{
-  "shareToken": "share_abc123xyz789",
-  "chatId": "chat_a1b2c3d4e5f6g7h8",
-  "shareUrl": "http://127.0.0.1:8000/share/share_abc123xyz789",
-  "expiresAt": "2026-05-21T10:00:00Z"
-}
-```
-
-**Possible Errors**:
-
-- 404 Not Found: Chat does not exist
-
----
-
-### Access Shared Chat
-
-**Endpoint**: `GET /share/{share_token}`
-
-**Description**: Access a shared chat (read-only)
-
-**URL Parameters**:
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| share_token | string | Unique share token |
-
-**Response** (200 OK):
-
-```json
-{
-  "chatId": "chat_a1b2c3d4e5f6g7h8",
-  "title": "Contract Review - NDA",
-  "sharedBy": "user_550f35068db3c8f5d3d8e4a2",
-  "messages": [
-    {
-      "messageId": "msg_001",
-      "role": "user",
-      "content": "Please review this clause",
-      "createdAt": "2026-05-20T10:00:00Z"
-    }
-  ]
-}
-```
-
-**Possible Errors**:
-
-- 404 Not Found: Share token does not exist
-- 410 Gone: Share token expired
 
 ---
 

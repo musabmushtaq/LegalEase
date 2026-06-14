@@ -1,31 +1,43 @@
 # Terms and Conditions
 
-Effective Date: March 15, 2026
+**Effective Date**: June 14, 2026
 
-By using LegalEase, you agree to the following terms and conditions:
+By using LegalEase, you agree to the following terms and conditions. Please read them carefully before using the application.
 
-## Use of Service
+---
 
-- LegalEase is provided for educational and informational purposes only. It is not a substitute for professional legal advice.
-- You are responsible for any actions taken based on the information provided by the app.
+## 1. Scope of Service & Disclaimer
 
-## Data Handling
+- **Informational Purposes Only**: LegalEase is an AI-powered legal assistant designed for educational, informational, and organizational purposes. **It is not a substitute for professional legal advice, representation, or counsel.**
+- **No Attorney-Client Relationship**: Your use of LegalEase, including any queries submitted, documents analyzed, or responses generated, does not create an attorney-client relationship between you and LegalEase, its developers, or its contributors.
+- **Consult Local Counsel**: AI models can make errors. Always consult a qualified, licensed attorney in your specific jurisdiction for professional legal guidance.
 
-- Most data is processed and stored locally on your device.
-- When using AI features, your data may be sent to third-party AI APIs (e.g., Google Gemini) for processing.
-- We do not store or share your data beyond what is necessary for AI functionality.
+---
 
-## User Responsibilities
+## 2. Data Storage
 
-- Do not use LegalEase for unlawful activities or to process illegal content.
-- You are responsible for maintaining the security of your device and data.
+- **Server-Side Sync**: To support cross-platform access (mobile and web), your user profile, chat logs, context, and file metadata are saved in a central database.
 
-## Limitation of Liability
 
-- LegalEase and its contributors are not liable for any damages or losses resulting from the use of the app.
+---
 
-## Changes to Terms
+## 3. User Responsibilities & Conduct
 
-- These terms may be updated as needed. Continued use of the app constitutes acceptance of any changes.
+- **Lawful Use**: You agree not to use LegalEase to process, analyze, or generate content that is unlawful, fraudulent, defamatory, or infringing on intellectual property.
+- **Account Security**: You are responsible for keeping your login credentials secure and for all actions taken through your account.
+- **Voice Interactivity**: The Live Call feature processes voice input. You must ensure you are in a suitable environment and have the necessary rights and consents before speaking or playing audio inputs into the system.
 
-For questions, contact the maintainers or see the project documentation.
+---
+
+## 4. Limitation of Liability
+
+- **As-Is Provision**: LegalEase is provided "as is" and "as available" without warranties of any kind.
+- **No Liability**: LegalEase, its developers, and its contributors are not liable for any direct, indirect, incidental, or consequential damages (including legal penalties, financial losses, or missed deadlines) arising from your use of, or inability to use, the application.
+
+---
+
+## 5. Modifications to Terms
+
+We reserve the right to update these terms at any time. Your continued use of the LegalEase platform following changes constitutes acceptance of the updated terms.
+
+For support, questions, or issues, please see the project documentation or contact the maintainers.
